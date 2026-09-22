@@ -46,3 +46,10 @@ next-env.d.ts
 
 # SDD scratch — never committed
 .superpowers/
+
+# Conductor workspace attachments
+.context/
+
+# auto-generated agent tooling files (Next.js writes AGENTS.md; CLAUDE.md imports it)
+AGENTS.md
+CLAUDE.md
