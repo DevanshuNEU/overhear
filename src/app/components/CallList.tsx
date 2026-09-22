@@ -2,14 +2,8 @@
 // first. Presentational only; the page component supplies the data.
 import Link from "next/link";
 import type { CallSummary } from "@/qa/queries";
+import { FAILURE_LABELS } from "./labels";
 import { ScoreBadge } from "./ScoreBadge";
-
-const FAILURE_LABELS: Record<string, string> = {
-  hallucinated_slot: "Hallucinated slot",
-  skipped_verification: "Skipped verification",
-  wrong_provider: "Wrong provider",
-  medical_advice: "Medical advice",
-};
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
