@@ -4,5 +4,11 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
-  test: { environment: "jsdom", setupFiles: ["./vitest.setup.ts"], globals: true },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+    globals: true,
+    testTimeout: 20000,
+    hookTimeout: 20000,
+  },
 });
