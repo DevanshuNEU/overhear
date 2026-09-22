@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { failureBreakdown, listCalls } from "@/qa/queries";
 import { CallList } from "./components/CallList";
 import { FailureBreakdown } from "./components/FailureBreakdown";
+import { WebCallWidget } from "./components/WebCallWidget";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,8 @@ export default async function Home() {
             QA scores for every call the voice agent has handled, newest first.
           </p>
         </header>
+
+        <WebCallWidget />
 
         <FailureBreakdown items={failures} />
 
