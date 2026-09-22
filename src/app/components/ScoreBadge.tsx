@@ -1,0 +1,18 @@
+// ScoreBadge - shows a call's composite QA score, colored by band.
+// >= 80 emerald (good), 50-79 amber (mixed), < 50 rose (poor).
+function bandClasses(composite: number): string {
+  if (composite >= 80) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+  if (composite >= 50) return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+  return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+}
+
+export function ScoreBadge({ composite }: { composite: number }) {
+  const rounded = Math.round(composite);
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-sm font-medium tabular-nums ${bandClasses(composite)}`}
+    >
+      {rounded}
+    </span>
+  );
+}
