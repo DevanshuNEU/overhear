@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "provision:agent": "tsx scripts/provision-agent.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.119",
@@ -38,6 +39,7 @@
     "eslint-config-next": "16.3.6",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.11"
   }
