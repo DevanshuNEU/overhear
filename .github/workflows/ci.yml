@@ -13,3 +13,9 @@ jobs:
       - run: npm run lint
       - run: npx vitest run
       - run: npm run build
+        env:
+          DATABASE_URL: postgres://build:build@localhost:5432/build
+          RETELL_API_KEY: build-dummy
+          ANTHROPIC_API_KEY: build-dummy
+          APP_URL: http://localhost:3000
+          JUDGE_PROVIDER: claude
