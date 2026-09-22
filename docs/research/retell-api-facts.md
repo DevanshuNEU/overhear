@@ -1,4 +1,4 @@
-# Retell AI API — Primary-Source Facts
+# Retell AI API - Primary-Source Facts
 
 Research for a TypeScript/Next.js app that (1) creates a Retell voice agent for
 healthcare appointment scheduling with custom function-calling tools that hit our
@@ -19,13 +19,13 @@ the transcript, and (3) shows results in a dashboard.
 ### Event types
 Retell delivers webhook events to your server so you can react without polling.
 The voice-call event types are:
-- `call_started` — a new call begins.
-- `call_ended` — call completion, transfer, or error (fires even if the call did
+- `call_started` - a new call begins.
+- `call_ended` - call completion, transfer, or error (fires even if the call did
   not connect).
-- `call_analyzed` — fires when call analysis finishes.
-- `transcript_updated` — turn-taking updates and final call end.
+- `call_analyzed` - fires when call analysis finishes.
+- `transcript_updated` - turn-taking updates and final call end.
 - `transfer_started`, `transfer_bridged`, `transfer_cancelled`, `transfer_ended`
-  — transfer lifecycle.
+  - transfer lifecycle.
 - Chat equivalents: `chat_started`, `chat_ended`, `chat_analyzed`.
 
 A voice agent's default webhook events are `call_started`, `call_ended`,
@@ -49,25 +49,25 @@ Critical distinction for the QA scorer:
 
 ### Fields available on the call object (from Get Call, the same schema the
 webhook `call` object follows)
-- `recording_url` — "Recording of the call. Available after call ends." Also
+- `recording_url` - "Recording of the call. Available after call ends." Also
   `recording_multi_channel_url` and `scrubbed_recording_url` (PII removed).
-- `public_log_url` — public log of all requests/responses during the call.
-- `transcript` — plain-text conversation.
-- `transcript_object` — array of utterance objects, each with:
+- `public_log_url` - public log of all requests/responses during the call.
+- `transcript` - plain-text conversation.
+- `transcript_object` - array of utterance objects, each with:
   - `role`: `"agent"`, `"user"`, or `"transfer_target"`
   - `content`: the utterance text
   - `words`: array of `{ word, start, end }` (word-level timestamps)
-- `transcript_with_tool_calls` — includes tool invocations and results (plus
+- `transcript_with_tool_calls` - includes tool invocations and results (plus
   `scrubbed_transcript_with_tool_calls`).
 - `call_analysis` object:
-  - `call_summary` — high-level summary of the call.
-  - `user_sentiment` — enum: `Positive`, `Negative`, `Neutral`, `Unknown`.
-  - `call_successful` — boolean, task completion.
-  - `in_voicemail` — boolean, voicemail detection.
-  - `custom_analysis_data` — custom extraction per the agent's post-call schema.
-- `latency` — objects keyed `e2e`, `llm`, `tts`, `asr`, `knowledge_base`, `s2s`,
+  - `call_summary` - high-level summary of the call.
+  - `user_sentiment` - enum: `Positive`, `Negative`, `Neutral`, `Unknown`.
+  - `call_successful` - boolean, task completion.
+  - `in_voicemail` - boolean, voicemail detection.
+  - `custom_analysis_data` - custom extraction per the agent's post-call schema.
+- `latency` - objects keyed `e2e`, `llm`, `tts`, `asr`, `knowledge_base`, `s2s`,
   each with `p50`, `p90`, `p95`, `p99`, `min`, `max`, `num`, `values` (ms).
-- `disconnection_reason` — enum incl. `user_hangup`, `agent_hangup`,
+- `disconnection_reason` - enum incl. `user_hangup`, `agent_hangup`,
   `call_transfer`, `voicemail_reached`, `ivr_reached`, `inactivity`,
   `max_duration_reached`, `scam_detected`, `error_asr`, `error_retell`, and more.
 - Cost: `product_costs[]` (`product`, `unit_price`, `cost` in cents),
@@ -98,21 +98,21 @@ is retried up to 3 times (https://docs.retellai.com/features/webhook-overview).
 
 A custom function tool lets the agent call your external API mid-call. Config
 fields (single/multi-prompt agents):
-- `name` — unique id, letters and underscores (e.g. `get_order_status`).
-- `description` — clear description of what it does and when to use it.
-- HTTP method — GET, POST, PUT, PATCH, or DELETE (defaults to POST).
-- API endpoint URL — must be a publicly reachable URL.
-- Timeout (ms) — 1000 to 600000 (defaults to 120000).
-- Headers — static or dynamic-variable values.
-- Query parameters — key/value pairs appended to the URL.
-- Parameters (POST/PUT/PATCH) — request body defined as a JSON schema (or form
+- `name` - unique id, letters and underscores (e.g. `get_order_status`).
+- `description` - clear description of what it does and when to use it.
+- HTTP method - GET, POST, PUT, PATCH, or DELETE (defaults to POST).
+- API endpoint URL - must be a publicly reachable URL.
+- Timeout (ms) - 1000 to 600000 (defaults to 120000).
+- Headers - static or dynamic-variable values.
+- Query parameters - key/value pairs appended to the URL.
+- Parameters (POST/PUT/PATCH) - request body defined as a JSON schema (or form
   editor).
-- "Payload: args only" — toggle to send flat JSON (just `args` at top level) vs.
+- "Payload: args only" - toggle to send flat JSON (just `args` at top level) vs.
   the wrapped format.
-- Response variables — extract JSON response fields into dynamic variables.
+- Response variables - extract JSON response fields into dynamic variables.
 - "Talk While Waiting" (agent speech during execution).
 - "Talk After Action Completed" (agent continues after the function returns).
-- `max_retry` — 0 to 5 automatic retries on failure
+- `max_retry` - 0 to 5 automatic retries on failure
 (https://docs.retellai.com/build/single-multi-prompt/custom-function).
 
 In the Retell LLM API these map to entries in `general_tools` with
@@ -135,8 +135,8 @@ just the `args` object at the top level
 (https://docs.retellai.com/build/single-multi-prompt/custom-function).
 
 ### Response your endpoint must return
-Return an HTTP 2xx status (200–299). The response body can be a string, buffer,
-JSON object, or blob — all are converted to a string before reaching the LLM.
+Return an HTTP 2xx status (200-299). The response body can be a string, buffer,
+JSON object, or blob - all are converted to a string before reaching the LLM.
 Only JSON objects can populate response variables. Results are capped at 15,000
 characters by default
 (https://docs.retellai.com/build/single-multi-prompt/custom-function).
@@ -151,16 +151,16 @@ agent that references it
 
 ### Create Retell LLM
 `POST https://api.retellai.com/create-retell-llm`. Key request body fields:
-- `general_prompt` (string, nullable) — system prompt appended in all states.
-- `model` (string, nullable) — text LLM (e.g. `gpt-5.6-terra`,
+- `general_prompt` (string, nullable) - system prompt appended in all states.
+- `model` (string, nullable) - text LLM (e.g. `gpt-5.6-terra`,
   `claude-4.5-sonnet`, `gemini-3.5-flash`). Defaults to `gpt-5.6-terra` if unset.
-- `s2s_model` (string, nullable) — speech-to-speech model (e.g.
+- `s2s_model` (string, nullable) - speech-to-speech model (e.g.
   `gpt-realtime-2.1`).
 - `model_temperature` (number, [0,1], default 0), `model_high_priority`,
   `tool_call_strict_mode`.
 - `start_speaker` (required, `"user"` or `"agent"`), `begin_message`,
   `begin_after_user_silence_ms`.
-- `general_tools[]` — tools available in all states (custom tool fields:
+- `general_tools[]` - tools available in all states (custom tool fields:
   `type: "custom"`, `name`, `description`, `url`, `method`, `parameters`,
   `speak_during_execution`, `speak_after_execution`).
 - `states[]` (with `starting_state` required if used),
@@ -196,7 +196,7 @@ Update agent: `Update Voice Agent`
 
 ## 4. Placing / receiving calls
 
-### Web calls (easiest demo path — no phone number required)
+### Web calls (easiest demo path - no phone number required)
 Two components: a backend endpoint that mints credentials, and the browser SDK.
 - Backend: `POST https://api.retellai.com/v3/create-web-call`. Required body:
   `agent_id`. Response (201): `call_id`, `access_token`, `transport` (`"gateway"`),
@@ -272,10 +272,10 @@ From the official pricing page (https://www.retellai.com/pricing):
 - Concurrency: first 20 concurrent (active) calls free; extra capacity
   $8.00/concurrency/month.
 - Phone number: $2.00/month (Retell number); verified number $10.00/number/month.
-- Overall advertised range: ~$0.07–$0.31/min depending on configuration.
+- Overall advertised range: ~$0.07-$0.31/min depending on configuration.
 
-Impact on a 2-week demo: $10 free credit covers roughly 60–130 minutes of test
-calls at typical stacked rates — ample for web-call demos and QA-scoring runs. A
+Impact on a 2-week demo: $10 free credit covers roughly 60-130 minutes of test
+calls at typical stacked rates - ample for web-call demos and QA-scoring runs. A
 phone number adds ~$2/month if you demo real inbound/outbound telephony; web
 calls avoid that cost entirely.
 
@@ -349,7 +349,7 @@ Could NOT fully confirm / verify further before building:
   for production; the README describes it but the security specifics for a
   healthcare context should be reviewed against docs/deploy/web-call.
 - Whether the v3 browser SDK can instead consume the `access_token` from
-  `createWebCall` (v2 pattern) — v3 README shows public-key + `agent_id`; the
+  `createWebCall` (v2 pattern) - v3 README shows public-key + `agent_id`; the
   `access_token` return still exists, so both paths may work. Test which your
   Next.js setup should use.
 - `retell-sdk` version 5.66.1 and the "latest release 11 Sep 2026" date came from

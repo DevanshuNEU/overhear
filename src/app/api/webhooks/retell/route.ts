@@ -3,7 +3,7 @@ import { verifyRetellSignature } from "@/retell/verify";
 import { scoreCall } from "@/qa/pipeline";
 
 // `verifyRetellSignature` is async (WebCrypto's `subtle.verify` under the
-// hood) — it must be awaited here. A non-awaited Promise is always truthy
+// hood) - it must be awaited here. A non-awaited Promise is always truthy
 // and would bypass signature verification entirely.
 export async function POST(req: Request) {
   const raw = await req.text();

@@ -44,7 +44,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# SDD scratch — never committed
+# SDD scratch - never committed
 .superpowers/
 
 # Conductor workspace attachments

@@ -32,7 +32,7 @@ export interface RetellAgentConfig {
   webhook_url: string;
 }
 
-// Placeholder ElevenLabs voice id — a warm, neutral default. Confirm a real,
+// Placeholder ElevenLabs voice id - a warm, neutral default. Confirm a real,
 // currently-available voice id against the Retell dashboard/API at live
 // provisioning time (voice catalogs change); swap this constant then.
 const PLACEHOLDER_VOICE_ID = "11labs-Adrian";
