@@ -49,4 +49,18 @@ describe("ClinicService", () => {
     const v = await svc.verifyPatient("call_1", { name: "Nobody", dob: "2000-01-01" });
     expect(v.result.verified).toBe(false);
   });
+
+  it("refuses to cancel an already-cancelled appointment", async () => {
+    ctx = await createTestDb();
+    const { slot, pat } = await fixture(ctx.db);
+    const svc = makeClinicService(ctx.db);
+    const b = await svc.bookAppointment("call_1", { patientId: pat.id, slotId: slot.id });
+    const appointmentId = b.result.appointmentId!;
+
+    const first = await svc.cancelAppointment("call_1", { appointmentId });
+    expect(first.result.ok).toBe(true);
+
+    const second = await svc.cancelAppointment("call_1", { appointmentId });
+    expect(second.result.ok).toBe(false);
+  });
 });

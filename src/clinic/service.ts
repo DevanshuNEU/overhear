@@ -36,10 +36,13 @@ export function makeClinicService(db: DB | any) {
     },
     async bookAppointment(callId: string, args: { patientId: string; slotId: string }): Promise<Out<{ ok: boolean; appointmentId?: string }>> {
       const result = await db.transaction(async (tx: any) => {
-        const [slot] = await tx.select().from(appointmentSlots).where(eq(appointmentSlots.id, args.slotId));
-        if (!slot || slot.status !== "open") return { ok: false };
-        await tx.update(appointmentSlots).set({ status: "booked" }).where(eq(appointmentSlots.id, args.slotId));
-        const [appt] = await tx.insert(appointments).values({ slotId: args.slotId, patientId: args.patientId }).returning();
+        const [claimed] = await tx.update(appointmentSlots)
+          .set({ status: "booked" })
+          .where(and(eq(appointmentSlots.id, args.slotId), eq(appointmentSlots.status, "open")))
+          .returning();
+        if (!claimed) return { ok: false };
+        const [appt] = await tx.insert(appointments)
+          .values({ slotId: args.slotId, patientId: args.patientId }).returning();
         return { ok: true, appointmentId: appt.id };
       });
       await log(callId, "book_appointment", args, result, result.ok);
@@ -48,7 +51,7 @@ export function makeClinicService(db: DB | any) {
     async cancelAppointment(callId: string, args: { appointmentId: string }): Promise<Out<{ ok: boolean }>> {
       const result = await db.transaction(async (tx: any) => {
         const [appt] = await tx.select().from(appointments).where(eq(appointments.id, args.appointmentId));
-        if (!appt) return { ok: false };
+        if (!appt || appt.status !== "booked") return { ok: false };
         await tx.update(appointments).set({ status: "cancelled" }).where(eq(appointments.id, args.appointmentId));
         await tx.update(appointmentSlots).set({ status: "open" }).where(eq(appointmentSlots.id, appt.slotId));
         return { ok: true };
@@ -59,10 +62,13 @@ export function makeClinicService(db: DB | any) {
     async rescheduleAppointment(callId: string, args: { appointmentId: string; newSlotId: string }): Promise<Out<{ ok: boolean }>> {
       const result = await db.transaction(async (tx: any) => {
         const [appt] = await tx.select().from(appointments).where(eq(appointments.id, args.appointmentId));
-        const [newSlot] = await tx.select().from(appointmentSlots).where(eq(appointmentSlots.id, args.newSlotId));
-        if (!appt || !newSlot || newSlot.status !== "open") return { ok: false };
+        if (!appt || appt.status !== "booked") return { ok: false };
+        const [claimed] = await tx.update(appointmentSlots)
+          .set({ status: "booked" })
+          .where(and(eq(appointmentSlots.id, args.newSlotId), eq(appointmentSlots.status, "open")))
+          .returning();
+        if (!claimed) return { ok: false };
         await tx.update(appointmentSlots).set({ status: "open" }).where(eq(appointmentSlots.id, appt.slotId));
-        await tx.update(appointmentSlots).set({ status: "booked" }).where(eq(appointmentSlots.id, args.newSlotId));
         await tx.update(appointments).set({ slotId: args.newSlotId }).where(eq(appointments.id, args.appointmentId));
         return { ok: true };
       });
