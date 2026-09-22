@@ -12,6 +12,11 @@ const { FakeRetellWebClient, instances } = vi.hoisted(() => {
   class FakeRetellWebClient {
     startCall = vi.fn().mockResolvedValue(undefined);
     stopCall = vi.fn();
+    // Recorded but deliberately left non-destructive (the real
+    // eventemitter3 one would clear the map): this lets the unmount test
+    // below exercise the widget's own mountedRef guard, not just the fact
+    // that listeners were asked to be removed.
+    removeAllListeners = vi.fn();
     private listeners = new Map<string, ((...args: unknown[]) => void)[]>();
 
     constructor() {
@@ -118,5 +123,29 @@ describe("WebCallWidget", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Talk to the scheduling agent" })).toBeInTheDocument());
     expect(screen.getByText(/could not start the call/i)).toBeInTheDocument();
+  });
+
+  it("tears the call down on unmount and ignores events that arrive afterward", async () => {
+    const { unmount } = render(<WebCallWidget />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Talk to the scheduling agent" }));
+    await waitFor(() => expect(latestClient().startCall).toHaveBeenCalled());
+    act(() => latestClient().emit("call_started"));
+    expect(screen.getByRole("button", { name: "Hang up" })).toBeInTheDocument();
+
+    const client = latestClient();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    unmount();
+
+    expect(client.stopCall).toHaveBeenCalled();
+    expect(client.removeAllListeners).toHaveBeenCalled();
+
+    // A late event (already in flight when the navigation away happened)
+    // must not throw and must not try to setState on the unmounted widget.
+    expect(() => client.emit("call_ended")).not.toThrow();
+    expect(consoleError).not.toHaveBeenCalled();
+
+    consoleError.mockRestore();
   });
 });

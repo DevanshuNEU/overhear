@@ -7,32 +7,60 @@
 // RetellClient's createWebCall()/monitorCall(), but it is kept in the SDK
 // specifically for this "bring your own access_token" flow, which is what
 // our route already returns - see node_modules/retell-client-js-sdk/src/legacy/retell-web-client.ts.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RetellWebClient } from "retell-client-js-sdk";
 
 type CallStatus = "idle" | "connecting" | "live" | "ended" | "error";
+
+const GENERIC_ERROR = "Could not start the call.";
 
 export function WebCallWidget() {
   const [status, setStatus] = useState<CallStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const clientRef = useRef<RetellWebClient | null>(null);
+  const mountedRef = useRef(true);
 
   // Built once, on first use: the same instance has to receive both
   // startCall() and stopCall(), and constructing it only when a call is
   // actually requested keeps module import side-effect free for SSR.
   const getClient = useCallback((): RetellWebClient => {
-    if (clientRef.current) return clientRef.current;
+    if (!clientRef.current) clientRef.current = new RetellWebClient();
+    return clientRef.current;
+  }, []);
 
-    const client = new RetellWebClient();
-    client.on("call_started", () => setStatus("live"));
-    client.on("call_ended", () => setStatus("ended"));
-    client.on("error", (message: unknown) => {
+  // Register the SDK listeners exactly once, on mount, and tear the call
+  // down on unmount. A visitor can navigate away (CallList uses next/link
+  // soft navigation) while a call is live: without this, the mic stays
+  // hot, the transport keeps running with no UI left to hang up from, and
+  // the orphaned listeners keep calling setState after the component is
+  // gone. mountedRef guards every state update the listeners make so a
+  // late event (one already in flight when unmount happens) is a no-op.
+  useEffect(() => {
+    mountedRef.current = true;
+    const client = getClient();
+
+    const handleCallStarted = () => {
+      if (mountedRef.current) setStatus("live");
+    };
+    const handleCallEnded = () => {
+      if (mountedRef.current) setStatus("ended");
+    };
+    const handleError = (message: unknown) => {
+      if (!mountedRef.current) return;
       setErrorMessage(typeof message === "string" ? message : "The call failed.");
       setStatus("error");
-    });
-    clientRef.current = client;
-    return client;
-  }, []);
+    };
+
+    client.on("call_started", handleCallStarted);
+    client.on("call_ended", handleCallEnded);
+    client.on("error", handleError);
+
+    return () => {
+      mountedRef.current = false;
+      client.stopCall();
+      client.removeAllListeners();
+    };
+  }, [getClient]);
 
   const startCall = useCallback(async () => {
     setErrorMessage(null);
@@ -40,13 +68,19 @@ export function WebCallWidget() {
 
     try {
       const response = await fetch("/api/web-call", { method: "POST" });
-      if (!response.ok) throw new Error("Could not start the call.");
+      if (!response.ok) throw new Error(GENERIC_ERROR);
 
       const { accessToken } = await response.json();
       await getClient().startCall({ accessToken });
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Could not start the call.");
-      setStatus("error");
+      // Network failures (a rejected fetch, a bad JSON body) surface a
+      // browser-internal message like "Failed to fetch": show the same
+      // friendly fallback for all of them rather than leaking that text.
+      console.error("Could not start the web call", err);
+      if (mountedRef.current) {
+        setErrorMessage(GENERIC_ERROR);
+        setStatus("error");
+      }
     }
   }, [getClient]);
 
@@ -79,7 +113,7 @@ export function WebCallWidget() {
           </button>
         )}
 
-        <span className="text-sm text-zinc-400">
+        <span className="text-sm text-zinc-400" role="status" aria-live="polite">
           {isLive && "Live, the agent can hear you."}
           {status === "ended" && "Call ended."}
           {status === "error" && (errorMessage ?? "Something went wrong.")}
