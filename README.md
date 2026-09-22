@@ -1,10 +1,10 @@
 # Overhear
 
-**An AI QA analyst for voice agents.**
+An AI QA analyst for voice agents.
 
-Overhear runs a healthcare-scheduling voice agent on [Retell](https://www.retellai.com/), then grades every call it takes against the clinic's real database - catching hallucinated appointment slots, skipped identity checks, wrong-provider bookings, and out-of-scope medical questions automatically.
+Overhear runs a healthcare-scheduling voice agent on [Retell](https://www.retellai.com/), then grades every call it takes against the clinic's real database. It catches hallucinated appointment slots, skipped identity checks, wrong-provider bookings, and out-of-scope medical questions on its own.
 
-The premise: as voice AI agents move into production, someone has to watch them. Overhear is a small, working take on the idea of an AI worker that grades other AI workers - a frontline agent plus a QA analyst that scores each interaction against ground truth, not vibes.
+As voice AI agents move into production, someone has to watch them. Overhear is a small working prototype of one answer: an AI worker that grades other AI workers. A frontline agent takes the call, and a QA analyst scores it against ground truth rather than against a model's opinion.
 
 > A personal project built to explore voice-AI quality assurance. Not affiliated with Retell.
 
@@ -23,24 +23,24 @@ Caller ─▶ Retell voice agent ─▶ tool endpoints ─▶ Postgres (clinic)
                  ▼                                          ▼
      Deterministic reconciler                      Jev-first judge
      (pure code vs action log + DB)                (Claude fallback)
-     · verified before acting?                     · tone / empathy
-     · booked a real, open slot?                   · safety & escalation
-     · correct tool use?                           · hallucinated a slot?
+     verified before acting?                       tone / empathy
+     booked a real, open slot?                     safety / escalation
+     correct tool use?                             hallucinated a slot?
                  └───────────────────┬────────────────────┘
                                      ▼
                      weighted composite score per call
                                      ▼
-                Dashboard - scores, annotated transcripts, trends
+             Dashboard: scores, annotated transcripts, trends
 ```
 
-Two design choices make the scoring trustworthy rather than hand-wavy:
+Two design choices keep the scoring honest.
 
-1. **Ground-truth checks run in code, not an LLM.** Whether the agent booked a real open slot, verified the patient before acting, and used the right tool is decided by reconciling its *logged actions* against the database. The model never grades its own work on these.
-2. **A calibrated judge handles the rest.** Tone, safety/escalation, and "did it invent availability?" go to [Jev](docs/research/jev-tool.md) - a structured-decision model that returns calibrated confidence and can't answer outside a fixed set - with a **Claude fallback behind the same interface**, so the system never depends on a single provider being reachable.
+1. Ground-truth checks run in code, not in an LLM. Whether the agent booked a real open slot, verified the patient before acting, and used the right tool is decided by reconciling its logged actions against the database. The model never grades its own work on these.
+2. A calibrated judge handles the rest. Tone, safety and escalation, and "did it invent availability?" go to [Jev](docs/research/jev-tool.md), a structured-decision model that returns calibrated confidence and cannot answer outside a fixed set. A Claude judge sits behind the same interface as a fallback, so the system never depends on one provider being reachable.
 
 ## The QA rubric
 
-Every call is scored on six dimensions across two tiers, rolled into a weighted composite:
+Every call is scored on six dimensions across two tiers, then rolled into a weighted composite.
 
 | Tier | Dimension | Scored by |
 |------|-----------|-----------|
@@ -49,58 +49,63 @@ Every call is scored on six dimensions across two tiers, rolled into a weighted 
 | Objective | Correct tool use | code (action log) |
 | Objective | Identity verified before acting | code (event ordering) |
 | Subjective | Conversational quality | judge |
-| Subjective | Safety & escalation | judge |
+| Subjective | Safety and escalation | judge |
 
 ## Tech
 
-- **Next.js + TypeScript** (App Router) - dashboard, tool endpoints, webhook
-- **Retell** - the voice agent (server + browser SDKs)
-- **Jev** (structured-decision judge) with an **Anthropic Claude** fallback and narration
-- **Postgres + Drizzle** - clinic data + call scores (PGlite for hermetic tests)
-- **Vitest** - unit + integration tests
-- **GitHub Actions** - lint, test, and build on every PR
+- Next.js and TypeScript (App Router) for the dashboard, tool endpoints, and webhook
+- Retell for the voice agent, via its server and browser SDKs
+- Jev as the structured-decision judge, with Anthropic Claude as the fallback and for narration
+- Postgres with Drizzle for clinic data and call scores, and PGlite for hermetic tests
+- Vitest for unit and integration tests
+- GitHub Actions to lint, test, and build every pull request
 
 ## Status
 
-Built in reviewed phases, each behind a green-CI pull request.
+Built in reviewed phases, each behind a pull request with green CI.
 
 | Phase | Scope | State |
 |-------|-------|-------|
-| 1 | Scaffold, CI, database schema, domain model & rubric | ✅ Done |
-| 2 | Clinic service (atomic booking) + Retell tool endpoints | ✅ Done |
-| 3 | Agent provisioning + web-call token + webhook intake | ✅ Done |
-| 4 | QA pipeline - reconciler, Jev/Claude judge, narrator | ⏳ In progress |
-| 5 | Dashboard - call list, annotated transcripts, trends, in-browser call widget | ⏳ Planned |
-| 6 | Seed data with planted failures + deployment | ⏳ Planned |
+| 1 | Scaffold, CI, database schema, domain model and rubric | Done |
+| 2 | Clinic service with atomic booking, plus Retell tool endpoints | Done |
+| 3 | Agent provisioning, web-call token, and webhook intake | Done |
+| 4 | QA pipeline: reconciler, Jev/Claude judge, narrator | Done |
+| 5 | Dashboard: call list, annotated transcripts, trends, in-browser call widget | Planned |
+| 6 | Seed data with planted failures, plus deployment | Planned |
 
 ## Getting started
 
-Prerequisites: Node 20+, Docker (for local Postgres).
+You need Node 20 or newer and Docker for the local Postgres.
 
 ```bash
-# 1. Install
+# 1. Install dependencies
 npm install
 
-# 2. Configure - copy the example and fill in keys
+# 2. Copy the example env file and fill in your keys
 cp .env.example .env
 
 # 3. Start Postgres and apply migrations
 docker compose up -d
-npm run db:generate   # regenerate migrations if the schema changed
+npm run db:generate   # regenerate migrations only if the schema changed
 npm run db:migrate
 
-# 4. Run
+# 4. Run and check
 npm run dev           # http://localhost:3000
 npm test              # run the test suite
 npm run lint
 npm run build
 ```
 
-Provisioning the live Retell agent (`npm run provision:agent`) needs a Retell API key and a publicly reachable `APP_URL` for its tool + webhook callbacks; it's a deploy-time step.
+Provisioning the live Retell agent with `npm run provision:agent` needs a Retell API key and a publicly reachable `APP_URL` for its tool and webhook callbacks, so it is a deploy-time step.
 
 ### Environment
 
-See [`.env.example`](.env.example). Keys: `DATABASE_URL`, `RETELL_API_KEY`, `ANTHROPIC_API_KEY`, `APP_URL` (required); `JEV_API_KEY` (optional - falls back to Claude); `JUDGE_PROVIDER` (`jev` \| `claude`, default `jev`); `RETELL_AGENT_ID` (set after provisioning).
+Copy [`.env.example`](.env.example) and set these keys.
+
+- `DATABASE_URL`, `RETELL_API_KEY`, `ANTHROPIC_API_KEY`, `APP_URL` are required.
+- `JEV_API_KEY` is optional. Without it, the judge runs on Claude.
+- `JUDGE_PROVIDER` is `jev` or `claude`, and defaults to `jev`.
+- `RETELL_AGENT_ID` is set after you provision the agent.
 
 ## Repo layout
 
@@ -118,8 +123,8 @@ scripts/provision-agent.ts
 docs/                     # design doc + primary-source research
 ```
 
-## Design & research
+## Design and research
 
-- [`docs/design.md`](docs/design.md) - the full design: architecture, rubric, judge interface, data model, risks.
-- [`docs/research/retell-api-facts.md`](docs/research/retell-api-facts.md) - cited notes on Retell's webhooks, tool schema, and SDK.
-- [`docs/research/jev-tool.md`](docs/research/jev-tool.md) - what Jev is and how it fits as the judge.
+- [`docs/design.md`](docs/design.md) is the full design: architecture, rubric, judge interface, data model, and risks.
+- [`docs/research/retell-api-facts.md`](docs/research/retell-api-facts.md) holds cited notes on Retell's webhooks, tool schema, and SDK.
+- [`docs/research/jev-tool.md`](docs/research/jev-tool.md) explains what Jev is and how it fits as the judge.
