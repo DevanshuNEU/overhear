@@ -7,6 +7,7 @@ const schema = z.object({
   JEV_API_KEY: z.string().min(1).optional(),
   JUDGE_PROVIDER: z.enum(["jev", "claude"]).default("jev"),
   APP_URL: z.string().url(),
+  RETELL_AGENT_ID: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof schema>;
