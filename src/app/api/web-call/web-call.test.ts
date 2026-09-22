@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-// This route must never hit the live Retell API in tests — mock the SDK's
+// This route must never hit the live Retell API in tests - mock the SDK's
 // default export (the constructor the route imports) so `createWebCall`
 // resolves a canned response instead of making a network call.
 const { createWebCall } = vi.hoisted(() => ({

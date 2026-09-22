@@ -9,13 +9,13 @@ import { db } from "@/db/client";
 
 // Every ClinicService method resolves `{ result: R }` (see `Out<R>` in
 // `@/clinic/service`). Retell's tool-call webhook expects the flat `R`
-// payload back, so this is where that one wrapper layer is stripped —
+// payload back, so this is where that one wrapper layer is stripped -
 // keeping each thin route a one-line passthrough to its service method.
 type Handler = (ctx: { callId: string; args: any; svc: ClinicService }) => Promise<{ result: unknown }>;
 
 export function makeToolRoute(handler: Handler) {
   return async function POST(req: Request) {
-    const raw = await req.text(); // raw body — required for signature verification
+    const raw = await req.text(); // raw body - required for signature verification
     if (!(await verifyRetellSignature(raw, req.headers.get("x-retell-signature")))) {
       return NextResponse.json({ error: "invalid signature" }, { status: 401 });
     }
