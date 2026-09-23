@@ -15,8 +15,21 @@ beforeEach(() => {
 });
 
 describe("retell webhook", () => {
-  it("401s bad signature", async () => {
+  it("401s bad signature and logs it as present-but-invalid", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect((await POST(req("bad", { event: "call_analyzed", call: {} }))).status).toBe(401);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("present but verification failed"));
+    warn.mockRestore();
+  });
+  it("401s a request with no signature header and logs the missing header", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const res = await POST(new Request("http://x", {
+      method: "POST",
+      body: JSON.stringify({ event: "call_analyzed", call: {} }),
+    }));
+    expect(res.status).toBe(401);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("no x-retell-signature header"));
+    warn.mockRestore();
   });
   it("records a pending call on call_ended without scoring it", async () => {
     const res = await POST(req("good", { event: "call_ended", call: { call_id: "c1" } }));

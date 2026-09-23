@@ -7,7 +7,17 @@ import { recordPendingCall, scoreCall } from "@/qa/pipeline";
 // and would bypass signature verification entirely.
 export async function POST(req: Request) {
   const raw = await req.text();
-  if (!(await verifyRetellSignature(raw, req.headers.get("x-retell-signature")))) {
+  const signature = req.headers.get("x-retell-signature");
+  if (!(await verifyRetellSignature(raw, signature))) {
+    // Split the two failure modes so a 401 is diagnosable from the logs without
+    // leaking the signature itself. "Present but invalid" almost always means
+    // RETELL_API_KEY is not the webhook-badged key (Retell signs with that one
+    // specific key), or the server clock has drifted past the 5-minute window.
+    console.warn(
+      signature
+        ? "retell webhook: 401, signature present but verification failed (check RETELL_API_KEY is the webhook-badged key, and clock skew)"
+        : "retell webhook: 401, no x-retell-signature header on the request",
+    );
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
   const body = JSON.parse(raw) as { event: string; call: { call_id: string } & Record<string, unknown> };
