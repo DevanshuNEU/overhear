@@ -165,6 +165,9 @@ export class JevJudge implements Judge {
         Authorization: `Bearer ${env.JEV_API_KEY ?? ""}`,
       },
       body: JSON.stringify({ model: MODEL, state: buildState(ctx), questions: buildQuestions() }),
+      // Fail fast if the endpoint hangs, rather than holding the webhook open
+      // indefinitely (Node's fetch has no default timeout).
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
       throw new Error(`JevJudge: /v1/systemone request failed with status ${res.status}`);

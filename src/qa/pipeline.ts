@@ -125,38 +125,43 @@ export async function scoreCall(call: RetellCall): Promise<CompositeScore> {
 
   const judgeSource = judge.source;
 
-  await db.insert(calls).values({
-    id: call.call_id,
-    transcript: ctx.transcript,
-    recordingUrl: call.recording_url ?? null,
-    retellSentiment: call.call_analysis?.user_sentiment ?? null,
-    retellSummary: call.call_analysis?.call_summary ?? null,
-  }).onConflictDoUpdate({
-    target: calls.id,
-    set: {
+  // Persist the call and its score atomically: if the qa_scores write fails,
+  // the calls write must not be left committed on its own (the dashboard
+  // inner-joins the two, so a half-write would leave an invisible orphan row).
+  await db.transaction(async (tx) => {
+    await tx.insert(calls).values({
+      id: call.call_id,
       transcript: ctx.transcript,
       recordingUrl: call.recording_url ?? null,
       retellSentiment: call.call_analysis?.user_sentiment ?? null,
       retellSummary: call.call_analysis?.call_summary ?? null,
-    },
-  });
+    }).onConflictDoUpdate({
+      target: calls.id,
+      set: {
+        transcript: ctx.transcript,
+        recordingUrl: call.recording_url ?? null,
+        retellSentiment: call.call_analysis?.user_sentiment ?? null,
+        retellSummary: call.call_analysis?.call_summary ?? null,
+      },
+    });
 
-  await db.insert(qaScores).values({
-    callId: call.call_id,
-    composite: compositeScore,
-    dimensions,
-    failureCategories: jr.failureCategories,
-    judgeSource,
-    summary,
-  }).onConflictDoUpdate({
-    target: qaScores.callId,
-    set: {
+    await tx.insert(qaScores).values({
+      callId: call.call_id,
       composite: compositeScore,
       dimensions,
       failureCategories: jr.failureCategories,
       judgeSource,
       summary,
-    },
+    }).onConflictDoUpdate({
+      target: qaScores.callId,
+      set: {
+        composite: compositeScore,
+        dimensions,
+        failureCategories: jr.failureCategories,
+        judgeSource,
+        summary,
+      },
+    });
   });
 
   return {

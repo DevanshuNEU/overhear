@@ -68,7 +68,7 @@ export class ClaudeJudge implements Judge {
   private client: Anthropic | undefined;
 
   private getClient(): Anthropic {
-    return (this.client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }));
+    return (this.client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 30000, maxRetries: 2 }));
   }
 
   async score(ctx: CallContext): Promise<JudgeResult> {

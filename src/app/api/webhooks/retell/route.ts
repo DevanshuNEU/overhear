@@ -11,6 +11,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
   const body = JSON.parse(raw) as { event: string; call: { call_id: string } & Record<string, unknown> };
-  if (body.event === "call_analyzed") await scoreCall(body.call);
+  if (body.event === "call_analyzed") {
+    try {
+      await scoreCall(body.call);
+    } catch (err) {
+      // Acknowledge with 200 even when scoring fails, so Retell does not retry
+      // the webhook in a loop on a call that will not succeed. Log with the
+      // call id so the failure is diagnosable.
+      console.error(`scoreCall failed for call ${body.call.call_id}`, err);
+    }
+  }
   return NextResponse.json({ ok: true });
 }

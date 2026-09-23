@@ -12,7 +12,7 @@ const MODEL = "claude-sonnet-5";
 let client: Anthropic | undefined;
 
 function getClient(): Anthropic {
-  return (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }));
+  return (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 30000, maxRetries: 2 }));
 }
 
 interface SummarizeInput {
