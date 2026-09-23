@@ -73,10 +73,11 @@ export function WebCallWidget() {
       const { accessToken } = await response.json();
       await getClient().startCall({ accessToken });
     } catch (err) {
-      // Network failures (a rejected fetch, a bad JSON body) surface a
-      // browser-internal message like "Failed to fetch": show the same
-      // friendly fallback for all of them rather than leaking that text.
-      console.error("Could not start the web call", err);
+      // A failed start (no Retell key, a network error, a bad body) is an
+      // expected, user-facing outcome, not a crash: show the friendly inline
+      // message and log at warn level. console.error would trip the Next dev
+      // error overlay and make a handled failure look like a crash.
+      console.warn("Could not start the web call", err);
       if (mountedRef.current) {
         setErrorMessage(GENERIC_ERROR);
         setStatus("error");
