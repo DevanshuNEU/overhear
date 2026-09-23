@@ -70,8 +70,8 @@ Built in reviewed phases, each behind a pull request with green CI.
 | 2 | Clinic service with atomic booking, plus Retell tool endpoints | Done |
 | 3 | Agent provisioning, web-call token, and webhook intake | Done |
 | 4 | QA pipeline: reconciler, Jev/Claude judge, narrator | Done |
-| 5 | Dashboard: call list, annotated transcripts, trends, in-browser call widget | Planned |
-| 6 | Seed data with planted failures, plus deployment | Planned |
+| 5 | Dashboard: call list, annotated transcripts, trends, in-browser call widget | Done |
+| 6 | Seed data with planted failures, plus deployment | Done |
 
 ## Getting started
 
@@ -106,6 +106,41 @@ Copy [`.env.example`](.env.example) and set these keys.
 - `JEV_API_KEY` is optional. Without it, the judge runs on Claude.
 - `JUDGE_PROVIDER` is `jev` or `claude`, and defaults to `jev`.
 - `RETELL_AGENT_ID` is set after you provision the agent.
+
+## Deploy
+
+Overhear deploys to [Railway](https://railway.com/) as a single web service plus a Postgres plugin. `railway.json` at the repo root configures the build and deploy steps, so Railway's Nixpacks builder needs no extra setup:
+
+- Build: `npm run build`
+- Pre-deploy (runs once, before the new container starts serving traffic): `npm run db:migrate:deploy`, which runs `drizzle-kit migrate` against `DATABASE_URL`
+- Start: `npm run start`
+
+Because migrations run in the pre-deploy step, every deploy applies pending schema changes before the app comes up. There is no separate migration step to remember.
+
+### Set up the Railway project
+
+1. Create a new Railway project and link this repo as a service.
+2. Add a Postgres plugin to the project. Railway sets `DATABASE_URL` on the web service automatically.
+3. Set these environment variables on the web service:
+   - `RETELL_API_KEY`
+   - `ANTHROPIC_API_KEY`
+   - `APP_URL`, the Railway-issued public URL for the service (for example `https://overhear-production.up.railway.app`)
+   - `JUDGE_PROVIDER`, `jev` or `claude`
+   - `JEV_API_KEY`, optional; leave unset to run the judge on Claude
+   - `RETELL_AGENT_ID` stays unset for the first deploy. You add it after provisioning the agent below.
+4. Deploy. Railway builds the app, runs the pre-deploy migration, then starts it.
+
+### Go-live runbook
+
+1. Deploy the project as above and note the public `APP_URL`.
+2. Locally, with `APP_URL` set to that live URL, run `npm run provision:agent`. This creates the Retell agent with its tool and webhook URLs pointed at production, and prints a `RETELL_AGENT_ID`.
+3. Put that `RETELL_AGENT_ID` into the Railway environment variables and redeploy.
+4. Run `npm run db:seed` against the production `DATABASE_URL` so the dashboard has clinic data and the four planted-failure calls to show.
+5. Open the live URL, confirm the seeded calls and failures render, click "Talk to the scheduling agent," complete a call, and confirm it appears scored within seconds.
+
+Live URL: `TODO: paste the Railway public URL here once deployed`
+
+Loom walkthrough: `TODO: paste the Loom link here`
 
 ## Repo layout
 

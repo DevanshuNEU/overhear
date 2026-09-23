@@ -8,9 +8,9 @@ import type { Slot, ToolName } from "@/domain/types";
 
 type Out<R> = { result: R };
 
-export function makeClinicService(db: DB | any) {
+export function makeClinicService(db: DB | any, now: () => Date = () => new Date()) {
   async function log(callId: string, tool: ToolName, args: unknown, result: unknown, ok: boolean) {
-    await db.insert(actionEvents).values({ callId, tool, args, result, ok });
+    await db.insert(actionEvents).values({ callId, tool, args, result, ok, ts: now() });
   }
   return {
     async checkAvailability(callId: string, args: { providerName?: string; date?: string }): Promise<Out<{ slots: Slot[] }>> {
