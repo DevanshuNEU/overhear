@@ -56,7 +56,7 @@ beforeEach(() => {
     "fetch",
     vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ accessToken: "tok", callId: "c1" }),
+      json: async () => ({ accessToken: "tok", callId: "c1", transport: "gateway", iceServers: [] }),
     }),
   );
 });
@@ -76,7 +76,7 @@ describe("WebCallWidget", () => {
     expect(screen.getByRole("button", { name: "Connecting..." })).toBeDisabled();
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/web-call", { method: "POST" }));
-    await waitFor(() => expect(latestClient().startCall).toHaveBeenCalledWith({ accessToken: "tok" }));
+    await waitFor(() => expect(latestClient().startCall).toHaveBeenCalledWith({ accessToken: "tok", callId: "c1", transport: "gateway", iceServers: [] }));
 
     act(() => latestClient().emit("call_started"));
 
