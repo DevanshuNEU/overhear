@@ -36,8 +36,27 @@ describe("queries", () => {
 
     expect(out.map((c) => c.id)).toEqual(["c2", "c1"]);
     expect(out[0].composite).toBe(40);
+    expect(out[0].status).toBe("scored");
     expect(out[0].failureCategories).toEqual(["hallucinated_slot", "medical_advice"]);
     expect(out[0].retellSentiment).toBe("Negative");
+  });
+
+  it("listCalls surfaces an ended-but-unscored call as processing, newest first", async () => {
+    ctx = await createTestDb();
+    await seed(ctx.db);
+    // A call that has ended (calls row) but has no qa_scores row yet.
+    await ctx.db.insert(calls).values({
+      id: "c3", transcript: [], recordingUrl: null, retellSentiment: null, retellSummary: null,
+      startedAt: new Date("2026-01-03T09:00:00Z"),
+    });
+
+    const out = await listCalls(ctx.db);
+
+    expect(out.map((c) => c.id)).toEqual(["c3", "c2", "c1"]);
+    expect(out[0].status).toBe("processing");
+    expect(out[0].composite).toBeNull();
+    expect(out[0].scoredAt).toBeNull();
+    expect(out[0].failureCategories).toEqual([]);
   });
 
   it("getCall returns full detail for a known id and null for an unknown one", async () => {
@@ -53,6 +72,21 @@ describe("queries", () => {
 
     const missing = await getCall(ctx.db, "nope");
     expect(missing).toBeNull();
+  });
+
+  it("getCall returns a processing detail for an ended-but-unscored call", async () => {
+    ctx = await createTestDb();
+    await ctx.db.insert(calls).values({
+      id: "c9", transcript: [], recordingUrl: null, retellSentiment: null, retellSummary: null,
+      startedAt: new Date("2026-01-03T09:00:00Z"),
+    });
+
+    const found = await getCall(ctx.db, "c9");
+    expect(found?.status).toBe("processing");
+    expect(found?.composite).toBeNull();
+    expect(found?.summary).toBeNull();
+    expect(found?.judgeSource).toBeNull();
+    expect(found?.dimensions).toEqual([]);
   });
 
   it("failureBreakdown counts categories across calls", async () => {

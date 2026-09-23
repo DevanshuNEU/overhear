@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { CallSummary } from "@/qa/queries";
 import { FAILURE_LABELS } from "./labels";
-import { ScoreBadge } from "./ScoreBadge";
+import { ProcessingPill, ScoreBadge } from "./ScoreBadge";
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -18,7 +18,7 @@ function relativeTime(iso: string): string {
 
 export function CallList({ calls }: { calls: CallSummary[] }) {
   if (calls.length === 0) {
-    return <p className="text-sm text-zinc-400">No scored calls yet.</p>;
+    return <p className="text-sm text-zinc-400">No calls yet.</p>;
   }
 
   return (
@@ -30,7 +30,11 @@ export function CallList({ calls }: { calls: CallSummary[] }) {
             className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 transition-colors hover:border-zinc-700 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex items-center gap-3">
-              <ScoreBadge composite={call.composite} />
+              {call.status === "processing" || call.composite === null ? (
+                <ProcessingPill />
+              ) : (
+                <ScoreBadge composite={call.composite} />
+              )}
               <span className="font-mono text-sm text-zinc-400">{call.id}</span>
               {call.retellSentiment && (
                 <span className="text-sm text-zinc-400">{call.retellSentiment.toLowerCase()}</span>
@@ -45,7 +49,7 @@ export function CallList({ calls }: { calls: CallSummary[] }) {
                   {FAILURE_LABELS[category] ?? category}
                 </span>
               ))}
-              <span className="text-sm text-zinc-500">{relativeTime(call.scoredAt)}</span>
+              <span className="text-sm text-zinc-500">{relativeTime(call.scoredAt ?? call.startedAt)}</span>
             </div>
           </Link>
         </li>

@@ -3,6 +3,7 @@
 // statically prerendered.
 import { db } from "@/db/client";
 import { failureBreakdown, listCalls } from "@/qa/queries";
+import { AutoRefresh } from "./components/AutoRefresh";
 import { CallList } from "./components/CallList";
 import { FailureBreakdown } from "./components/FailureBreakdown";
 import { WebCallWidget } from "./components/WebCallWidget";
@@ -14,6 +15,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-full bg-zinc-950">
+      <AutoRefresh />
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-16">
         <header className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold text-zinc-100">Overhear</h1>

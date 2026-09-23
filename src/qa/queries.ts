@@ -10,17 +10,22 @@ import type { DimensionScore, FailureCategory } from "@/domain/types";
 
 export interface CallSummary {
   id: string;
-  composite: number;
+  // A call is "processing" from the moment it ends (call_ended webhook records
+  // it) until call_analyzed arrives and scoring writes its qa_scores row. In
+  // that window everything below that comes from qa_scores is null.
+  status: "scored" | "processing";
+  composite: number | null;
   failureCategories: FailureCategory[];
   retellSentiment: string | null;
-  scoredAt: string; // ISO 8601
+  scoredAt: string | null; // ISO 8601, null while processing
+  startedAt: string; // ISO 8601, when the call was first recorded
 }
 
 export interface CallDetail extends CallSummary {
   transcript: unknown; // TranscriptObject, stored as jsonb
-  summary: string;
-  dimensions: DimensionScore[];
-  judgeSource: "jev" | "claude";
+  summary: string | null;
+  dimensions: DimensionScore[]; // empty while processing
+  judgeSource: "jev" | "claude" | null;
   retellSummary: string | null;
 }
 
@@ -29,6 +34,10 @@ function toIso(value: unknown): string {
 }
 
 export async function listCalls(db: DB | any): Promise<CallSummary[]> {
+  // Left join, not inner: a call that has ended but is not yet scored has a
+  // `calls` row and no `qa_scores` row, and it must still show on the dashboard
+  // as "processing". Ordered by startedAt so a call that just came in sits at
+  // the top the moment it ends, before it finishes scoring.
   const rows = await db
     .select({
       id: calls.id,
@@ -36,17 +45,20 @@ export async function listCalls(db: DB | any): Promise<CallSummary[]> {
       failureCategories: qaScores.failureCategories,
       retellSentiment: calls.retellSentiment,
       scoredAt: qaScores.scoredAt,
+      startedAt: calls.startedAt,
     })
     .from(calls)
-    .innerJoin(qaScores, eq(calls.id, qaScores.callId))
-    .orderBy(desc(qaScores.scoredAt));
+    .leftJoin(qaScores, eq(calls.id, qaScores.callId))
+    .orderBy(desc(calls.startedAt));
 
   return rows.map((row: any): CallSummary => ({
     id: row.id,
+    status: row.composite === null ? "processing" : "scored",
     composite: row.composite,
-    failureCategories: row.failureCategories as FailureCategory[],
+    failureCategories: (row.failureCategories ?? []) as FailureCategory[],
     retellSentiment: row.retellSentiment,
-    scoredAt: toIso(row.scoredAt),
+    scoredAt: row.scoredAt ? toIso(row.scoredAt) : null,
+    startedAt: toIso(row.startedAt),
   }));
 }
 
@@ -59,13 +71,14 @@ export async function getCall(db: DB | any, id: string): Promise<CallDetail | nu
       retellSentiment: calls.retellSentiment,
       retellSummary: calls.retellSummary,
       scoredAt: qaScores.scoredAt,
+      startedAt: calls.startedAt,
       transcript: calls.transcript,
       summary: qaScores.summary,
       dimensions: qaScores.dimensions,
       judgeSource: qaScores.judgeSource,
     })
     .from(calls)
-    .innerJoin(qaScores, eq(calls.id, qaScores.callId))
+    .leftJoin(qaScores, eq(calls.id, qaScores.callId))
     .where(eq(calls.id, id))
     .limit(1);
 
@@ -74,15 +87,17 @@ export async function getCall(db: DB | any, id: string): Promise<CallDetail | nu
 
   return {
     id: row.id,
+    status: row.composite === null ? "processing" : "scored",
     composite: row.composite,
-    failureCategories: row.failureCategories as FailureCategory[],
+    failureCategories: (row.failureCategories ?? []) as FailureCategory[],
     retellSentiment: row.retellSentiment,
     retellSummary: row.retellSummary,
-    scoredAt: toIso(row.scoredAt),
+    scoredAt: row.scoredAt ? toIso(row.scoredAt) : null,
+    startedAt: toIso(row.startedAt),
     transcript: row.transcript,
     summary: row.summary,
-    dimensions: row.dimensions as DimensionScore[],
-    judgeSource: row.judgeSource as "jev" | "claude",
+    dimensions: (row.dimensions ?? []) as DimensionScore[],
+    judgeSource: row.judgeSource as "jev" | "claude" | null,
   };
 }
 

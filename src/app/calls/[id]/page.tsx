@@ -8,8 +8,9 @@ import { annotateTranscript } from "@/domain/annotate";
 import type { TranscriptObject } from "@/domain/types";
 import { db } from "@/db/client";
 import { getCall, scoreTrend } from "@/qa/queries";
+import { AutoRefresh } from "../../components/AutoRefresh";
 import { DIMENSION_LABELS } from "../../components/labels";
-import { ScoreBadge } from "../../components/ScoreBadge";
+import { ProcessingPill, ScoreBadge } from "../../components/ScoreBadge";
 import { TranscriptViewer } from "../../components/TranscriptViewer";
 import { TrendChart } from "../../components/TrendChart";
 
@@ -39,6 +40,7 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
     );
   }
 
+  const isProcessing = call.status === "processing";
   const { utterances, unmatchedFlags } = annotateTranscript(
     call.transcript as TranscriptObject,
     call.dimensions,
@@ -46,47 +48,60 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="min-h-full bg-zinc-950">
+      {/* Keep a processing call's page live: it swaps in the score the moment
+          scoring finishes, no manual reload. */}
+      {isProcessing && <AutoRefresh />}
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-16">
         <div className="flex flex-col gap-2">
           <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
             Back to calls
           </Link>
           <div className="flex items-center gap-3">
-            <ScoreBadge composite={call.composite} />
+            {isProcessing || call.composite === null ? (
+              <ProcessingPill />
+            ) : (
+              <ScoreBadge composite={call.composite} />
+            )}
             <h1 className="font-mono text-lg text-zinc-100">{call.id}</h1>
           </div>
           <p className="text-sm text-zinc-500">
-            Scored {new Date(call.scoredAt).toLocaleString()}, judged by {call.judgeSource}
+            {isProcessing
+              ? "Call ended, waiting on analysis before scoring."
+              : `Scored ${new Date(call.scoredAt!).toLocaleString()}, judged by ${call.judgeSource}`}
           </p>
         </div>
 
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-zinc-300">Summary</h2>
-          <p className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-200">
-            {call.summary}
-          </p>
-          {call.retellSummary && (
-            <p className="text-sm text-zinc-500">Retell summary: {call.retellSummary}</p>
-          )}
-        </section>
+        {!isProcessing && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-zinc-300">Summary</h2>
+            <p className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-200">
+              {call.summary}
+            </p>
+            {call.retellSummary && (
+              <p className="text-sm text-zinc-500">Retell summary: {call.retellSummary}</p>
+            )}
+          </section>
+        )}
 
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-zinc-300">Dimensions</h2>
-          <ul className="flex flex-col gap-2">
-            {call.dimensions.map((dimension) => (
-              <li
-                key={dimension.key}
-                className="flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-zinc-200">{DIMENSION_LABELS[dimension.key]}</span>
-                  <PassFailChip passed={dimension.passed} />
-                </div>
-                <p className="text-sm text-zinc-400">{dimension.rationale}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {!isProcessing && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-zinc-300">Dimensions</h2>
+            <ul className="flex flex-col gap-2">
+              {call.dimensions.map((dimension) => (
+                <li
+                  key={dimension.key}
+                  className="flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-zinc-200">{DIMENSION_LABELS[dimension.key]}</span>
+                    <PassFailChip passed={dimension.passed} />
+                  </div>
+                  <p className="text-sm text-zinc-400">{dimension.rationale}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="flex flex-col gap-2">
           <h2 className="text-sm font-medium text-zinc-300">Transcript</h2>
