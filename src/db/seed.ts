@@ -84,7 +84,16 @@ export async function seed(db: DB | any): Promise<void> {
     { name: "Harper Vance", dob: "1993-06-25" },
   ]).returning();
 
-  const svc = makeClinicService(db);
+  // A strictly increasing clock, so every seeded action event gets a
+  // distinct, increasing timestamp regardless of PGlite's real statement
+  // timing. That keeps the reconciler's strict `ts <` comparison honest and
+  // deterministic (verify always precedes book for the clean calls), instead
+  // of relying on wall-clock resolution between sequential inserts.
+  const SEED_EPOCH = Date.parse("2026-01-01T00:00:00Z");
+  let tick = 0;
+  const clock = () => new Date(SEED_EPOCH + tick++ * 1000);
+
+  const svc = makeClinicService(db, clock);
   const calls: RetellCall[] = [];
 
   async function cleanCall(
@@ -147,6 +156,7 @@ export async function seed(db: DB | any): Promise<void> {
   // booking itself succeeds, so this is invisible to the reconciler and only
   // catchable by a judge reading the transcript against trueSlots.
   await svc.verifyPatient("seed-fail-wrong-provider", { name: devon.name, dob: devon.dob });
+  await svc.checkAvailability("seed-fail-wrong-provider", { providerName: "Dr. Priya Nair" });
   await svc.bookAppointment("seed-fail-wrong-provider", { patientId: devon.id, slotId: o4.id });
   calls.push(call("seed-fail-wrong-provider", "Devon Park asked for Dr. Nair, agent booked Dr. Osei instead", "Neutral", [
     { role: "user", content: "I'd like to book a follow-up with Dr. Nair." },
