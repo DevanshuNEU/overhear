@@ -14,7 +14,12 @@ const EXCLUDED_PREFIXES = [
 ];
 
 export function isExcludedPath(pathname: string): boolean {
-  return EXCLUDED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
+  // Match on a path boundary so "/api/health" does not also exclude
+  // "/api/healthy". A prefix matches only as an exact path or a real subpath.
+  return EXCLUDED_PREFIXES.some((prefix) => {
+    const base = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
+    return pathname === base || pathname.startsWith(base + "/");
+  });
 }
 
 // Decodes a `Basic base64(user:pass)` Authorization header and checks the
@@ -29,5 +34,7 @@ export function checkBasicAuth(authHeader: string | null, expectedPassword: stri
   }
   const sep = decoded.indexOf(":");
   const password = sep === -1 ? "" : decoded.slice(sep + 1);
+  // Plain compare is fine here: this is a shared, non-secret demo password,
+  // not a per-user credential, so a timing-safe compare is not warranted.
   return password === expectedPassword;
 }

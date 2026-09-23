@@ -8,7 +8,10 @@ const schema = z.object({
   JUDGE_PROVIDER: z.enum(["jev", "claude"]).default("jev"),
   APP_URL: z.string().url(),
   RETELL_AGENT_ID: z.string().min(1).optional(),
-  DASHBOARD_PASSWORD: z.string().min(1).optional(),
+  // No `.min(1)`: an operator may blank this var rather than delete it, and an
+  // empty value must mean "gate open" (matching proxy.ts), not a validation
+  // error that would crash every route through the shared env schema.
+  DASHBOARD_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
