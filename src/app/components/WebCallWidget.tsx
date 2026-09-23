@@ -70,8 +70,8 @@ export function WebCallWidget() {
       const response = await fetch("/api/web-call", { method: "POST" });
       if (!response.ok) throw new Error(GENERIC_ERROR);
 
-      const { accessToken } = await response.json();
-      await getClient().startCall({ accessToken });
+      const { accessToken, callId, transport, iceServers } = await response.json();
+      await getClient().startCall({ accessToken, callId, transport, iceServers });
     } catch (err) {
       // A failed start (no Retell key, a network error, a bad body) is an
       // expected, user-facing outcome, not a crash: show the friendly inline
