@@ -2,15 +2,23 @@
 // (never at build time; see the `dynamic` export below), so it cannot be
 // statically prerendered.
 import { db } from "@/db/client";
+import { ensureDemoData } from "@/demo/ensure";
 import { failureBreakdown, listCalls } from "@/qa/queries";
 import { AutoRefresh } from "./components/AutoRefresh";
 import { CallList } from "./components/CallList";
 import { FailureBreakdown } from "./components/FailureBreakdown";
+import { TryItCard } from "./components/TryItCard";
 import { WebCallWidget } from "./components/WebCallWidget";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  // Keep the shared demo self-serving: make sure the test personas and enough
+  // near-term open slots exist before showing the page. Throttled internally, so
+  // the 5-second auto-refresh does not turn this into a write on every poll. A
+  // failure here must never take down the dashboard, so it is logged, not thrown.
+  await ensureDemoData(db).catch((err) => console.error("ensureDemoData failed", err));
+
   const [calls, failures] = await Promise.all([listCalls(db), failureBreakdown(db)]);
 
   return (
@@ -25,6 +33,8 @@ export default async function Home() {
         </header>
 
         <WebCallWidget />
+
+        <TryItCard />
 
         <FailureBreakdown items={failures} />
 
