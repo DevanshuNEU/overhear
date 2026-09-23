@@ -23,6 +23,12 @@ export function makeToolRoute(handler: Handler) {
     const svc = makeClinicService(db);
     const { result } = await handler({ callId: body.call.call_id, args: body.args ?? {}, svc });
     const json = JSON.stringify(result);
-    return new NextResponse(json.slice(0, 15000), { headers: { "content-type": "application/json" } });
+    if (json.length > 15000) {
+      // Slicing the raw JSON string can cut valid JSON mid-token. Return a
+      // valid fallback object instead so the caller always gets parseable JSON.
+      console.warn("tool route: response too large, returning fallback", { length: json.length });
+      return NextResponse.json({ error: "response too large" });
+    }
+    return new NextResponse(json, { headers: { "content-type": "application/json" } });
   };
 }

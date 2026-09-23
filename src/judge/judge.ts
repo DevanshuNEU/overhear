@@ -24,8 +24,16 @@ export function finalize(raw: RawScores): JudgeResult {
   };
 }
 
+let warnedJevFallback = false;
+
 export function makeJudge(overrides?: { JUDGE_PROVIDER?: "jev" | "claude"; JEV_API_KEY?: string }): Judge {
   const provider = overrides?.JUDGE_PROVIDER ?? env.JUDGE_PROVIDER;
   const jevKey = overrides ? overrides.JEV_API_KEY : env.JEV_API_KEY;
+  if (provider === "jev" && !jevKey && !warnedJevFallback) {
+    // Surface a misconfiguration (asked for Jev, no key) once, instead of
+    // silently running Claude with no signal that the intended judge is off.
+    warnedJevFallback = true;
+    console.warn("JUDGE_PROVIDER is jev but JEV_API_KEY is not set; using the Claude judge.");
+  }
   return provider === "jev" && jevKey ? new JevJudge() : new ClaudeJudge();
 }

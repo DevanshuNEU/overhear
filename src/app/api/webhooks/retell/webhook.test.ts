@@ -20,4 +20,12 @@ describe("retell webhook", () => {
     await POST(req("good", { event: "call_analyzed", call: { call_id: "c1" } }));
     expect(scoreCall).toHaveBeenCalledWith(expect.objectContaining({ call_id: "c1" }));
   });
+  it("returns 200 (no retry storm) when scoring throws", async () => {
+    scoreCall.mockRejectedValueOnce(new Error("judge down"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("good", { event: "call_analyzed", call: { call_id: "c2" } }));
+    expect(res.status).toBe(200);
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
 });
