@@ -6,7 +6,14 @@ import Retell from "retell-sdk";
 import { env } from "@/lib/env";
 import { buildLlmConfig, buildAgentConfig } from "@/retell/agent-config";
 
-const client = new Retell({ apiKey: env.RETELL_API_KEY });
-const llm = await client.llm.create(buildLlmConfig(env.APP_URL) as never);
-const agent = await client.agent.create(buildAgentConfig(llm.llm_id) as never);
-console.log("AGENT_ID:", agent.agent_id);
+async function main() {
+  const client = new Retell({ apiKey: env.RETELL_API_KEY });
+  const llm = await client.llm.create(buildLlmConfig(env.APP_URL) as never);
+  const agent = await client.agent.create(buildAgentConfig(llm.llm_id) as never);
+  console.log("AGENT_ID:", agent.agent_id);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
