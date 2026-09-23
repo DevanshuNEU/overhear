@@ -16,3 +16,15 @@ export function ScoreBadge({ composite }: { composite: number }) {
     </span>
   );
 }
+
+// ProcessingPill - stands in for the score on a call that has ended but is not
+// yet scored. The pulsing dot signals that the dashboard is waiting on the
+// call_analyzed webhook, not that the call is stuck.
+export function ProcessingPill() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-sm font-medium text-sky-400">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" aria-hidden />
+      Scoring
+    </span>
+  );
+}

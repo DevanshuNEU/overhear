@@ -105,6 +105,26 @@ async function buildContext(call: RetellCall): Promise<CallContext> {
   };
 }
 
+// Record a call the moment it ends (call_ended webhook), before it has been
+// scored. This writes only the `calls` row, no `qa_scores`, so the dashboard's
+// left join surfaces it as "processing" until call_analyzed fires and
+// scoreCall fills in the score. onConflictDoUpdate keeps this idempotent: if
+// call_analyzed somehow lands first, its richer transcript is not clobbered by
+// a later call_ended carrying the same or older data.
+export async function recordPendingCall(call: RetellCall): Promise<void> {
+  const transcript = toTranscript(call);
+  const values = {
+    transcript,
+    recordingUrl: call.recording_url ?? null,
+    retellSentiment: call.call_analysis?.user_sentiment ?? null,
+    retellSummary: call.call_analysis?.call_summary ?? null,
+  };
+  await db.insert(calls).values({ id: call.call_id, ...values }).onConflictDoUpdate({
+    target: calls.id,
+    set: values,
+  });
+}
+
 export async function scoreCall(call: RetellCall): Promise<CompositeScore> {
   const ctx = await buildContext(call);
 
