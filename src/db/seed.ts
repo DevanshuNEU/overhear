@@ -194,14 +194,15 @@ export async function seed(db: DB | any): Promise<void> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { db } = await import("@/db/client");
-  seed(db)
-    .then(() => {
+  void (async () => {
+    const { db } = await import("@/db/client");
+    try {
+      await seed(db);
       console.log("seed complete");
       process.exit(0);
-    })
-    .catch((err) => {
+    } catch (err) {
       console.error(err);
       process.exit(1);
-    });
+    }
+  })();
 }
