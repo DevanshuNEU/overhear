@@ -78,7 +78,9 @@ export class ClaudeJudge implements Judge {
     const message = await this.getClient().messages.parse({
       model: MODEL,
       max_tokens: 4096,
-      temperature: 0,
+      // No temperature: this model tier is driven by output_config.effort, not
+      // sampling params, and passing temperature is rejected. Low effort keeps
+      // the judge cheap and repeatable enough for the eval harness.
       output_config: { effort: "low", format: zodOutputFormat(rawScoresSchema) },
       messages: [{ role: "user", content: buildPrompt(ctx) }],
     });

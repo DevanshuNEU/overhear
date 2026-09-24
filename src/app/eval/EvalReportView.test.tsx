@@ -9,7 +9,7 @@ const sample: EvalReport = {
   rubric: { weights: {} as never, dimensionKeys: [] },
   runs: [
     {
-      judge: { source: "claude", model: "claude-sonnet-5", temperature: 0 },
+      judge: { source: "claude", model: "claude-sonnet-5", effort: "low" },
       metrics: {
         failureDetection: {
           perCategory: {

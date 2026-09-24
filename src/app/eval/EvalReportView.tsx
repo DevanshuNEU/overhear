@@ -92,7 +92,7 @@ export function EvalReportView({ report }: { report: EvalReport }) {
         <StatCard label="Failure recall" value={pct(recall)} detail={`${tp} of ${recallDenominator} planted failures caught`} />
         <StatCard label="Failure precision" value={pct(precision)} detail={`${tp} of ${precisionDenominator} flagged failures were real`} />
         <StatCard label="Band accuracy" value={pct(bandAccuracy)} detail={`${inBand} of ${total} calls in the right band`} />
-        <StatCard label="Judge" value={judge.model} detail={`temperature ${judge.temperature}`} />
+        <StatCard label="Judge" value={judge.model} detail={`effort ${judge.effort ?? "default"}`} />
         <StatCard label="Generated" value={generatedDate} />
       </div>
 
@@ -107,12 +107,12 @@ export function EvalReportView({ report }: { report: EvalReport }) {
           <table className="w-full min-w-[560px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wide text-zinc-500">
-                <th className="py-2 pr-4">Category</th>
-                <th className="py-2 pr-4">Precision</th>
-                <th className="py-2 pr-4">Recall</th>
-                <th className="py-2 pr-4">F1</th>
-                <th className="py-2 pr-4">Support</th>
-                <th className="py-2 pr-4">TP / FP / FN</th>
+                <th scope="col" className="py-2 pr-4">Category</th>
+                <th scope="col" className="py-2 pr-4">Precision</th>
+                <th scope="col" className="py-2 pr-4">Recall</th>
+                <th scope="col" className="py-2 pr-4">F1</th>
+                <th scope="col" className="py-2 pr-4">Support</th>
+                <th scope="col" className="py-2 pr-4">TP / FP / FN</th>
               </tr>
             </thead>
             <tbody>
@@ -152,7 +152,7 @@ export function EvalReportView({ report }: { report: EvalReport }) {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <MatchMark ok={c.bandCorrect} />
-                  gold band: {c.gold.band} / predicted: {c.predicted.band} ({Math.round(c.predicted.composite)})
+                  gold band: {c.gold.band} / predicted: {c.predicted.band} (score {Math.round(c.predicted.composite)})
                 </span>
               </div>
             </li>

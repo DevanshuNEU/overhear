@@ -42,11 +42,11 @@ describe("runEval", () => {
     expect(run.cases[0].predicted.band).toBe("clean");
     expect(run.cases[0].bandCorrect).toBe(true);
     expect(run.metrics.scoreCalibration.bandAccuracy).toBe(1);
-    expect(run.judge).toEqual({ source: "claude", model: "claude-sonnet-5", temperature: 0 });
+    expect(run.judge).toEqual({ source: "claude", model: "claude-sonnet-5", effort: "low" });
   });
 
   it("derives the model from the injected judge's source", async () => {
     const run = await runEval(cleanGold(), perfectJevJudge);
-    expect(run.judge).toEqual({ source: "jev", model: "jev-latest", temperature: 0 });
+    expect(run.judge).toEqual({ source: "jev", model: "jev-latest", effort: "low" });
   });
 });

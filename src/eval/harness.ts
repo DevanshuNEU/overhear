@@ -48,17 +48,19 @@ export async function runEval(gold: GoldCase[], judge: Judge): Promise<EvalRun> 
     labelSource: c.labelSource,
   }));
 
+  // Built once: the pair set is the same for every dimension key, only the key
+  // dimensionAgreement reads off it changes.
+  const pairs = scored.map(({ c, dims }) => ({
+    predicted: Object.fromEntries(dims.map((d) => [d.key, d.passed])),
+    expected: c.expected.dimensions as Record<string, boolean | undefined>,
+  }));
   const agreement: Record<string, { agreement: number; matches: number; n: number }> = {};
   for (const dimKey of Object.keys(DIMENSION_WEIGHTS)) {
-    const pairs = scored.map(({ c, dims }) => ({
-      predicted: Object.fromEntries(dims.map((d) => [d.key, d.passed])),
-      expected: c.expected.dimensions as Record<string, boolean | undefined>,
-    }));
     agreement[dimKey] = dimensionAgreement(pairs, dimKey);
   }
 
   return {
-    judge: { source: judge.source, model: MODEL_BY_SOURCE[judge.source], temperature: 0 },
+    judge: { source: judge.source, model: MODEL_BY_SOURCE[judge.source], effort: "low" },
     metrics: {
       ...sourceMetrics(rows),
       dimensionAgreement: agreement,

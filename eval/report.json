@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T04:54:35.980Z",
+  "generatedAt": "2026-09-24T14:17:32.219Z",
   "goldSetSize": 30,
   "rubric": {
     "weights": {
@@ -26,7 +26,7 @@
       "judge": {
         "source": "claude",
         "model": "stub-placeholder",
-        "temperature": 0
+        "effort": "low"
       },
       "metrics": {
         "failureDetection": {

@@ -1,7 +1,7 @@
 import type { DimensionKey, FailureCategory } from "@/domain/types";
 
 export type Band = "clean" | "minor" | "serious" | "broken";
-// Highest first is intentional for readability; bandDistance uses BAND_ORDER.
+// Worst band first, best last: bandDistance uses the index gap in this order.
 export const BAND_ORDER: Band[] = ["broken", "serious", "minor", "clean"];
 
 export interface CategoryMetric {
@@ -24,7 +24,7 @@ export interface SourceMetrics {
 }
 
 export interface EvalRun {
-  judge: { source: "jev" | "claude"; model: string; temperature: number; effort?: string };
+  judge: { source: "jev" | "claude"; model: string; effort?: string };
   metrics: SourceMetrics & {
     dimensionAgreement: Record<string, { agreement: number; matches: number; n: number }>;
     byLabelSource: { objective: SourceMetrics; human: SourceMetrics };

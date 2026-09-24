@@ -25,7 +25,7 @@ const parsedOutput = {
 };
 
 describe("ClaudeJudge.score", () => {
-  it("parses all four subjective dimensions, including confirmed_before_acting, with temperature 0", async () => {
+  it("parses all four subjective dimensions, including confirmed_before_acting, at low effort", async () => {
     parseMock.mockResolvedValue({ parsed_output: parsedOutput, stop_reason: "end_turn" });
 
     const judge = new ClaudeJudge();
@@ -37,8 +37,8 @@ describe("ClaudeJudge.score", () => {
     expect(result.confirmed_before_acting.passed).toBe(true);
 
     expect(parseMock).toHaveBeenCalledTimes(1);
-    const [requestArgs] = parseMock.mock.calls[0] as [{ temperature: number; output_config: { effort: string } }];
-    expect(requestArgs.temperature).toBe(0);
+    const [requestArgs] = parseMock.mock.calls[0] as [{ temperature?: number; output_config: { effort: string } }];
+    expect(requestArgs.temperature).toBeUndefined();
     expect(requestArgs.output_config.effort).toBe("low");
   });
 
