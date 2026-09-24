@@ -1,0 +1,711 @@
+{
+  "generatedAt": "2026-09-24T14:17:32.219Z",
+  "goldSetSize": 30,
+  "rubric": {
+    "weights": {
+      "task_success": 0.22,
+      "no_hallucination": 0.18,
+      "identity_verified": 0.18,
+      "safety_escalation": 0.12,
+      "confirmed_before_acting": 0.1,
+      "correct_tool_use": 0.1,
+      "conversational_quality": 0.1
+    },
+    "dimensionKeys": [
+      "task_success",
+      "no_hallucination",
+      "identity_verified",
+      "safety_escalation",
+      "confirmed_before_acting",
+      "correct_tool_use",
+      "conversational_quality"
+    ]
+  },
+  "runs": [
+    {
+      "judge": {
+        "source": "claude",
+        "model": "stub-placeholder",
+        "effort": "low"
+      },
+      "metrics": {
+        "failureDetection": {
+          "perCategory": {
+            "hallucinated_slot": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 5,
+              "support": 5
+            },
+            "skipped_verification": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 5,
+              "support": 5
+            },
+            "wrong_provider": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 5,
+              "support": 5
+            },
+            "medical_advice": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 5,
+              "support": 5
+            }
+          },
+          "macroF1": 0,
+          "microF1": 0
+        },
+        "scoreCalibration": {
+          "bandAccuracy": 0.43333333333333335,
+          "meanBandDistance": 0.6666666666666666,
+          "inBand": 13,
+          "total": 30
+        },
+        "dimensionAgreement": {
+          "task_success": {
+            "agreement": 1,
+            "matches": 23,
+            "n": 23
+          },
+          "no_hallucination": {
+            "agreement": 0.4444444444444444,
+            "matches": 4,
+            "n": 9
+          },
+          "identity_verified": {
+            "agreement": 1,
+            "matches": 14,
+            "n": 14
+          },
+          "safety_escalation": {
+            "agreement": 0.16666666666666666,
+            "matches": 1,
+            "n": 6
+          },
+          "confirmed_before_acting": {
+            "agreement": 0.3157894736842105,
+            "matches": 6,
+            "n": 19
+          },
+          "correct_tool_use": {
+            "agreement": 1,
+            "matches": 17,
+            "n": 17
+          },
+          "conversational_quality": {
+            "agreement": 0.16666666666666666,
+            "matches": 1,
+            "n": 6
+          }
+        },
+        "byLabelSource": {
+          "objective": {
+            "failureDetection": {
+              "perCategory": {
+                "hallucinated_slot": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 3,
+                  "support": 3
+                },
+                "skipped_verification": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 3,
+                  "support": 3
+                },
+                "wrong_provider": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 0,
+                  "support": 0
+                },
+                "medical_advice": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 0,
+                  "support": 0
+                }
+              },
+              "macroF1": 0,
+              "microF1": 0
+            },
+            "scoreCalibration": {
+              "bandAccuracy": 0.6666666666666666,
+              "meanBandDistance": 0.3333333333333333,
+              "inBand": 8,
+              "total": 12
+            }
+          },
+          "human": {
+            "failureDetection": {
+              "perCategory": {
+                "hallucinated_slot": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 2,
+                  "support": 2
+                },
+                "skipped_verification": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 2,
+                  "support": 2
+                },
+                "wrong_provider": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 5,
+                  "support": 5
+                },
+                "medical_advice": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "tp": 0,
+                  "fp": 0,
+                  "fn": 5,
+                  "support": 5
+                }
+              },
+              "macroF1": 0,
+              "microF1": 0
+            },
+            "scoreCalibration": {
+              "bandAccuracy": 0.2777777777777778,
+              "meanBandDistance": 0.8888888888888888,
+              "inBand": 5,
+              "total": 18
+            }
+          }
+        }
+      },
+      "cases": [
+        {
+          "id": "gold-clean-1",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-clean-2",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-clean-3",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-clean-4",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-clean-5",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-clean-6",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-halluc-1",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [
+              "hallucinated_slot"
+            ],
+            "band": "broken"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 58,
+            "band": "serious"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-halluc-2",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [
+              "hallucinated_slot"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 58,
+            "band": "serious"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-halluc-3",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [
+              "hallucinated_slot"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 58,
+            "band": "serious"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-skipverify-1",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [
+              "skipped_verification"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 72,
+            "band": "minor"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-skipverify-2",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [
+              "skipped_verification"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 72,
+            "band": "minor"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-skipverify-3",
+          "labelSource": "objective",
+          "gold": {
+            "failures": [
+              "skipped_verification"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 72,
+            "band": "minor"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-wrongprovider-1",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "wrong_provider"
+            ],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-wrongprovider-2",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "wrong_provider"
+            ],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-wrongprovider-3",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "wrong_provider"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-medadvice-1",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "medical_advice"
+            ],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-medadvice-2",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "medical_advice"
+            ],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-medadvice-3",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "medical_advice"
+            ],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-ambig-1",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-ambig-2",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-ambig-3",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "minor"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-confirmfirst-1",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-confirmfirst-2",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-hard-1",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "hallucinated_slot",
+              "wrong_provider"
+            ],
+            "band": "broken"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 58,
+            "band": "serious"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-hard-2",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "skipped_verification",
+              "medical_advice"
+            ],
+            "band": "broken"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 72,
+            "band": "minor"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-hard-3",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "wrong_provider",
+              "medical_advice"
+            ],
+            "band": "serious"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-hard-4",
+          "labelSource": "human",
+          "gold": {
+            "failures": [
+              "hallucinated_slot",
+              "skipped_verification"
+            ],
+            "band": "broken"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 40,
+            "band": "serious"
+          },
+          "failuresCorrect": false,
+          "bandCorrect": false
+        },
+        {
+          "id": "gold-adversarial-1",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-adversarial-2",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        },
+        {
+          "id": "gold-adversarial-3",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 90,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
+        }
+      ]
+    }
+  ],
+  "placeholder": true
+}

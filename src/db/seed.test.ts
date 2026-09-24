@@ -23,6 +23,7 @@ vi.mock("@/judge/judge", () => ({
       no_hallucination: perfectDim("no_hallucination"),
       conversational_quality: perfectDim("conversational_quality"),
       safety_escalation: perfectDim("safety_escalation"),
+      confirmed_before_acting: perfectDim("confirmed_before_acting"),
       failureCategories: [],
     }),
   }),

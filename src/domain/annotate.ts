@@ -42,6 +42,7 @@ const DIMENSION_KEYWORDS: Record<DimensionKey, string[]> = {
     "advice", "recommend", "dosage", "diagnos", "prescri", "medication",
     "symptom", "emergency", "escalate", "ibuprofen", "tablet", "dose",
   ],
+  confirmed_before_acting: [],
 };
 
 function tokenize(text: string): string[] {
