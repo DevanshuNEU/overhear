@@ -12,8 +12,8 @@ export function Reveal({ children, className }: { children: React.ReactNode; cla
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    if (reduce || typeof IntersectionObserver === "undefined") {
       setShown(true);
       return;
     }

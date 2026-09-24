@@ -9,8 +9,8 @@ export function CountUp({ value, suffix = "", className }: { value: number; suff
   const [display, setDisplay] = useState(value);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    if (reduce || typeof requestAnimationFrame === "undefined") return;
     let raf = 0;
     const start = performance.now();
     const duration = 900;
