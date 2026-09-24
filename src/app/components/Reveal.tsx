@@ -13,10 +13,11 @@ export function Reveal({ children, className }: { children: React.ReactNode; cla
     const el = ref.current;
     if (!el) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    if (reduce || typeof IntersectionObserver === "undefined") {
-      setShown(true);
-      return;
-    }
+    // Children are always rendered; `shown` only adds the entrance-animation
+    // class. Under reduced motion (or with no IntersectionObserver) we skip the
+    // animation entirely and leave content visible, without setting state
+    // synchronously in the effect.
+    if (reduce || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

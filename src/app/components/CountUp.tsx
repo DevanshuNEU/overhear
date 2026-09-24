@@ -14,7 +14,8 @@ export function CountUp({ value, suffix = "", className }: { value: number; suff
     let raf = 0;
     const start = performance.now();
     const duration = 900;
-    setDisplay(0);
+    // The first rAF tick sets the near-zero starting value, so no state is set
+    // synchronously inside the effect.
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
