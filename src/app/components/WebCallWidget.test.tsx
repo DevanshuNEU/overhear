@@ -125,6 +125,19 @@ describe("WebCallWidget", () => {
     expect(screen.getByText(/could not start the call/i)).toBeInTheDocument();
   });
 
+  it("shows a friendly busy message when the call is rate limited (429)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({ error: "rate_limited" }) }),
+    );
+
+    render(<WebCallWidget />);
+    fireEvent.click(screen.getByRole("button", { name: "Talk to the scheduling agent" }));
+
+    await waitFor(() => expect(screen.getByText(/demo is busy/i)).toBeInTheDocument());
+    expect(latestClient().startCall).not.toHaveBeenCalled();
+  });
+
   it("tears the call down on unmount and ignores events that arrive afterward", async () => {
     const { unmount } = render(<WebCallWidget />);
 

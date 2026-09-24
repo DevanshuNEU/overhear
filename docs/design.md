@@ -226,6 +226,29 @@ Four planted failures, one per relevant dimension, run through the *same* judge:
   of calls). *Mitigation:* rely on seeded synthetic calls for volume; keep live
   calls to a handful.
 
+## Rate limiting
+
+The demo is public and shareable, so the web-call endpoint (`POST /api/web-call`)
+is a spend surface: every call it mints burns Retell minutes plus Anthropic
+scoring credits. It is guarded by an in-memory sliding-window limiter
+(`src/lib/rate-limit.ts`) with two rules checked together: per-IP (3 calls / 10
+min, so one visitor cannot loop it) and global (30 calls / hour, a ceiling on
+total spend). Over the limit returns `429` with `Retry-After`; the widget shows a
+friendly "the demo is busy, try again in a few minutes" instead of an error.
+
+**Why in-memory, not Redis/Upstash.** Overhear runs as a single Railway
+instance, and this limiter is a soft spend guard for a demo, not a security
+control. In-memory counters give us that guard with zero extra infrastructure,
+no new account, env var, or dependency, and they deploy with the app. The
+trade-offs are acceptable at this scale: counters reset on redeploy (a redeploy
+is rare and only widens the window briefly) and are per-instance (we run one
+instance). If Overhear ever scales to multiple instances, or needs limits that
+survive redeploys or act as a real abuse control, the limiter is small and
+isolated behind a clear interface, so swapping in a durable store (Upstash
+Redis) is a contained change. The tool endpoints are not limited: Retell calls
+them server-to-server during a live call, so limiting them would break calls,
+and the webhook is already gated by signature verification.
+
 ## References
 
 - `docs/research/retell-api-facts.md` - Retell webhook payloads, tool schema,

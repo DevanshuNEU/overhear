@@ -13,6 +13,7 @@ import { RetellWebClient } from "retell-client-js-sdk";
 type CallStatus = "idle" | "connecting" | "live" | "ended" | "error";
 
 const GENERIC_ERROR = "Could not start the call.";
+const RATE_LIMITED_MESSAGE = "The demo is busy right now. Please try again in a few minutes.";
 
 export function WebCallWidget() {
   const [status, setStatus] = useState<CallStatus>("idle");
@@ -68,6 +69,15 @@ export function WebCallWidget() {
 
     try {
       const response = await fetch("/api/web-call", { method: "POST" });
+      // A 429 is an expected, friendly outcome (the demo's spend guard), not a
+      // failure to log: show the specific "try again later" message.
+      if (response.status === 429) {
+        if (mountedRef.current) {
+          setErrorMessage(RATE_LIMITED_MESSAGE);
+          setStatus("error");
+        }
+        return;
+      }
       if (!response.ok) throw new Error(GENERIC_ERROR);
 
       const { accessToken, callId, transport, iceServers } = await response.json();
