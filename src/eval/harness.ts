@@ -9,7 +9,7 @@ import type { GoldCase } from "./gold/build";
 const FAILURE_CATEGORIES: readonly FailureCategory[] = [
   "hallucinated_slot", "skipped_verification", "wrong_provider", "medical_advice",
 ];
-const MODEL = "claude-sonnet-5";
+const MODEL_BY_SOURCE: Record<Judge["source"], string> = { claude: "claude-sonnet-5", jev: "jev-latest" };
 
 function sourceMetrics(rows: { predicted: FailureCategory[]; expected: FailureCategory[]; predictedComposite: number; expectedBand: Band }[]): SourceMetrics {
   return {
@@ -58,7 +58,7 @@ export async function runEval(gold: GoldCase[], judge: Judge): Promise<EvalRun> 
   }
 
   return {
-    judge: { source: judge.source, model: MODEL, temperature: 0 },
+    judge: { source: judge.source, model: MODEL_BY_SOURCE[judge.source], temperature: 0 },
     metrics: {
       ...sourceMetrics(rows),
       dimensionAgreement: agreement,
