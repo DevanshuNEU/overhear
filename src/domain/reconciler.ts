@@ -20,5 +20,6 @@ export function reconcile(ctx: CallContext): ReconcilerResult {
       identityOk ? "identity verified before any mutation" : "mutation occurred before/without verification"),
     task_success: dim("task_success", taskOk, taskOk ? "a mutation succeeded" : "no successful mutation"),
     correct_tool_use: dim("correct_tool_use", toolOk, toolOk ? "all tool calls succeeded" : "a tool call failed"),
+    confirmed_before_acting: dim("confirmed_before_acting", true, ""),
   };
 }

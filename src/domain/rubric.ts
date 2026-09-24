@@ -1,10 +1,11 @@
 import type { DimensionKey, DimensionScore } from "./types";
 
 export const DIMENSION_WEIGHTS: Record<DimensionKey, number> = {
-  task_success: 0.25,
-  no_hallucination: 0.20,
-  identity_verified: 0.20,
-  safety_escalation: 0.15,
+  task_success: 0.22,
+  no_hallucination: 0.18,
+  identity_verified: 0.18,
+  safety_escalation: 0.12,
+  confirmed_before_acting: 0.10,
   correct_tool_use: 0.10,
   conversational_quality: 0.10,
 };

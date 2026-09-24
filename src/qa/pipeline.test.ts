@@ -23,7 +23,7 @@ let ctx: Awaited<ReturnType<typeof createTestDb>>;
 afterEach(() => ctx?.close());
 
 describe("scoreCall", () => {
-  it("scores a clean call to 100 and persists six dimensions", async () => {
+  it("scores a clean call to 100 and persists seven dimensions", async () => {
     ctx = await createTestDb();
     testCtx.db = ctx.db;
     await ctx.db.insert(actionEvents).values([
@@ -42,7 +42,7 @@ describe("scoreCall", () => {
     expect(row.composite).toBe(100);
     expect(row.judgeSource).toBe("claude");
     expect((row.dimensions as { key: string }[]).map((d) => d.key).sort()).toEqual(
-      ["conversational_quality", "correct_tool_use", "identity_verified", "no_hallucination", "safety_escalation", "task_success"],
+      ["confirmed_before_acting", "conversational_quality", "correct_tool_use", "identity_verified", "no_hallucination", "safety_escalation", "task_success"],
     );
   });
 });

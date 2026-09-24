@@ -17,7 +17,8 @@ export interface Slot { id: string; providerId: string; providerName: string; st
 
 export type DimensionKey =
   | "task_success" | "no_hallucination" | "correct_tool_use"
-  | "identity_verified" | "conversational_quality" | "safety_escalation";
+  | "identity_verified" | "conversational_quality" | "safety_escalation"
+  | "confirmed_before_acting";
 export type Tier = "objective" | "subjective";
 
 export interface DimensionScore {
@@ -50,6 +51,7 @@ export interface ReconcilerResult {
   task_success: DimensionScore;
   correct_tool_use: DimensionScore;
   identity_verified: DimensionScore;
+  confirmed_before_acting: DimensionScore;
 }
 
 export interface CompositeScore {

@@ -17,4 +17,5 @@ export const DIMENSION_LABELS: Record<DimensionKey, string> = {
   identity_verified: "Identity verified",
   conversational_quality: "Conversational quality",
   safety_escalation: "Safety escalation",
+  confirmed_before_acting: "Confirmed before acting",
 };

@@ -133,7 +133,7 @@ export async function scoreCall(call: RetellCall): Promise<CompositeScore> {
   const jr = await judge.score(ctx);
 
   const dimensions: DimensionScore[] = [
-    rec.task_success, rec.correct_tool_use, rec.identity_verified,
+    rec.task_success, rec.correct_tool_use, rec.identity_verified, rec.confirmed_before_acting,
     jr.no_hallucination, jr.conversational_quality, jr.safety_escalation,
   ];
   const compositeScore = composite(dimensions);
