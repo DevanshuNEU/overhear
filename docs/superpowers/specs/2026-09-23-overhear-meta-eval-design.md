@@ -1,7 +1,7 @@
 # Overhear meta-eval: calibrated scoring and a judge-accuracy harness
 
 Date: 2026-09-23
-Status: approved (design), pending implementation plan
+Status: approved (design, amended after team roundtable), pending implementation plan
 
 ## Context and problem
 
@@ -52,10 +52,14 @@ dashboard.
 
 ### 1. Gold set
 
-A curated set of about 20 call fixtures under `src/eval/gold/`, separate from
-the app's demo seed (which is unrelated live-booking data). Each case has the
-pipeline's `CallContext` shape (transcript, actionEvents, trueSlots, callerGoal)
-plus an `expected` label block:
+A curated set of about 30 call fixtures under `src/eval/gold/`, separate from
+the app's demo seed (which is unrelated live-booking data). Thirty rather than
+twenty so that each failure category has enough support (roughly 6 to 8 positive
+cases) that precision and recall are not dominated by a single miss. Authoring
+thirty full `CallContext` objects by hand is error-prone, so a small builder
+helper (`src/eval/gold/build.ts`) keeps each case a few readable lines instead of
+a wall of JSON. Each case has the pipeline's `CallContext` shape (transcript,
+actionEvents, trueSlots, callerGoal) plus an `expected` label block:
 
 ```ts
 interface GoldCase {
@@ -74,15 +78,16 @@ type Band = "clean" | "minor" | "serious" | "broken";
 
 Bands: clean 90-100, minor 70-89, serious 40-69, broken 0-39.
 
-Composition (about 20 cases):
-- 4 clean happy-path variants (no failures, band clean).
-- 2 to 3 each of the four failure modes: hallucinated_slot, skipped_verification
+Composition (about 30 cases):
+- 6 clean happy-path variants (no failures, band clean).
+- 3 each of the four failure modes: hallucinated_slot, skipped_verification
   (objective, deterministic labels), wrong_provider, medical_advice (human
   labels, judge-only).
-- 2 to 3 confirmation cases: agent acts on a misheard/ambiguous request (fails
+- 5 confirmation cases: agent acts on a misheard/ambiguous request (fails
   confirmed_before_acting) versus agent confirms first (passes).
-- A few hard cases: a near-miss the judge should NOT over-flag (tests
-  precision), and a call with two failures at once.
+- 4 hard cases: a call with two failures at once, and ambiguous edges.
+- 3 adversarial precision cases: clean-but-tricky calls the judge should NOT
+  over-flag, so a high recall is not bought with false alarms.
 
 `labelSource` lets the report separate deterministic plant labels from human
 judgment, so we never overclaim "human-verified".
@@ -131,6 +136,18 @@ it to `JudgeResult`, `RawScores`, the Claude judge's zod schema and prompt, and
 `finalize`; add it to the Jev judge's question map; add the weight to
 `DIMENSION_WEIGHTS`; add a UI label.
 
+**Single shared definition of the subjective dimensions** (key, level anchors,
+threshold) in one module, consumed by both the Claude judge and the Jev judge, so
+the seventh dimension and its anchors cannot silently drift between the two
+adapters. Jev has no key in this environment, so it is wired but marked
+unverified; we do not claim it works.
+
+**Reproducible judge for eval.** The eval path pins the judge to
+`temperature: 0` (lowest available) so two runs over the same gold set give the
+same numbers. The exact model version, temperature, and effort are recorded in
+the report (see Section 3), turning "as of last run" into a reproducible fact
+rather than a coin flip.
+
 ### 3. Harness
 
 **Runner** (`src/eval/harness.ts`): takes a `Judge` and the gold set; for each
@@ -152,11 +169,19 @@ pass a mock and no live LLM is called.
 - Score calibration:
   - bandAccuracy = fraction of cases whose predicted composite falls in the
     expected band's range
-  - mae = mean absolute error between predicted composite and the midpoint of
-    the expected band
+  - meanBandDistance = mean number of bands the prediction is off by (0 when in
+    the expected band, 1 for an adjacent band, and so on). This replaces an MAE
+    against the band midpoint, which would wrongly penalize a correct in-band
+    prediction just for not sitting at the midpoint.
 - Dimension agreement, per dimension: fraction of cases where predicted `passed`
   equals expected `passed` (only over cases that specify that dimension), with n.
-- Each metric is also reported split by `labelSource`.
+- Every metric carries its **raw counts alongside the ratio** (for example
+  `{ recall: 0.92, caught: 11, of: 12 }`), so the dashboard can show "caught 11
+  of 12 planted failures" and a small-n number is never dressed up as more
+  certain than it is.
+- Each metric is also reported split by `labelSource` (objective plants versus
+  human-labeled), so the deterministic-truth numbers and the human-judgment
+  numbers are never conflated.
 
 **Report** (`eval/report.json`, committed), forward-compatible for model
 comparison:
@@ -165,19 +190,27 @@ comparison:
 interface EvalReport {
   generatedAt: string;
   goldSetSize: number;
+  // Snapshot of the scoring config this report was generated against, so the
+  // staleness guard (Section 5) can detect a committed report that no longer
+  // matches the code.
+  rubric: { weights: Record<DimensionKey, number>; dimensionKeys: DimensionKey[] };
   runs: EvalRun[]; // one per judge; dashboard reads runs[0]
 }
 interface EvalRun {
-  judge: { source: "jev" | "claude"; model: string; effort?: string };
+  judge: { source: "jev" | "claude"; model: string; temperature: number; effort?: string };
   metrics: {
     failureDetection: { perCategory: Record<FailureCategory, CategoryMetric>; macroF1: number; microF1: number };
-    scoreCalibration: { bandAccuracy: number; mae: number };
+    scoreCalibration: { bandAccuracy: number; meanBandDistance: number };
     dimensionAgreement: Record<string, { agreement: number; n: number }>;
     byLabelSource: { objective: SourceMetrics; human: SourceMetrics };
   };
   cases: EvalCaseResult[];
 }
 ```
+
+`CategoryMetric` and the ratio metrics carry raw counts (`tp`, `fp`, `fn`,
+`support`, `caught`, `of`) next to each ratio, per the counts-alongside-ratios
+rule above.
 
 **Script** (`scripts/run-eval.ts`, `npm run eval`): a thin wrapper that builds
 the real judge via `makeJudge`, runs the harness over the gold set, and writes
@@ -186,14 +219,22 @@ report is the artifact the dashboard reads.
 
 ### 4. Dashboard `/eval` page
 
-A dedicated route, linked from the home page with a headline stat (for example
-"This QA catches 94% of planted failures and lands in the right band 90% of the
-time"). The page reads the committed report and shows:
-- Stat cards: failure recall, precision, band accuracy, plus judge model and run
-  date.
-- A per-category table: precision, recall, F1, support.
-- A per-case list: gold failures versus predicted, gold band versus predicted
-  composite, a green/red mark per case, and an objective/human tag.
+A dedicated route, linked from the home page with a headline stat that leads with
+raw counts, not a bare percentage (for example "caught 11 of 12 planted failures,
+in the right band on 27 of 30 calls"). The page reads the committed report and
+shows:
+- Stat cards: failure recall and precision (each with its raw counts), band
+  accuracy, plus judge model, temperature, and run date.
+- A per-category table: precision, recall, F1, support, all with counts.
+- **The per-case gold-versus-predicted diff as the centerpiece:** each gold case
+  shows expected failures versus what the judge flagged, expected band versus
+  predicted composite, a green/red match mark, and an objective/human tag. A red
+  case is drillable to the judge's rationale versus the truth. This is the honest,
+  legible core of the page, not a marketing summary.
+
+The page also states plainly which dimensions are deterministic code checks and
+which are LLM-judged, so the split between planted ground truth and human-labeled
+judgment is a stated strength rather than something to explain away.
 
 Because it reads committed JSON, it is instant, free, and deterministic to show
 live.
@@ -206,7 +247,13 @@ live.
 - `harness.ts`: run with a mock `Judge` returning canned predictions; assert the
   report assembles correctly and metrics integrate. No live LLM.
 - Gold fixtures: a well-formedness test (required fields present, valid band,
-  valid label source, dimension keys valid).
+  valid label source, dimension keys valid), and the builder helper is covered by
+  the fixtures compiling and passing it.
+- **Staleness guard** (CI test): fail if the committed `eval/report.json` was
+  generated against a different dimension set or rubric weights than the current
+  code (the report records both, the test compares to `DIMENSION_WEIGHTS` and the
+  live `DimensionKey` set). This makes it impossible to demo an accuracy number
+  for a judge the code no longer implements.
 - `scripts/run-eval.ts`: not unit tested; integration/manual.
 - Scoring changes: update `rubric` weights test (weights sum to 1.0, composite
   math), add tests for code-derived `passed`, and update existing judge,
@@ -217,8 +264,11 @@ live.
 ## File layout
 
 New:
-- `src/eval/gold/` (fixtures) and `src/eval/gold/index.ts`
+- `src/eval/gold/` (fixtures), `src/eval/gold/index.ts`, `src/eval/gold/build.ts`
+  (builder helper)
 - `src/eval/harness.ts`, `src/eval/metrics.ts`, `src/eval/report.ts` (types)
+- `src/judge/dimensions.ts` (single shared definition of the subjective
+  dimensions: keys, level anchors, pass threshold, consumed by both judges)
 - `scripts/run-eval.ts`
 - `src/app/eval/page.tsx` and its components
 - `eval/report.json`
@@ -226,16 +276,19 @@ New:
 Changed:
 - `src/domain/types.ts` (add dimension key, gold/report types may live in eval)
 - `src/domain/rubric.ts` (weights)
-- `src/judge/judge.ts` (RawScores, finalize, passed threshold)
-- `src/judge/claude-judge.ts` (schema, prompt anchors, new dimension)
-- `src/judge/jev-judge.ts` (new question)
+- `src/judge/judge.ts` (RawScores, finalize, code-derived passed threshold)
+- `src/judge/claude-judge.ts` (schema, prompt anchors from `dimensions.ts`, new
+  dimension, temperature 0 for eval)
+- `src/judge/jev-judge.ts` (new question from the shared definition)
 - home page (headline stat and link), UI labels
-- tests across judge/pipeline/queries/UI for seven dimensions
+- tests across judge/pipeline/queries/UI for seven dimensions, plus the
+  staleness-guard test
 
 ## Sequencing (implementation phases)
 
-1. Scoring core: add the dimension, anchors, code-derived `passed`, rebalanced
-   weights; fix all existing tests. Ships behind the existing pipeline.
+1. Scoring core: the shared `dimensions.ts` definition, the new dimension,
+   anchors, code-derived `passed`, rebalanced weights, and temperature-0 for the
+   eval judge; fix all existing tests. Ships behind the existing pipeline.
 2. Metrics library (pure) with exhaustive tests.
 3. Gold set fixtures plus well-formedness test.
 4. Harness runner with mocked-judge tests, plus the `npm run eval` script.
@@ -245,8 +298,13 @@ Changed:
 ## Risks and mitigations
 
 - **Judge nondeterminism** means the committed report is a snapshot. Mitigation:
-  record run metadata (model, date, effort) in the report; treat the number as
-  "as of last run", which is honest and fine for a demo.
+  pin the eval judge to temperature 0 and record run metadata (model,
+  temperature, effort, date) in the report, so a re-run reproduces the numbers.
+- **Small gold set makes per-category ratios noisy.** Mitigation: about 30 cases
+  for roughly 6 to 8 positives per category, and always show raw counts next to
+  every percentage so a single miss is never hidden behind a rounded ratio.
+- **Committed report drifting from the code.** Mitigation: the staleness-guard
+  test fails CI if the report's dimension set or weights no longer match.
 - **Gold labels for subjective cases are our judgment.** Mitigation: the
   `labelSource` split reports objective (plant) and human labels separately, so
   we never overclaim.
