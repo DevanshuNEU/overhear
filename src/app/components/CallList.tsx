@@ -27,7 +27,7 @@ export function CallList({ calls }: { calls: CallSummary[] }) {
         <li key={call.id}>
           <Link
             href={`/calls/${call.id}`}
-            className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 transition-colors hover:border-zinc-700 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-ink-raised px-4 py-3 transition-colors hover:border-zinc-700 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex items-center gap-3">
               {call.status === "processing" || call.composite === null ? (

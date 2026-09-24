@@ -11,7 +11,7 @@ export function FailureBreakdown({ items }: { items: { category: FailureCategory
       {items.map((item) => (
         <span
           key={item.category}
-          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-sm text-zinc-400"
+          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-ink-raised px-3 py-1 text-sm text-zinc-400"
         >
           {FAILURE_LABELS[item.category]}
           <span className="font-mono text-zinc-200">{item.count}</span>
