@@ -60,7 +60,10 @@ Applied app-wide via Tailwind theme tokens and CSS variables.
 ### 2. Home ( `/` )
 
 Top to bottom:
-- **Nav:** Overhear wordmark, links to How it works, Judge accuracy, GitHub.
+- **Nav:** Overhear wordmark, links to How it works, Judge accuracy, and a
+  GitHub link to the repo (`https://github.com/DevanshuNEU/retell`, opens in a new
+  tab with `rel="noreferrer"`). This nav is shared across all three pages, so the
+  repo link is in the header everywhere.
 - **Hero:** headline "A smoke detector for voice agents", one honest subline
   ("It scores every call, and it measures how accurate that scoring actually
   is."), animated gradient, two calls to action: "Talk to the agent" (scrolls to
