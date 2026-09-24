@@ -28,6 +28,9 @@ export interface EvalRun {
   metrics: SourceMetrics & {
     dimensionAgreement: Record<string, { agreement: number; matches: number; n: number }>;
     byLabelSource: { objective: SourceMetrics; human: SourceMetrics };
+    // Present only when the eval ran with samples > 1: how often the judge agreed
+    // with itself across repeat runs of each call (higher is more trustworthy).
+    selfConsistency?: import("./self-consistency").Consistency;
   };
   cases: EvalCaseResult[];
 }

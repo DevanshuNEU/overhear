@@ -103,7 +103,7 @@ export function WebCallWidget() {
   const isConnecting = status === "connecting";
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-ink-raised px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         {isLive ? (
           <button

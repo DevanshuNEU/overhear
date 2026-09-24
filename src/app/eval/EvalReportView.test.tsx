@@ -52,4 +52,20 @@ describe("EvalReportView", () => {
     render(<EvalReportView report={sample} />);
     expect(screen.queryByText(/sample data/i)).not.toBeInTheDocument();
   });
+
+  it("shows the self-consistency panel when present", () => {
+    const withSc = structuredClone(sample);
+    withSc.runs[0].metrics.selfConsistency = {
+      perDimension: { no_hallucination: { agreement: 1, n: 2 } },
+      overall: 0.95,
+      k: 3,
+    };
+    render(<EvalReportView report={withSc} />);
+    expect(screen.getByRole("heading", { name: /self-consistency/i })).toBeInTheDocument();
+  });
+
+  it("renders without a self-consistency block", () => {
+    render(<EvalReportView report={sample} />); // sample has no selfConsistency
+    expect(screen.getByText("g1")).toBeInTheDocument();
+  });
 });

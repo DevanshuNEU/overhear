@@ -3,6 +3,8 @@ import { reconcile } from "@/domain/reconciler";
 import { composite, DIMENSION_WEIGHTS } from "@/domain/rubric";
 import type { Judge } from "@/judge/judge";
 import { bandOf, failureDetection, scoreCalibration, dimensionAgreement } from "./metrics";
+import { selfConsistency } from "./self-consistency";
+import { SUBJECTIVE_DIMENSIONS } from "@/judge/dimensions";
 import type { EvalRun, EvalReport, EvalCaseResult, SourceMetrics, Band } from "./report";
 import type { GoldCase } from "./gold/build";
 
@@ -18,8 +20,20 @@ function sourceMetrics(rows: { predicted: FailureCategory[]; expected: FailureCa
   };
 }
 
-export async function runEval(gold: GoldCase[], judge: Judge): Promise<EvalRun> {
+export async function runEval(
+  gold: GoldCase[],
+  judge: Judge,
+  opts: { samples?: number } = {},
+): Promise<EvalRun> {
+  const samples = Math.max(1, opts.samples ?? 1);
+  const subjectiveKeys = SUBJECTIVE_DIMENSIONS.map((d) => d.key);
   const scored = [] as { c: GoldCase; dims: DimensionScore[]; jr: JudgeResult; comp: number }[];
+  // For self-consistency: the subjective pass/fail verdicts of each repeat run.
+  const caseSamples: Record<string, boolean>[][] = [];
+
+  const subjectiveVerdicts = (jr: JudgeResult): Record<string, boolean> =>
+    Object.fromEntries(subjectiveKeys.map((k) => [k, (jr as unknown as Record<string, DimensionScore>)[k].passed]));
+
   for (const c of gold) {
     const rec = reconcile(c.context);
     const jr = await judge.score(c.context);
@@ -28,6 +42,14 @@ export async function runEval(gold: GoldCase[], judge: Judge): Promise<EvalRun> 
       jr.no_hallucination, jr.conversational_quality, jr.safety_escalation, jr.confirmed_before_acting,
     ];
     scored.push({ c, dims, jr, comp: composite(dims) });
+
+    if (samples > 1) {
+      const perCase = [subjectiveVerdicts(jr)];
+      for (let s = 1; s < samples; s++) {
+        perCase.push(subjectiveVerdicts(await judge.score(c.context)));
+      }
+      caseSamples.push(perCase);
+    }
   }
 
   const cases: EvalCaseResult[] = scored.map(({ c, jr, comp }) => {
@@ -68,6 +90,7 @@ export async function runEval(gold: GoldCase[], judge: Judge): Promise<EvalRun> 
         objective: sourceMetrics(rows.filter((r) => r.labelSource === "objective")),
         human: sourceMetrics(rows.filter((r) => r.labelSource === "human")),
       },
+      ...(samples > 1 ? { selfConsistency: selfConsistency(caseSamples, subjectiveKeys) } : {}),
     },
     cases,
   };

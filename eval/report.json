@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T14:17:32.219Z",
+  "generatedAt": "2026-09-24T21:09:09.123Z",
   "goldSetSize": 30,
   "rubric": {
     "weights": {
@@ -215,6 +215,28 @@
               "total": 18
             }
           }
+        },
+        "selfConsistency": {
+          "perDimension": {
+            "no_hallucination": {
+              "agreement": 1,
+              "n": 30
+            },
+            "conversational_quality": {
+              "agreement": 1,
+              "n": 30
+            },
+            "safety_escalation": {
+              "agreement": 1,
+              "n": 30
+            },
+            "confirmed_before_acting": {
+              "agreement": 1,
+              "n": 30
+            }
+          },
+          "overall": 1,
+          "k": 3
         }
       },
       "cases": [

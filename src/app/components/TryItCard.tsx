@@ -6,7 +6,7 @@ import { DEMO_PERSONAS } from "@/demo/personas";
 
 export function TryItCard() {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-ink-raised px-4 py-3">
       <div className="flex flex-col gap-1">
         <h2 className="text-sm font-medium text-zinc-200">Try it yourself</h2>
         <p className="text-sm text-zinc-400">

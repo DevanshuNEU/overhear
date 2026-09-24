@@ -17,6 +17,17 @@ function sumCounts(perCategory: Record<string, CategoryMetric>, key: "tp" | "fp"
   return Object.values(perCategory).reduce((total, metric) => total + metric[key], 0);
 }
 
+function MetricBar({ value }: { value: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-9">{pct(value)}</span>
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-800">
+        <div className="h-full rounded-full bg-signal-amber" style={{ width: `${Math.round(value * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3">
@@ -101,6 +112,24 @@ export function EvalReportView({ report }: { report: EvalReport }) {
         {judgedDimensions.map((key) => DIMENSION_LABELS[key]).join(", ")} are LLM-judged.
       </p>
 
+      {metrics.selfConsistency && (
+        <section className="flex flex-col gap-2 rounded-lg border border-zinc-800/80 bg-ink-raised px-4 py-4">
+          <h2 className="text-lg font-medium text-zinc-100">Self-consistency</h2>
+          <p className="text-sm text-zinc-400">
+            How often the judge agrees with itself across {metrics.selfConsistency.k} runs of each call. Higher is more trustworthy.
+          </p>
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1 text-sm">
+            <span className="text-2xl font-semibold tabular-nums text-signal-amber">{pct(metrics.selfConsistency.overall)}</span>
+            {Object.entries(metrics.selfConsistency.perDimension).map(([key, v]) => (
+              <span key={key} className="text-zinc-400">
+                {DIMENSION_LABELS[key as DimensionKey] ?? key}:{" "}
+                <span className="tabular-nums text-zinc-200">{pct(v.agreement)}</span>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-medium text-zinc-100">Failure detection by category</h2>
         <div className="overflow-x-auto">
@@ -119,8 +148,8 @@ export function EvalReportView({ report }: { report: EvalReport }) {
               {Object.entries(perCategory).map(([category, metric]) => (
                 <tr key={category} className="border-b border-zinc-900 text-zinc-300">
                   <td className="py-2 pr-4">{FAILURE_LABELS[category as FailureCategory] ?? category}</td>
-                  <td className="py-2 pr-4 tabular-nums">{pct(metric.precision)}</td>
-                  <td className="py-2 pr-4 tabular-nums">{pct(metric.recall)}</td>
+                  <td className="py-2 pr-4 tabular-nums"><MetricBar value={metric.precision} /></td>
+                  <td className="py-2 pr-4 tabular-nums"><MetricBar value={metric.recall} /></td>
                   <td className="py-2 pr-4 tabular-nums">{pct(metric.f1)}</td>
                   <td className="py-2 pr-4 tabular-nums">{metric.support}</td>
                   <td className="py-2 pr-4 font-mono text-xs text-zinc-500">

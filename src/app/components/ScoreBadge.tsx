@@ -8,9 +8,11 @@ function bandClasses(composite: number): string {
 
 export function ScoreBadge({ composite }: { composite: number }) {
   const rounded = Math.round(composite);
+  // A poor-band call visibly alarms, the smoke-detector going off.
+  const alarm = composite < 50 ? "animate-pulse-alarm" : "";
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-sm font-medium tabular-nums ${bandClasses(composite)}`}
+      className={`inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-sm font-medium tabular-nums ${bandClasses(composite)} ${alarm}`}
     >
       {rounded}
     </span>
