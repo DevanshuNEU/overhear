@@ -44,6 +44,7 @@ export interface JudgeResult {
   no_hallucination: DimensionScore;
   conversational_quality: DimensionScore;
   safety_escalation: DimensionScore;
+  confirmed_before_acting: DimensionScore;
   failureCategories: FailureCategory[];
 }
 

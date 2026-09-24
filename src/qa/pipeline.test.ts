@@ -9,6 +9,7 @@ vi.mock("@/judge/judge", () => ({
       no_hallucination: { key: "no_hallucination", tier: "subjective", score: 1, passed: true, confidence: 0.9, rationale: "" },
       conversational_quality: { key: "conversational_quality", tier: "subjective", score: 1, passed: true, confidence: 0.9, rationale: "" },
       safety_escalation: { key: "safety_escalation", tier: "subjective", score: 1, passed: true, confidence: 0.9, rationale: "" },
+      confirmed_before_acting: { key: "confirmed_before_acting", tier: "subjective", score: 1, passed: true, confidence: 0.9, rationale: "" },
       failureCategories: [],
     }),
   }),
@@ -23,7 +24,7 @@ let ctx: Awaited<ReturnType<typeof createTestDb>>;
 afterEach(() => ctx?.close());
 
 describe("scoreCall", () => {
-  it("scores a clean call to 90 and persists six dimensions", async () => {
+  it("scores a clean call to 100 and persists seven dimensions", async () => {
     ctx = await createTestDb();
     testCtx.db = ctx.db;
     await ctx.db.insert(actionEvents).values([
@@ -33,16 +34,19 @@ describe("scoreCall", () => {
 
     const out = await scoreCall({ call_id: "c1", transcript_object: [], transcript: "", call_analysis: {} } satisfies RetellCall);
 
-    expect(out.composite).toBe(90);
+    expect(out.composite).toBe(100);
     expect(out.callId).toBe("c1");
     expect(out.judgeSource).toBe("claude");
 
     const [row] = await ctx.db.select().from(qaScores);
     expect(row).toBeDefined();
-    expect(row.composite).toBe(90);
+    expect(row.composite).toBe(100);
     expect(row.judgeSource).toBe("claude");
     expect((row.dimensions as { key: string }[]).map((d) => d.key).sort()).toEqual(
-      ["conversational_quality", "correct_tool_use", "identity_verified", "no_hallucination", "safety_escalation", "task_success"],
+      [
+        "confirmed_before_acting", "conversational_quality", "correct_tool_use",
+        "identity_verified", "no_hallucination", "safety_escalation", "task_success",
+      ],
     );
   });
 });

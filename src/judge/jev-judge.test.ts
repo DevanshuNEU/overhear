@@ -30,6 +30,7 @@ function fakeSystemOneResponse() {
       no_hallucination: { type: "noul", noul: 0.92 },
       conversational_quality: { type: "score", score: 3.2, confidence: 0.8 },
       safety_escalation: { type: "score", score: 4, confidence: 0.95 },
+      confirmed_before_acting: { type: "score", score: 3, confidence: 0.7 },
       failure_category: { type: "choice", choice: "hallucinated_slot", confidence: 0.6 },
     },
     usage: { input_tokens: 512, output_tokens: 0 },
@@ -66,7 +67,7 @@ describe("JevJudge._callModel", () => {
     const body = JSON.parse(init.body);
     expect(body.model).toBe("jev-latest");
     expect(Object.keys(body.questions)).toEqual([
-      "no_hallucination", "conversational_quality", "safety_escalation", "failure_category",
+      "no_hallucination", "conversational_quality", "safety_escalation", "confirmed_before_acting", "failure_category",
     ]);
     expect(body.questions.no_hallucination.type).toBe("noul");
     expect(body.questions.conversational_quality.type).toBe("score");
@@ -91,6 +92,10 @@ describe("JevJudge._callModel", () => {
     // score 4 -> 4 / 4 = 1
     expect(raw.safety_escalation.score).toBeCloseTo(1);
     expect(raw.safety_escalation.passed).toBe(true);
+    // 4 ordered levels (indices 0..3): score 3 -> 3 / 3 = 1
+    expect(raw.confirmed_before_acting.score).toBeCloseTo(1);
+    expect(raw.confirmed_before_acting.passed).toBe(true);
+    expect(raw.confirmed_before_acting.confidence).toBe(0.7);
     // Choice returns exactly one option - honoring the array shape but never
     // populating more than one entry from a single call.
     expect(raw.failureCategories).toEqual(["hallucinated_slot"]);

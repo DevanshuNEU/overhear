@@ -1,7 +1,7 @@
 // src/qa/pipeline.ts - the QA pipeline orchestrator. Takes the Retell
 // `call_analyzed` webhook payload, builds a CallContext from it plus the DB
 // state (action events, open slots), runs the reconciler and the judge,
-// composes the six dimensions into a score, narrates it, and persists both
+// composes the seven dimensions into a score, narrates it, and persists both
 // the `calls` row and the `qa_scores` row.
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -135,6 +135,7 @@ export async function scoreCall(call: RetellCall): Promise<CompositeScore> {
   const dimensions: DimensionScore[] = [
     rec.task_success, rec.correct_tool_use, rec.identity_verified,
     jr.no_hallucination, jr.conversational_quality, jr.safety_escalation,
+    jr.confirmed_before_acting,
   ];
   const compositeScore = composite(dimensions);
   const summary = await summarizeCall({

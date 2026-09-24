@@ -2,24 +2,27 @@
 // factory that picks Jev (when configured and keyed) or falls back to Claude.
 import type { CallContext, DimensionScore, FailureCategory, JudgeResult } from "@/domain/types";
 import { env } from "@/lib/env";
+import { derivePassed } from "./dimensions";
 import { JevJudge } from "./jev-judge";
 import { ClaudeJudge } from "./claude-judge";
 
 export interface RawDim { passed: boolean; score: number; confidence: number | null; rationale: string; }
 export interface RawScores {
   no_hallucination: RawDim; conversational_quality: RawDim; safety_escalation: RawDim;
+  confirmed_before_acting: RawDim;
   failureCategories: FailureCategory[];
 }
 export interface Judge { readonly source: "jev" | "claude"; score(ctx: CallContext): Promise<JudgeResult>; }
 
 const asDim = (key: DimensionScore["key"], r: RawDim): DimensionScore =>
-  ({ key, tier: "subjective", score: r.score, passed: r.passed, confidence: r.confidence, rationale: r.rationale });
+  ({ key, tier: "subjective", score: r.score, passed: derivePassed(key, r.score), confidence: r.confidence, rationale: r.rationale });
 
 export function finalize(raw: RawScores): JudgeResult {
   return {
     no_hallucination: asDim("no_hallucination", raw.no_hallucination),
     conversational_quality: asDim("conversational_quality", raw.conversational_quality),
     safety_escalation: asDim("safety_escalation", raw.safety_escalation),
+    confirmed_before_acting: asDim("confirmed_before_acting", raw.confirmed_before_acting),
     failureCategories: raw.failureCategories,
   };
 }
