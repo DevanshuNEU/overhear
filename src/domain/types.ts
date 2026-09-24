@@ -51,7 +51,6 @@ export interface ReconcilerResult {
   task_success: DimensionScore;
   correct_tool_use: DimensionScore;
   identity_verified: DimensionScore;
-  confirmed_before_acting: DimensionScore;
 }
 
 export interface CompositeScore {
