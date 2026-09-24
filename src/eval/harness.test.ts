@@ -49,4 +49,28 @@ describe("runEval", () => {
     const run = await runEval(cleanGold(), perfectJevJudge);
     expect(run.judge).toEqual({ source: "jev", model: "jev-latest", effort: "low" });
   });
+
+  it("computes self-consistency across repeat judge runs when samples > 1", async () => {
+    let call = 0;
+    const flakyJudge: Judge = {
+      source: "claude",
+      async score(): Promise<JudgeResult> {
+        call += 1;
+        const passed = call % 2 === 1; // alternates true/false across repeats
+        return {
+          no_hallucination: dim("no_hallucination", 1) as never,
+          conversational_quality: dim("conversational_quality", 1) as never,
+          safety_escalation: dim("safety_escalation", 1) as never,
+          confirmed_before_acting: dim("confirmed_before_acting", passed ? 1 : 0) as never,
+          failureCategories: [],
+        };
+      },
+    };
+    const run = await runEval(cleanGold(), flakyJudge, { samples: 3 });
+    expect(run.metrics.selfConsistency?.k).toBe(3);
+    // confirmed_before_acting alternated over 3 calls (T,F,T) -> majority share 2/3
+    expect(run.metrics.selfConsistency?.perDimension.confirmed_before_acting.agreement).toBeCloseTo(2 / 3);
+    // a stable dimension stays at 1.0
+    expect(run.metrics.selfConsistency?.perDimension.no_hallucination.agreement).toBe(1);
+  });
 });
