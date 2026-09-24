@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:deploy": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
-    "provision:agent": "tsx scripts/provision-agent.ts"
+    "provision:agent": "tsx scripts/provision-agent.ts",
+    "eval": "tsx scripts/run-eval.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.119",
