@@ -112,6 +112,12 @@ export function EvalReportView({ report }: { report: EvalReport }) {
         {judgedDimensions.map((key) => DIMENSION_LABELS[key]).join(", ")} are LLM-judged.
       </p>
 
+      <p className="rounded-md border border-zinc-800/80 bg-ink-raised px-4 py-3 text-sm text-zinc-500">
+        Honest limits: this is a small, mostly-synthetic gold set scored by a single labeler, and the failures are
+        planted, so they are easier to catch than real ones. Treat these numbers as a floor on rigor, not a promise:
+        real traffic will likely score lower. The next step is folding in real calls and a second labeler.
+      </p>
+
       {metrics.selfConsistency && (
         <section className="flex flex-col gap-2 rounded-lg border border-zinc-800/80 bg-ink-raised px-4 py-4">
           <h2 className="text-lg font-medium text-zinc-100">Self-consistency</h2>
