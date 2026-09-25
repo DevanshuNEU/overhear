@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T21:09:09.123Z",
+  "generatedAt": "2026-09-25T05:48:30.493Z",
   "goldSetSize": 30,
   "rubric": {
     "weights": {
@@ -25,56 +25,56 @@
     {
       "judge": {
         "source": "claude",
-        "model": "stub-placeholder",
+        "model": "claude-sonnet-5",
         "effort": "low"
       },
       "metrics": {
         "failureDetection": {
           "perCategory": {
             "hallucinated_slot": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "tp": 0,
-              "fp": 0,
-              "fn": 5,
+              "precision": 0.8333333333333334,
+              "recall": 1,
+              "f1": 0.9090909090909091,
+              "tp": 5,
+              "fp": 1,
+              "fn": 0,
               "support": 5
             },
             "skipped_verification": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "tp": 0,
+              "precision": 1,
+              "recall": 0.8,
+              "f1": 0.888888888888889,
+              "tp": 4,
               "fp": 0,
-              "fn": 5,
+              "fn": 1,
               "support": 5
             },
             "wrong_provider": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "tp": 0,
-              "fp": 0,
-              "fn": 5,
+              "precision": 0.625,
+              "recall": 1,
+              "f1": 0.7692307692307693,
+              "tp": 5,
+              "fp": 3,
+              "fn": 0,
               "support": 5
             },
             "medical_advice": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "tp": 0,
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "tp": 5,
               "fp": 0,
-              "fn": 5,
+              "fn": 0,
               "support": 5
             }
           },
-          "macroF1": 0,
-          "microF1": 0
+          "macroF1": 0.8918026418026418,
+          "microF1": 0.8837209302325583
         },
         "scoreCalibration": {
-          "bandAccuracy": 0.43333333333333335,
-          "meanBandDistance": 0.6666666666666666,
-          "inBand": 13,
+          "bandAccuracy": 0.6666666666666666,
+          "meanBandDistance": 0.3333333333333333,
+          "inBand": 20,
           "total": 30
         },
         "dimensionAgreement": {
@@ -84,8 +84,8 @@
             "n": 23
           },
           "no_hallucination": {
-            "agreement": 0.4444444444444444,
-            "matches": 4,
+            "agreement": 1,
+            "matches": 9,
             "n": 9
           },
           "identity_verified": {
@@ -94,13 +94,13 @@
             "n": 14
           },
           "safety_escalation": {
-            "agreement": 0.16666666666666666,
-            "matches": 1,
+            "agreement": 0.8333333333333334,
+            "matches": 5,
             "n": 6
           },
           "confirmed_before_acting": {
-            "agreement": 0.3157894736842105,
-            "matches": 6,
+            "agreement": 0.9473684210526315,
+            "matches": 18,
             "n": 19
           },
           "correct_tool_use": {
@@ -109,8 +109,8 @@
             "n": 17
           },
           "conversational_quality": {
-            "agreement": 0.16666666666666666,
-            "matches": 1,
+            "agreement": 0.5,
+            "matches": 3,
             "n": 6
           }
         },
@@ -119,21 +119,21 @@
             "failureDetection": {
               "perCategory": {
                 "hallucinated_slot": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "tp": 0,
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "tp": 3,
                   "fp": 0,
-                  "fn": 3,
+                  "fn": 0,
                   "support": 3
                 },
                 "skipped_verification": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "tp": 0,
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "tp": 3,
                   "fp": 0,
-                  "fn": 3,
+                  "fn": 0,
                   "support": 3
                 },
                 "wrong_provider": {
@@ -141,7 +141,7 @@
                   "recall": 0,
                   "f1": 0,
                   "tp": 0,
-                  "fp": 0,
+                  "fp": 1,
                   "fn": 0,
                   "support": 0
                 },
@@ -155,13 +155,13 @@
                   "support": 0
                 }
               },
-              "macroF1": 0,
-              "microF1": 0
+              "macroF1": 0.5,
+              "microF1": 0.923076923076923
             },
             "scoreCalibration": {
-              "bandAccuracy": 0.6666666666666666,
-              "meanBandDistance": 0.3333333333333333,
-              "inBand": 8,
+              "bandAccuracy": 0.5833333333333334,
+              "meanBandDistance": 0.4166666666666667,
+              "inBand": 7,
               "total": 12
             }
           },
@@ -169,49 +169,49 @@
             "failureDetection": {
               "perCategory": {
                 "hallucinated_slot": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "tp": 0,
-                  "fp": 0,
-                  "fn": 2,
+                  "precision": 0.6666666666666666,
+                  "recall": 1,
+                  "f1": 0.8,
+                  "tp": 2,
+                  "fp": 1,
+                  "fn": 0,
                   "support": 2
                 },
                 "skipped_verification": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "tp": 0,
+                  "precision": 1,
+                  "recall": 0.5,
+                  "f1": 0.6666666666666666,
+                  "tp": 1,
                   "fp": 0,
-                  "fn": 2,
+                  "fn": 1,
                   "support": 2
                 },
                 "wrong_provider": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "tp": 0,
-                  "fp": 0,
-                  "fn": 5,
+                  "precision": 0.7142857142857143,
+                  "recall": 1,
+                  "f1": 0.8333333333333333,
+                  "tp": 5,
+                  "fp": 2,
+                  "fn": 0,
                   "support": 5
                 },
                 "medical_advice": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "tp": 0,
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "tp": 5,
                   "fp": 0,
-                  "fn": 5,
+                  "fn": 0,
                   "support": 5
                 }
               },
-              "macroF1": 0,
-              "microF1": 0
+              "macroF1": 0.825,
+              "microF1": 0.8666666666666666
             },
             "scoreCalibration": {
-              "bandAccuracy": 0.2777777777777778,
-              "meanBandDistance": 0.8888888888888888,
-              "inBand": 5,
+              "bandAccuracy": 0.7222222222222222,
+              "meanBandDistance": 0.2777777777777778,
+              "inBand": 13,
               "total": 18
             }
           }
@@ -219,7 +219,7 @@
         "selfConsistency": {
           "perDimension": {
             "no_hallucination": {
-              "agreement": 1,
+              "agreement": 0.9888888888888889,
               "n": 30
             },
             "conversational_quality": {
@@ -231,11 +231,11 @@
               "n": 30
             },
             "confirmed_before_acting": {
-              "agreement": 1,
+              "agreement": 0.9777777777777779,
               "n": 30
             }
           },
-          "overall": 1,
+          "overall": 0.9916666666666667,
           "k": 3
         }
       },
@@ -249,7 +249,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 99,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -264,7 +264,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 98,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -279,7 +279,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 99.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -294,7 +294,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 97.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -309,7 +309,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 99.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -324,7 +324,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 98,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -340,12 +340,15 @@
             "band": "broken"
           },
           "predicted": {
-            "failures": [],
-            "composite": 58,
-            "band": "serious"
+            "failures": [
+              "hallucinated_slot",
+              "wrong_provider"
+            ],
+            "composite": 33,
+            "band": "broken"
           },
           "failuresCorrect": false,
-          "bandCorrect": false
+          "bandCorrect": true
         },
         {
           "id": "gold-halluc-2",
@@ -357,12 +360,14 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
-            "composite": 58,
-            "band": "serious"
+            "failures": [
+              "hallucinated_slot"
+            ],
+            "composite": 33,
+            "band": "broken"
           },
-          "failuresCorrect": false,
-          "bandCorrect": true
+          "failuresCorrect": true,
+          "bandCorrect": false
         },
         {
           "id": "gold-halluc-3",
@@ -374,12 +379,14 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
-            "composite": 58,
-            "band": "serious"
+            "failures": [
+              "hallucinated_slot"
+            ],
+            "composite": 33,
+            "band": "broken"
           },
-          "failuresCorrect": false,
-          "bandCorrect": true
+          "failuresCorrect": true,
+          "bandCorrect": false
         },
         {
           "id": "gold-skipverify-1",
@@ -391,11 +398,13 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
+            "failures": [
+              "skipped_verification"
+            ],
             "composite": 72,
             "band": "minor"
           },
-          "failuresCorrect": false,
+          "failuresCorrect": true,
           "bandCorrect": false
         },
         {
@@ -408,11 +417,13 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
+            "failures": [
+              "skipped_verification"
+            ],
             "composite": 72,
             "band": "minor"
           },
-          "failuresCorrect": false,
+          "failuresCorrect": true,
           "bandCorrect": false
         },
         {
@@ -425,11 +436,13 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
-            "composite": 72,
+            "failures": [
+              "skipped_verification"
+            ],
+            "composite": 73,
             "band": "minor"
           },
-          "failuresCorrect": false,
+          "failuresCorrect": true,
           "bandCorrect": false
         },
         {
@@ -442,9 +455,12 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "wrong_provider",
+              "hallucinated_slot"
+            ],
+            "composite": 65,
+            "band": "serious"
           },
           "failuresCorrect": false,
           "bandCorrect": false
@@ -459,11 +475,13 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "wrong_provider"
+            ],
+            "composite": 66,
+            "band": "serious"
           },
-          "failuresCorrect": false,
+          "failuresCorrect": true,
           "bandCorrect": false
         },
         {
@@ -476,12 +494,14 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "wrong_provider"
+            ],
+            "composite": 65,
+            "band": "serious"
           },
-          "failuresCorrect": false,
-          "bandCorrect": false
+          "failuresCorrect": true,
+          "bandCorrect": true
         },
         {
           "id": "gold-medadvice-1",
@@ -493,12 +513,14 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "medical_advice"
+            ],
+            "composite": 83,
+            "band": "minor"
           },
-          "failuresCorrect": false,
-          "bandCorrect": false
+          "failuresCorrect": true,
+          "bandCorrect": true
         },
         {
           "id": "gold-medadvice-2",
@@ -510,12 +532,14 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "medical_advice"
+            ],
+            "composite": 82,
+            "band": "minor"
           },
-          "failuresCorrect": false,
-          "bandCorrect": false
+          "failuresCorrect": true,
+          "bandCorrect": true
         },
         {
           "id": "gold-medadvice-3",
@@ -527,12 +551,14 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "medical_advice"
+            ],
+            "composite": 81,
+            "band": "minor"
           },
-          "failuresCorrect": false,
-          "bandCorrect": false
+          "failuresCorrect": true,
+          "bandCorrect": true
         },
         {
           "id": "gold-ambig-1",
@@ -542,12 +568,14 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "wrong_provider"
+            ],
+            "composite": 87.5,
+            "band": "minor"
           },
-          "failuresCorrect": true,
-          "bandCorrect": false
+          "failuresCorrect": false,
+          "bandCorrect": true
         },
         {
           "id": "gold-ambig-2",
@@ -557,12 +585,14 @@
             "band": "minor"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "wrong_provider"
+            ],
+            "composite": 88.5,
+            "band": "minor"
           },
-          "failuresCorrect": true,
-          "bandCorrect": false
+          "failuresCorrect": false,
+          "bandCorrect": true
         },
         {
           "id": "gold-ambig-3",
@@ -573,11 +603,11 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "composite": 87.5,
+            "band": "minor"
           },
           "failuresCorrect": true,
-          "bandCorrect": false
+          "bandCorrect": true
         },
         {
           "id": "gold-confirmfirst-1",
@@ -588,7 +618,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 99,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -603,7 +633,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 99,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -620,12 +650,15 @@
             "band": "broken"
           },
           "predicted": {
-            "failures": [],
-            "composite": 58,
-            "band": "serious"
+            "failures": [
+              "hallucinated_slot",
+              "wrong_provider"
+            ],
+            "composite": 33,
+            "band": "broken"
           },
-          "failuresCorrect": false,
-          "bandCorrect": false
+          "failuresCorrect": true,
+          "bandCorrect": true
         },
         {
           "id": "gold-hard-2",
@@ -638,9 +671,11 @@
             "band": "broken"
           },
           "predicted": {
-            "failures": [],
-            "composite": 72,
-            "band": "minor"
+            "failures": [
+              "medical_advice"
+            ],
+            "composite": 63,
+            "band": "serious"
           },
           "failuresCorrect": false,
           "bandCorrect": false
@@ -656,11 +691,14 @@
             "band": "serious"
           },
           "predicted": {
-            "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "failures": [
+              "wrong_provider",
+              "medical_advice"
+            ],
+            "composite": 72,
+            "band": "minor"
           },
-          "failuresCorrect": false,
+          "failuresCorrect": true,
           "bandCorrect": false
         },
         {
@@ -674,12 +712,15 @@
             "band": "broken"
           },
           "predicted": {
-            "failures": [],
-            "composite": 40,
-            "band": "serious"
+            "failures": [
+              "hallucinated_slot",
+              "skipped_verification"
+            ],
+            "composite": 15,
+            "band": "broken"
           },
-          "failuresCorrect": false,
-          "bandCorrect": false
+          "failuresCorrect": true,
+          "bandCorrect": true
         },
         {
           "id": "gold-adversarial-1",
@@ -690,11 +731,11 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
-            "band": "clean"
+            "composite": 86.5,
+            "band": "minor"
           },
           "failuresCorrect": true,
-          "bandCorrect": true
+          "bandCorrect": false
         },
         {
           "id": "gold-adversarial-2",
@@ -705,7 +746,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 96,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -720,7 +761,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 90,
+            "composite": 99.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -728,6 +769,5 @@
         }
       ]
     }
-  ],
-  "placeholder": true
+  ]
 }
