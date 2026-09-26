@@ -4,8 +4,11 @@
 // the report. Every ratio here prints its raw counts beside it so the numbers
 // stay checkable, not just trust-me percentages.
 import type { EvalReport, CategoryMetric } from "@/eval/report";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { DIMENSION_LABELS, FAILURE_LABELS } from "../components/labels";
 import type { DimensionKey, FailureCategory } from "@/domain/types";
+import { CategoryChart } from "./CategoryChart";
 
 const DETERMINISTIC_DIMENSIONS: DimensionKey[] = ["task_success", "correct_tool_use", "identity_verified"];
 
@@ -17,44 +20,25 @@ function sumCounts(perCategory: Record<string, CategoryMetric>, key: "tp" | "fp"
   return Object.values(perCategory).reduce((total, metric) => total + metric[key], 0);
 }
 
-function MetricBar({ value }: { value: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-9">{pct(value)}</span>
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-800">
-        <div className="h-full rounded-full bg-signal-amber" style={{ width: `${Math.round(value * 100)}%` }} />
-      </div>
-    </div>
-  );
-}
-
 function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3">
-      <span className="text-xs uppercase tracking-wide text-zinc-500">{label}</span>
-      <span className="text-xl font-semibold text-zinc-100">{value}</span>
-      {detail && <span className="text-xs text-zinc-500">{detail}</span>}
-    </div>
+    <Card className="gap-1 rounded-xl px-4 py-3">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-2xl font-semibold tabular-nums text-foreground">{value}</span>
+      {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
+    </Card>
   );
 }
 
 function MatchMark({ ok }: { ok: boolean }) {
   return (
     <span
-      className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium ${
-        ok ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+        ok ? "bg-signal-green/15 text-signal-green" : "bg-signal-red/15 text-signal-red"
       }`}
       aria-label={ok ? "match" : "mismatch"}
     >
       {ok ? "✓" : "✕"}
-    </span>
-  );
-}
-
-function LabelSourceTag({ source }: { source: "objective" | "human" }) {
-  return (
-    <span className="rounded-full border border-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-      {source === "objective" ? "objective" : "human"}
     </span>
   );
 }
@@ -67,7 +51,7 @@ function failureList(failures: FailureCategory[]): string {
 export function EvalReportView({ report }: { report: EvalReport }) {
   const run = report.runs[0];
   if (!run) {
-    return <p className="text-sm text-zinc-400">No eval runs in this report.</p>;
+    return <p className="text-sm text-muted-foreground">No eval runs in this report.</p>;
   }
 
   const { judge, metrics, cases } = run;
@@ -93,7 +77,7 @@ export function EvalReportView({ report }: { report: EvalReport }) {
   return (
     <div className="flex flex-col gap-8">
       {report.placeholder && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="rounded-lg border border-signal-amber/30 bg-signal-amber/10 px-4 py-3 text-sm text-signal-amber">
           Sample data: generated with a stub judge. Run <code className="font-mono">npm run eval</code> with a real
           ANTHROPIC_API_KEY to populate real numbers.
         </div>
@@ -107,41 +91,44 @@ export function EvalReportView({ report }: { report: EvalReport }) {
         <StatCard label="Generated" value={generatedDate} />
       </div>
 
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-muted-foreground">
         {DETERMINISTIC_DIMENSIONS.map((key) => DIMENSION_LABELS[key]).join(", ")} are deterministic code checks;{" "}
         {judgedDimensions.map((key) => DIMENSION_LABELS[key]).join(", ")} are LLM-judged.
       </p>
 
-      <p className="rounded-md border border-zinc-800/80 bg-ink-raised px-4 py-3 text-sm text-zinc-500">
+      <p className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         Honest limits: this is a small, mostly-synthetic gold set scored by a single labeler, and the failures are
         planted, so they are easier to catch than real ones. Treat these numbers as a floor on rigor, not a promise:
         real traffic will likely score lower. The next step is folding in real calls and a second labeler.
       </p>
 
       {metrics.selfConsistency && (
-        <section className="flex flex-col gap-2 rounded-lg border border-zinc-800/80 bg-ink-raised px-4 py-4">
-          <h2 className="text-lg font-medium text-zinc-100">Self-consistency</h2>
-          <p className="text-sm text-zinc-400">
+        <Card className="gap-2 px-4 py-4">
+          <h2 className="text-lg font-medium">Self-consistency</h2>
+          <p className="text-sm text-muted-foreground">
             How often the judge agrees with itself across {metrics.selfConsistency.k} runs of each call. Higher is more trustworthy.
           </p>
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1 text-sm">
             <span className="text-2xl font-semibold tabular-nums text-signal-amber">{pct(metrics.selfConsistency.overall)}</span>
             {Object.entries(metrics.selfConsistency.perDimension).map(([key, v]) => (
-              <span key={key} className="text-zinc-400">
+              <span key={key} className="text-muted-foreground">
                 {DIMENSION_LABELS[key as DimensionKey] ?? key}:{" "}
-                <span className="tabular-nums text-zinc-200">{pct(v.agreement)}</span>
+                <span className="tabular-nums text-foreground">{pct(v.agreement)}</span>
               </span>
             ))}
           </div>
-        </section>
+        </Card>
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium text-zinc-100">Failure detection by category</h2>
+        <h2 className="text-lg font-medium">Failure detection by category</h2>
+        <Card className="px-4 py-4">
+          <CategoryChart perCategory={perCategory} />
+        </Card>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th scope="col" className="py-2 pr-4">Category</th>
                 <th scope="col" className="py-2 pr-4">Precision</th>
                 <th scope="col" className="py-2 pr-4">Recall</th>
@@ -152,13 +139,13 @@ export function EvalReportView({ report }: { report: EvalReport }) {
             </thead>
             <tbody>
               {Object.entries(perCategory).map(([category, metric]) => (
-                <tr key={category} className="border-b border-zinc-900 text-zinc-300">
+                <tr key={category} className="border-b border-border/60 text-foreground/90">
                   <td className="py-2 pr-4">{FAILURE_LABELS[category as FailureCategory] ?? category}</td>
-                  <td className="py-2 pr-4 tabular-nums"><MetricBar value={metric.precision} /></td>
-                  <td className="py-2 pr-4 tabular-nums"><MetricBar value={metric.recall} /></td>
+                  <td className="py-2 pr-4 tabular-nums">{pct(metric.precision)}</td>
+                  <td className="py-2 pr-4 tabular-nums">{pct(metric.recall)}</td>
                   <td className="py-2 pr-4 tabular-nums">{pct(metric.f1)}</td>
                   <td className="py-2 pr-4 tabular-nums">{metric.support}</td>
-                  <td className="py-2 pr-4 font-mono text-xs text-zinc-500">
+                  <td className="py-2 pr-4 font-mono text-xs text-muted-foreground">
                     {metric.tp} / {metric.fp} / {metric.fn}
                   </td>
                 </tr>
@@ -169,18 +156,20 @@ export function EvalReportView({ report }: { report: EvalReport }) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium text-zinc-100">Gold vs predicted, per case</h2>
+        <h2 className="text-lg font-medium">Gold vs predicted, per case</h2>
         <ul className="flex flex-col gap-2">
           {cases.map((c) => (
             <li
               key={c.id}
-              className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                <span className="font-mono text-sm text-zinc-400">{c.id}</span>
-                <LabelSourceTag source={c.labelSource} />
+                <span className="font-mono text-sm text-muted-foreground">{c.id}</span>
+                <Badge variant="outline" className="font-normal text-muted-foreground">
+                  {c.labelSource}
+                </Badge>
               </div>
-              <div className="flex flex-col gap-1 text-sm text-zinc-400 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-4">
                 <span className="flex items-center gap-1.5">
                   <MatchMark ok={c.failuresCorrect} />
                   gold: {failureList(c.gold.failures)} / predicted: {failureList(c.predicted.failures)}

@@ -33,7 +33,7 @@ export function Hero({ caught, planted, sample }: { caught: number; planted: num
           <span className="text-sm text-muted-foreground">
             planted failures caught{sample && <span className="text-muted-foreground/60"> (sample)</span>}
             <br />
-            <span className="text-foreground group-hover:text-signal-amber">see how it's measured &rarr;</span>
+            <span className="text-foreground group-hover:text-signal-amber">see how we measure it &rarr;</span>
           </span>
         </Link>
       </div>
