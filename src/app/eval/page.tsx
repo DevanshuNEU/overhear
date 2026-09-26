@@ -7,11 +7,11 @@ export const dynamic = "force-static";
 
 export default function EvalPage() {
   return (
-    <div className="min-h-full bg-ink">
+    <div className="min-h-full bg-background">
       <SiteNav />
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12">
         <header className="flex flex-col gap-2">
-          <span className="text-xs uppercase tracking-[0.2em] text-signal-amber">The honest number</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-alarm-amber">The honest number</span>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">How accurate is this QA?</h1>
           <p className="text-sm text-muted-foreground">
             The judge graded against a gold-labeled set. Objective failures have deterministic ground truth,

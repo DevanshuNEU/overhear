@@ -48,11 +48,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function HowItWorks() {
   return (
-    <div className="min-h-full bg-ink">
+    <div className="min-h-full bg-background">
       <SiteNav />
       <main className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-12">
         <header className="flex flex-col gap-3">
-          <span className="text-xs uppercase tracking-[0.2em] text-signal-amber">The honest version</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-alarm-amber">The honest version</span>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">How Overhear works, and why to trust it</h1>
           <p className="text-base text-muted-foreground">
             Overhear is a smoke detector for voice agents: a cheap, tireless first-pass reviewer that scores every call,
@@ -70,8 +70,8 @@ export default function HowItWorks() {
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {PIPELINE.map((step, i) => (
               <span key={step} className="flex items-center gap-2">
-                <span className="rounded-md border border-border bg-ink-raised px-3 py-1.5 text-xs text-muted-foreground">{step}</span>
-                {i < PIPELINE.length - 1 && <span className="text-signal-amber">&rarr;</span>}
+                <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">{step}</span>
+                {i < PIPELINE.length - 1 && <span className="text-alarm-amber">&rarr;</span>}
               </span>
             ))}
           </div>
@@ -81,7 +81,7 @@ export default function HowItWorks() {
           <ul className="flex flex-col gap-2">
             {RELIABILITY.map((point) => (
               <li key={point} className="flex gap-2 text-sm text-muted-foreground">
-                <span className="text-signal-amber">-</span>
+                <span className="text-alarm-amber">-</span>
                 <span>{point}</span>
               </li>
             ))}
@@ -91,7 +91,7 @@ export default function HowItWorks() {
         <Section title="Honest FAQ">
           <div className="flex flex-col gap-5">
             {FAQ.map((item) => (
-              <div key={item.q} className="flex flex-col gap-1.5 rounded-lg border border-border/80 bg-ink-raised px-4 py-4">
+              <div key={item.q} className="flex flex-col gap-1.5 rounded-lg border border-border/80 bg-card px-4 py-4">
                 <h3 className="text-sm font-medium text-foreground">{item.q}</h3>
                 <p className="text-sm text-muted-foreground">{item.a}</p>
               </div>

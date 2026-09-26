@@ -38,16 +38,15 @@ export default async function Home() {
   const { caught, planted, sample } = headlineCounts(evalReport as EvalReport);
 
   return (
-    <div className="min-h-full bg-ink">
+    <div className="min-h-full bg-background">
       <AutoRefresh />
       <SiteNav />
-      <main className="mx-auto flex max-w-5xl flex-col gap-12 px-6 py-10">
-        <section className="grid items-stretch gap-4 lg:grid-cols-[1.15fr_1fr]">
-          <Hero caught={caught} planted={planted} sample={sample} />
-          <div className="flex flex-col gap-3">
-            <WebCallWidget />
-            <TryItCard />
-          </div>
+      <main className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-10">
+        <Hero caught={caught} planted={planted} sample={sample} />
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          <WebCallWidget />
+          <TryItCard />
         </section>
 
         <TrustCards />
@@ -55,7 +54,7 @@ export default async function Home() {
         <Reveal>
           <section className="flex flex-col gap-4">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <h2 className="text-lg font-medium">Calls, scored</h2>
+              <h2 className="font-display text-xl font-semibold tracking-tight">Signal log</h2>
               <FailureBreakdown items={failures} />
             </div>
             <CallList calls={calls} />

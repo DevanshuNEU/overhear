@@ -9,8 +9,8 @@ import type { CategoryMetric } from "@/eval/report";
 import type { FailureCategory } from "@/domain/types";
 
 const config = {
-  precision: { label: "Precision", color: "#f59e0b" },
-  recall: { label: "Recall", color: "#10b981" },
+  precision: { label: "Precision", color: "#ffb020" },
+  recall: { label: "Recall", color: "#7fb7a6" },
 } satisfies ChartConfig;
 
 export function CategoryChart({ perCategory }: { perCategory: Record<string, CategoryMetric> }) {

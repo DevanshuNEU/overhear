@@ -34,7 +34,7 @@ function MatchMark({ ok }: { ok: boolean }) {
   return (
     <span
       className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-        ok ? "bg-signal-green/15 text-signal-green" : "bg-signal-red/15 text-signal-red"
+        ok ? "border border-border text-foreground" : "bg-alarm-red/15 text-alarm-red"
       }`}
       aria-label={ok ? "match" : "mismatch"}
     >
@@ -77,7 +77,7 @@ export function EvalReportView({ report }: { report: EvalReport }) {
   return (
     <div className="flex flex-col gap-8">
       {report.placeholder && (
-        <div className="rounded-lg border border-signal-amber/30 bg-signal-amber/10 px-4 py-3 text-sm text-signal-amber">
+        <div className="rounded-lg border border-alarm-amber/30 bg-alarm-amber/10 px-4 py-3 text-sm text-alarm-amber">
           Sample data: generated with a stub judge. Run <code className="font-mono">npm run eval</code> with a real
           ANTHROPIC_API_KEY to populate real numbers.
         </div>
@@ -109,7 +109,7 @@ export function EvalReportView({ report }: { report: EvalReport }) {
             How often the judge agrees with itself across {metrics.selfConsistency.k} runs of each call. Higher is more trustworthy.
           </p>
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1 text-sm">
-            <span className="text-2xl font-semibold tabular-nums text-signal-amber">{pct(metrics.selfConsistency.overall)}</span>
+            <span className="text-2xl font-semibold tabular-nums text-alarm-amber">{pct(metrics.selfConsistency.overall)}</span>
             {Object.entries(metrics.selfConsistency.perDimension).map(([key, v]) => (
               <span key={key} className="text-muted-foreground">
                 {DIMENSION_LABELS[key as DimensionKey] ?? key}:{" "}

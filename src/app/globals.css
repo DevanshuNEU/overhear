@@ -7,12 +7,12 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
-  --color-ink: #0a0705;
-  --color-ink-raised: #16100a;
-  --color-signal-amber: #f59e0b;
-  --color-signal-red: #ef4444;
-  --color-signal-green: #10b981;
+  --font-display: var(--font-display);
+  --color-graphite: #1b1714;
+  --color-surface: #221c17;
+  --color-ink: #f2ede6;
+  --color-alarm-amber: #ffb020;
+  --color-alarm-red: #ff5c47;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,91 +49,97 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
 }
 
-@keyframes gradient-pan { from { background-position: 0% 50%; } to { background-position: 200% 50%; } }
-@keyframes pulse-alarm { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-@keyframes reveal-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-
-.animate-gradient-pan { background-size: 200% 200%; animation: gradient-pan 6s linear infinite alternate; }
-.animate-pulse-alarm { animation: pulse-alarm 1.6s ease-in-out infinite; }
-.animate-reveal { animation: reveal-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-gradient-pan, .animate-pulse-alarm, .animate-reveal { animation: none !important; }
-}
-
-/* Overhear is a single, always-dark, warm-charcoal theme. shadcn's tokens are
-   mapped straight to the Signal palette here, so every component comes out dark
-   and on-brand without a .dark toggle. */
+/* Silent until it alarms: the base is calm and warm; amber and red are reserved
+   for a caught problem or a live call, never decoration. */
 :root {
-  --radius: 0.7rem;
-  --background: #0a0705;
-  --foreground: #ece9e4;
-  --card: #16100a;
-  --card-foreground: #ece9e4;
-  --popover: #16100a;
-  --popover-foreground: #ece9e4;
-  --primary: #f59e0b;
-  --primary-foreground: #1a1206;
-  --secondary: #221a12;
-  --secondary-foreground: #ece9e4;
-  --muted: #1b1510;
-  --muted-foreground: #a89c8d;
-  --accent: #2a2118;
-  --accent-foreground: #f6f3ee;
-  --destructive: #ef4444;
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: #f59e0b;
-  --chart-1: #f59e0b;
-  --chart-2: #ef4444;
-  --chart-3: #10b981;
-  --chart-4: #f5b342;
-  --chart-5: #b45309;
-  --sidebar: #16100a;
-  --sidebar-foreground: #ece9e4;
-  --sidebar-primary: #f59e0b;
-  --sidebar-primary-foreground: #1a1206;
-  --sidebar-accent: #2a2118;
-  --sidebar-accent-foreground: #f6f3ee;
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: #f59e0b;
+  --radius: 0.5rem;
+  --background: #1b1714;
+  --foreground: #f2ede6;
+  --card: #221c17;
+  --card-foreground: #f2ede6;
+  --popover: #221c17;
+  --popover-foreground: #f2ede6;
+  --primary: #ffb020;
+  --primary-foreground: #1b1714;
+  --secondary: #2a231d;
+  --secondary-foreground: #f2ede6;
+  --muted: #241e18;
+  --muted-foreground: #9a8f82;
+  --accent: #2f2820;
+  --accent-foreground: #f6f2ec;
+  --destructive: #ff5c47;
+  --border: #ffffff14;
+  --input: #ffffff1f;
+  --ring: #ffb020;
+  --chart-1: #ffb020;
+  --chart-2: #ff5c47;
+  --chart-3: #7fb7a6;
+  --chart-4: #d98a2b;
+  --chart-5: #6b5b4b;
+  --sidebar: #221c17;
+  --sidebar-foreground: #f2ede6;
+  --sidebar-primary: #ffb020;
+  --sidebar-primary-foreground: #1b1714;
+  --sidebar-accent: #2f2820;
+  --sidebar-accent-foreground: #f6f2ec;
+  --sidebar-border: #ffffff14;
+  --sidebar-ring: #ffb020;
 }
 
 .dark {
-  --background: #0a0705;
-  --foreground: #ece9e4;
-  --card: #16100a;
-  --card-foreground: #ece9e4;
-  --popover: #16100a;
-  --popover-foreground: #ece9e4;
-  --primary: #f59e0b;
-  --primary-foreground: #1a1206;
-  --secondary: #221a12;
-  --secondary-foreground: #ece9e4;
-  --muted: #1b1510;
-  --muted-foreground: #a89c8d;
-  --accent: #2a2118;
-  --accent-foreground: #f6f3ee;
-  --destructive: #ef4444;
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: #f59e0b;
-  --chart-1: #f59e0b;
-  --chart-2: #ef4444;
-  --chart-3: #10b981;
-  --chart-4: #f5b342;
-  --chart-5: #b45309;
-  --sidebar: #16100a;
-  --sidebar-foreground: #ece9e4;
-  --sidebar-primary: #f59e0b;
-  --sidebar-primary-foreground: #1a1206;
-  --sidebar-accent: #2a2118;
-  --sidebar-accent-foreground: #f6f3ee;
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: #f59e0b;
+  --background: #1b1714;
+  --foreground: #f2ede6;
+  --card: #221c17;
+  --card-foreground: #f2ede6;
+  --popover: #221c17;
+  --popover-foreground: #f2ede6;
+  --primary: #ffb020;
+  --primary-foreground: #1b1714;
+  --secondary: #2a231d;
+  --secondary-foreground: #f2ede6;
+  --muted: #241e18;
+  --muted-foreground: #9a8f82;
+  --accent: #2f2820;
+  --accent-foreground: #f6f2ec;
+  --destructive: #ff5c47;
+  --border: #ffffff14;
+  --input: #ffffff1f;
+  --ring: #ffb020;
+  --chart-1: #ffb020;
+  --chart-2: #ff5c47;
+  --chart-3: #7fb7a6;
+  --chart-4: #d98a2b;
+  --chart-5: #6b5b4b;
+  --sidebar: #221c17;
+  --sidebar-foreground: #f2ede6;
+  --sidebar-primary: #ffb020;
+  --sidebar-primary-foreground: #1b1714;
+  --sidebar-accent: #2f2820;
+  --sidebar-accent-foreground: #f6f2ec;
+  --sidebar-border: #ffffff14;
+  --sidebar-ring: #ffb020;
+}
+
+/* One orchestrated motion: the signal strip in the hero sweeps once, softly,
+   like a monitor scanning. Alarm pulse for a caught failure. Everything else
+   holds still. */
+@keyframes signal-sweep { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+@keyframes alarm-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+@keyframes reveal-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.animate-signal-sweep { animation: signal-sweep 7s ease-in-out infinite alternate; }
+.animate-alarm-pulse { animation: alarm-pulse 1.5s ease-in-out infinite; }
+.animate-reveal { animation: reveal-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Legacy names still referenced by a few components. */
+.animate-pulse-alarm { animation: alarm-pulse 1.5s ease-in-out infinite; }
+.animate-gradient-pan { background-size: 200% 200%; animation: signal-sweep 7s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-signal-sweep, .animate-alarm-pulse, .animate-pulse-alarm, .animate-gradient-pan, .animate-reveal {
+    animation: none !important;
+  }
 }
 
 @layer base {

@@ -41,7 +41,7 @@ export function CallList({ calls }: { calls: CallSummary[] }) {
               <div className="flex flex-wrap items-center gap-1.5">
                 {call.failureCategories.length > 0 ? (
                   call.failureCategories.map((category) => (
-                    <Badge key={category} variant="destructive" className="bg-signal-red/15 text-signal-red">
+                    <Badge key={category} variant="destructive" className="bg-alarm-red/15 text-alarm-red">
                       {FAILURE_LABELS[category] ?? category}
                     </Badge>
                   ))

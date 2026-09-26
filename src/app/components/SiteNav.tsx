@@ -8,7 +8,7 @@ export function SiteNav() {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
         <Link
           href="/"
-          className="bg-gradient-to-r from-signal-amber to-signal-red bg-clip-text text-lg font-semibold tracking-tight text-transparent"
+          className="bg-gradient-to-r from-alarm-amber to-alarm-red bg-clip-text text-lg font-semibold tracking-tight text-transparent"
         >
           Overhear
         </Link>

@@ -109,9 +109,9 @@ export function WebCallWidget() {
           <button
             type="button"
             onClick={hangUp}
-            className="inline-flex items-center gap-2 rounded-md border border-signal-red/40 bg-signal-red/10 px-4 py-2 text-sm font-medium text-signal-red transition-colors hover:bg-signal-red/20"
+            className="inline-flex items-center gap-2 rounded-md border border-alarm-red/40 bg-alarm-red/10 px-4 py-2 text-sm font-medium text-alarm-red transition-colors hover:bg-alarm-red/20"
           >
-            <span className="h-2 w-2 animate-pulse-alarm rounded-full bg-signal-red" aria-hidden />
+            <span className="h-2 w-2 animate-pulse-alarm rounded-full bg-alarm-red" aria-hidden />
             Hang up
           </button>
         ) : (
@@ -119,7 +119,7 @@ export function WebCallWidget() {
             type="button"
             onClick={startCall}
             disabled={isConnecting}
-            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-signal-amber to-signal-red px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-alarm-amber to-alarm-red px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isConnecting ? "Connecting..." : "Talk to the scheduling agent"}
           </button>
@@ -128,7 +128,7 @@ export function WebCallWidget() {
         <span className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
           {isLive && (
             <>
-              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-green" aria-hidden />
+              <span className="h-2 w-2 animate-alarm-pulse rounded-full bg-alarm-amber" aria-hidden />
               Live, the agent can hear you.
             </>
           )}
