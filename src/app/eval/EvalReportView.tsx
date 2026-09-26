@@ -157,31 +157,53 @@ export function EvalReportView({ report }: { report: EvalReport }) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">Gold vs predicted, per case</h2>
-        <ul className="flex flex-col gap-2">
-          {cases.map((c) => (
-            <li
-              key={c.id}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm text-muted-foreground">{c.id}</span>
-                <Badge variant="outline" className="font-normal text-muted-foreground">
-                  {c.labelSource}
-                </Badge>
-              </div>
-              <div className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-4">
-                <span className="flex items-center gap-1.5">
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="hidden grid-cols-[minmax(150px,0.8fr)_1.3fr_1fr] gap-4 border-b border-border px-4 py-2.5 text-xs uppercase tracking-wide text-muted-foreground sm:grid">
+            <span>Case</span>
+            <span>Failures</span>
+            <span>Band</span>
+          </div>
+          <ul className="divide-y divide-border/60">
+            {cases.map((c) => (
+              <li
+                key={c.id}
+                className="grid grid-cols-1 gap-x-4 gap-y-2 px-4 py-3 text-sm sm:grid-cols-[minmax(150px,0.8fr)_1.3fr_1fr] sm:items-start"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="break-all font-mono text-xs text-muted-foreground">{c.id}</span>
+                  <Badge variant="outline" className="font-normal text-muted-foreground">
+                    {c.labelSource}
+                  </Badge>
+                </div>
+
+                <div className="flex items-start gap-2">
                   <MatchMark ok={c.failuresCorrect} />
-                  gold: {failureList(c.gold.failures)} / predicted: {failureList(c.predicted.failures)}
-                </span>
-                <span className="flex items-center gap-1.5">
+                  {c.failuresCorrect ? (
+                    <span className="text-muted-foreground">{failureList(c.gold.failures)}</span>
+                  ) : (
+                    <span className="text-alarm-red">
+                      gold {failureList(c.gold.failures)} &rarr; {failureList(c.predicted.failures)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-start gap-2">
                   <MatchMark ok={c.bandCorrect} />
-                  gold band: {c.gold.band} / predicted: {c.predicted.band} (score {Math.round(c.predicted.composite)})
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  {c.bandCorrect ? (
+                    <span className="text-muted-foreground">
+                      {c.gold.band} &middot; <span className="font-mono">{Math.round(c.predicted.composite)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-alarm-red">
+                      {c.gold.band} &rarr; {c.predicted.band} &middot;{" "}
+                      <span className="font-mono">{Math.round(c.predicted.composite)}</span>
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </section>
     </div>
   );

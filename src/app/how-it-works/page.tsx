@@ -5,7 +5,49 @@ import { Reveal } from "../components/Reveal";
 
 export const dynamic = "force-static";
 
-const PIPELINE = ["Voice agent", "Tools", "Webhook", "Reconciler (code) + Judge (LLM)", "Score", "Dashboard"];
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground">{children}</span>
+  );
+}
+
+function Arrow() {
+  return <span className="text-alarm-amber" aria-hidden>&rarr;</span>;
+}
+
+function Pipeline() {
+  return (
+    <div className="flex flex-col gap-3 pt-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+        <Pill>Voice agent</Pill>
+        <Arrow />
+        <Pill>Tools</Pill>
+        <Arrow />
+        <Pill>Webhook</Pill>
+        <Arrow />
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border px-3 py-3">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">scored two ways</span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-md border border-alarm-amber/40 bg-alarm-amber/10 px-3 py-1.5 text-xs text-alarm-amber">
+              Reconciler &middot; code &middot; objective
+            </span>
+            <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
+              Judge &middot; LLM &middot; subjective
+            </span>
+          </div>
+        </div>
+        <Arrow />
+        <Pill>Score</Pill>
+        <Arrow />
+        <Pill>Dashboard</Pill>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        The objective half is code you can trust by construction; the subjective half is the LLM judge, which is the part
+        we measure.
+      </p>
+    </div>
+  );
+}
 
 const RELIABILITY = [
   "Push checks into code. Whatever a fact-check can settle, code settles. The LLM never grades what the action log already proves.",
@@ -67,14 +109,7 @@ export default function HowItWorks() {
             of scoring: objective checks in code, and subjective checks by an LLM judge. The split is the whole point, the
             objective half is trustworthy by construction.
           </p>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {PIPELINE.map((step, i) => (
-              <span key={step} className="flex items-center gap-2">
-                <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">{step}</span>
-                {i < PIPELINE.length - 1 && <span className="text-alarm-amber">&rarr;</span>}
-              </span>
-            ))}
-          </div>
+          <Pipeline />
         </Section>
 
         <Section title="What we did to make it reliable">
