@@ -103,14 +103,15 @@ export function WebCallWidget() {
   const isConnecting = status === "connecting";
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-ink-raised px-4 py-3">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-4">
       <div className="flex flex-wrap items-center gap-3">
         {isLive ? (
           <button
             type="button"
             onClick={hangUp}
-            className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600"
+            className="inline-flex items-center gap-2 rounded-md border border-signal-red/40 bg-signal-red/10 px-4 py-2 text-sm font-medium text-signal-red transition-colors hover:bg-signal-red/20"
           >
+            <span className="h-2 w-2 animate-pulse-alarm rounded-full bg-signal-red" aria-hidden />
             Hang up
           </button>
         ) : (
@@ -118,20 +119,25 @@ export function WebCallWidget() {
             type="button"
             onClick={startCall}
             disabled={isConnecting}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-signal-amber to-signal-red px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isConnecting ? "Connecting..." : "Talk to the scheduling agent"}
           </button>
         )}
 
-        <span className="text-sm text-zinc-400" role="status" aria-live="polite">
-          {isLive && "Live, the agent can hear you."}
+        <span className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+          {isLive && (
+            <>
+              <span className="h-2 w-2 animate-pulse rounded-full bg-signal-green" aria-hidden />
+              Live, the agent can hear you.
+            </>
+          )}
           {status === "ended" && "Call ended."}
           {status === "error" && (errorMessage ?? "Something went wrong.")}
         </span>
       </div>
 
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted-foreground/70">
         Your browser will ask for microphone access when you start the call.
       </p>
     </div>

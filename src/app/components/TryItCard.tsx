@@ -3,24 +3,27 @@
 // the shared persona list so it never drifts from the patients the agent can
 // actually verify.
 import { DEMO_PERSONAS } from "@/demo/personas";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export function TryItCard() {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-ink-raised px-4 py-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-medium text-zinc-200">Try it yourself</h2>
-        <p className="text-sm text-zinc-400">
+    <Card className="gap-3 py-4">
+      <CardHeader className="px-4">
+        <CardTitle className="text-sm">Try it yourself</CardTitle>
+        <CardDescription>
           Start a call, say you are one of these patients, and ask to book an appointment this week.
-        </p>
-      </div>
-      <ul className="flex flex-col gap-1">
-        {DEMO_PERSONAS.map((persona) => (
-          <li key={`${persona.name}-${persona.dob}`} className="flex items-baseline gap-3 text-sm">
-            <span className="text-zinc-200">{persona.name}</span>
-            <span className="font-mono text-zinc-500">{persona.dob}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-4">
+        <ul className="flex flex-col divide-y divide-border/60">
+          {DEMO_PERSONAS.map((persona) => (
+            <li key={`${persona.name}-${persona.dob}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+              <span className="text-foreground">{persona.name}</span>
+              <span className="font-mono text-xs text-muted-foreground">{persona.dob}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }

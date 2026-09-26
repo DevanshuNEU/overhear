@@ -42,19 +42,22 @@ export default async function Home() {
       <AutoRefresh />
       <SiteNav />
       <main className="mx-auto flex max-w-5xl flex-col gap-12 px-6 py-10">
-        <Hero caught={caught} planted={planted} sample={sample} />
-
-        <section id="talk" className="flex flex-col gap-4 scroll-mt-24">
-          <WebCallWidget />
-          <TryItCard />
+        <section className="grid items-stretch gap-4 lg:grid-cols-[1.15fr_1fr]">
+          <Hero caught={caught} planted={planted} sample={sample} />
+          <div className="flex flex-col gap-3">
+            <WebCallWidget />
+            <TryItCard />
+          </div>
         </section>
 
         <TrustCards />
 
         <Reveal>
           <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-medium text-zinc-100">Calls, scored</h2>
-            <FailureBreakdown items={failures} />
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="text-lg font-medium">Calls, scored</h2>
+              <FailureBreakdown items={failures} />
+            </div>
             <CallList calls={calls} />
           </section>
         </Reveal>
