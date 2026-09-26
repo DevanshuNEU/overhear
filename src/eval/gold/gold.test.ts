@@ -6,8 +6,8 @@ const BANDS = new Set(["clean", "minor", "serious", "broken"]);
 const CATS = new Set(["hallucinated_slot", "skipped_verification", "wrong_provider", "medical_advice"]);
 
 describe("gold set", () => {
-  it("has at least 28 well-formed cases with unique ids", () => {
-    expect(GOLD_SET.length).toBeGreaterThanOrEqual(28);
+  it("has at least 36 well-formed cases with unique ids", () => {
+    expect(GOLD_SET.length).toBeGreaterThanOrEqual(36);
     expect(new Set(GOLD_SET.map((c) => c.id)).size).toBe(GOLD_SET.length);
   });
 
