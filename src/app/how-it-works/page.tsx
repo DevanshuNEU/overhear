@@ -39,7 +39,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <Reveal>
       <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold text-zinc-100">{title}</h2>
+        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
         {children}
       </section>
     </Reveal>
@@ -53,8 +53,8 @@ export default function HowItWorks() {
       <main className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-12">
         <header className="flex flex-col gap-3">
           <span className="text-xs uppercase tracking-[0.2em] text-signal-amber">The honest version</span>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">How Overhear works, and why to trust it</h1>
-          <p className="text-base text-zinc-300">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">How Overhear works, and why to trust it</h1>
+          <p className="text-base text-muted-foreground">
             Overhear is a smoke detector for voice agents: a cheap, tireless first-pass reviewer that scores every call,
             flags the risky ones for a human, and shows its own misses. It is not an oracle, and it is built to be honest
             about that.
@@ -62,7 +62,7 @@ export default function HowItWorks() {
         </header>
 
         <Section title="What it is, and the pipeline">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             A real Retell voice agent handles scheduling calls. Each call flows through tools and a webhook into two kinds
             of scoring: objective checks in code, and subjective checks by an LLM judge. The split is the whole point, the
             objective half is trustworthy by construction.
@@ -70,7 +70,7 @@ export default function HowItWorks() {
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {PIPELINE.map((step, i) => (
               <span key={step} className="flex items-center gap-2">
-                <span className="rounded-md border border-zinc-800 bg-ink-raised px-3 py-1.5 text-xs text-zinc-300">{step}</span>
+                <span className="rounded-md border border-border bg-ink-raised px-3 py-1.5 text-xs text-muted-foreground">{step}</span>
                 {i < PIPELINE.length - 1 && <span className="text-signal-amber">&rarr;</span>}
               </span>
             ))}
@@ -80,7 +80,7 @@ export default function HowItWorks() {
         <Section title="What we did to make it reliable">
           <ul className="flex flex-col gap-2">
             {RELIABILITY.map((point) => (
-              <li key={point} className="flex gap-2 text-sm text-zinc-400">
+              <li key={point} className="flex gap-2 text-sm text-muted-foreground">
                 <span className="text-signal-amber">-</span>
                 <span>{point}</span>
               </li>
@@ -91,9 +91,9 @@ export default function HowItWorks() {
         <Section title="Honest FAQ">
           <div className="flex flex-col gap-5">
             {FAQ.map((item) => (
-              <div key={item.q} className="flex flex-col gap-1.5 rounded-lg border border-zinc-800/80 bg-ink-raised px-4 py-4">
-                <h3 className="text-sm font-medium text-zinc-100">{item.q}</h3>
-                <p className="text-sm text-zinc-400">{item.a}</p>
+              <div key={item.q} className="flex flex-col gap-1.5 rounded-lg border border-border/80 bg-ink-raised px-4 py-4">
+                <h3 className="text-sm font-medium text-foreground">{item.q}</h3>
+                <p className="text-sm text-muted-foreground">{item.a}</p>
               </div>
             ))}
           </div>
