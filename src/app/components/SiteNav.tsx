@@ -4,28 +4,30 @@ import Link from "next/link";
 
 export function SiteNav() {
   return (
-    <nav className="flex items-center justify-between border-b border-zinc-800/60 px-6 py-4">
-      <Link
-        href="/"
-        className="bg-gradient-to-r from-signal-amber to-signal-red bg-clip-text text-lg font-semibold tracking-tight text-transparent"
-      >
-        Overhear
-      </Link>
-      <div className="flex items-center gap-5 text-sm text-zinc-400">
-        <Link href="/how-it-works" className="transition-colors hover:text-zinc-100">
-          How it works
-        </Link>
-        <Link href="/eval" className="transition-colors hover:text-zinc-100">
-          Judge accuracy
-        </Link>
-        <a
-          href="https://github.com/DevanshuNEU/retell"
-          target="_blank"
-          rel="noreferrer"
-          className="transition-colors hover:text-zinc-100"
+    <nav className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-md">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
+        <Link
+          href="/"
+          className="bg-gradient-to-r from-alarm-amber to-alarm-red bg-clip-text text-lg font-semibold tracking-tight text-transparent"
         >
-          GitHub
-        </a>
+          Overhear
+        </Link>
+        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+          <Link href="/how-it-works" className="transition-colors hover:text-foreground">
+            How it works
+          </Link>
+          <Link href="/eval" className="transition-colors hover:text-foreground">
+            Judge accuracy
+          </Link>
+          <a
+            href="https://github.com/DevanshuNEU/retell"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-foreground"
+          >
+            GitHub
+          </a>
+        </div>
       </div>
     </nav>
   );

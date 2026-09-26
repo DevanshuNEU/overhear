@@ -1,6 +1,7 @@
 // FailureBreakdown - a compact row of chips showing how many calls hit each
 // failure category, most common first. Renders nothing when there is no data.
 import type { FailureCategory } from "@/domain/types";
+import { Badge } from "@/components/ui/badge";
 import { FAILURE_LABELS } from "./labels";
 
 export function FailureBreakdown({ items }: { items: { category: FailureCategory; count: number }[] }) {
@@ -9,13 +10,10 @@ export function FailureBreakdown({ items }: { items: { category: FailureCategory
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <span
-          key={item.category}
-          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-ink-raised px-3 py-1 text-sm text-zinc-400"
-        >
+        <Badge key={item.category} variant="secondary" className="gap-1.5 font-normal">
           {FAILURE_LABELS[item.category]}
-          <span className="font-mono text-zinc-200">{item.count}</span>
-        </span>
+          <span className="font-mono font-medium text-foreground">{item.count}</span>
+        </Badge>
       ))}
     </div>
   );

@@ -1,22 +1,155 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-ink: #0a0705;
-  --color-ink-raised: #16100a;
-  --color-signal-amber: #f59e0b;
-  --color-signal-red: #ef4444;
+  --font-display: var(--font-display);
+  --color-graphite: #1b1714;
+  --color-surface: #221c17;
+  --color-ink: #f2ede6;
+  --color-alarm-amber: #ffb020;
+  --color-alarm-red: #ff5c47;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
 }
 
-@keyframes gradient-pan { from { background-position: 0% 50%; } to { background-position: 200% 50%; } }
-@keyframes pulse-alarm { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-@keyframes reveal-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+/* Silent until it alarms: the base is calm and warm; amber and red are reserved
+   for a caught problem or a live call, never decoration. */
+:root {
+  --radius: 0.5rem;
+  --background: #1b1714;
+  --foreground: #f2ede6;
+  --card: #221c17;
+  --card-foreground: #f2ede6;
+  --popover: #221c17;
+  --popover-foreground: #f2ede6;
+  --primary: #ffb020;
+  --primary-foreground: #1b1714;
+  --secondary: #2a231d;
+  --secondary-foreground: #f2ede6;
+  --muted: #241e18;
+  --muted-foreground: #9a8f82;
+  --accent: #2f2820;
+  --accent-foreground: #f6f2ec;
+  --destructive: #ff5c47;
+  --border: #ffffff14;
+  --input: #ffffff1f;
+  --ring: #ffb020;
+  --chart-1: #ffb020;
+  --chart-2: #ff5c47;
+  --chart-3: #7fb7a6;
+  --chart-4: #d98a2b;
+  --chart-5: #6b5b4b;
+  --sidebar: #221c17;
+  --sidebar-foreground: #f2ede6;
+  --sidebar-primary: #ffb020;
+  --sidebar-primary-foreground: #1b1714;
+  --sidebar-accent: #2f2820;
+  --sidebar-accent-foreground: #f6f2ec;
+  --sidebar-border: #ffffff14;
+  --sidebar-ring: #ffb020;
+}
 
-.animate-gradient-pan { background-size: 200% 200%; animation: gradient-pan 6s linear infinite alternate; }
-.animate-pulse-alarm { animation: pulse-alarm 1.6s ease-in-out infinite; }
+.dark {
+  --background: #1b1714;
+  --foreground: #f2ede6;
+  --card: #221c17;
+  --card-foreground: #f2ede6;
+  --popover: #221c17;
+  --popover-foreground: #f2ede6;
+  --primary: #ffb020;
+  --primary-foreground: #1b1714;
+  --secondary: #2a231d;
+  --secondary-foreground: #f2ede6;
+  --muted: #241e18;
+  --muted-foreground: #9a8f82;
+  --accent: #2f2820;
+  --accent-foreground: #f6f2ec;
+  --destructive: #ff5c47;
+  --border: #ffffff14;
+  --input: #ffffff1f;
+  --ring: #ffb020;
+  --chart-1: #ffb020;
+  --chart-2: #ff5c47;
+  --chart-3: #7fb7a6;
+  --chart-4: #d98a2b;
+  --chart-5: #6b5b4b;
+  --sidebar: #221c17;
+  --sidebar-foreground: #f2ede6;
+  --sidebar-primary: #ffb020;
+  --sidebar-primary-foreground: #1b1714;
+  --sidebar-accent: #2f2820;
+  --sidebar-accent-foreground: #f6f2ec;
+  --sidebar-border: #ffffff14;
+  --sidebar-ring: #ffb020;
+}
+
+/* One orchestrated motion: the signal strip in the hero sweeps once, softly,
+   like a monitor scanning. Alarm pulse for a caught failure. Everything else
+   holds still. */
+@keyframes signal-sweep { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+@keyframes alarm-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+@keyframes reveal-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.animate-signal-sweep { animation: signal-sweep 7s ease-in-out infinite alternate; }
+.animate-alarm-pulse { animation: alarm-pulse 1.5s ease-in-out infinite; }
 .animate-reveal { animation: reveal-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Legacy names still referenced by a few components. */
+.animate-pulse-alarm { animation: alarm-pulse 1.5s ease-in-out infinite; }
+.animate-gradient-pan { background-size: 200% 200%; animation: signal-sweep 7s ease-in-out infinite alternate; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-gradient-pan, .animate-pulse-alarm, .animate-reveal { animation: none !important; }
+  .animate-signal-sweep, .animate-alarm-pulse, .animate-pulse-alarm, .animate-gradient-pan, .animate-reveal {
+    animation: none !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

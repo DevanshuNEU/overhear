@@ -5,7 +5,49 @@ import { Reveal } from "../components/Reveal";
 
 export const dynamic = "force-static";
 
-const PIPELINE = ["Voice agent", "Tools", "Webhook", "Reconciler (code) + Judge (LLM)", "Score", "Dashboard"];
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground">{children}</span>
+  );
+}
+
+function Arrow() {
+  return <span className="text-alarm-amber" aria-hidden>&rarr;</span>;
+}
+
+function Pipeline() {
+  return (
+    <div className="flex flex-col gap-3 pt-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+        <Pill>Voice agent</Pill>
+        <Arrow />
+        <Pill>Tools</Pill>
+        <Arrow />
+        <Pill>Webhook</Pill>
+        <Arrow />
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border px-3 py-3">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">scored two ways</span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-md border border-alarm-amber/40 bg-alarm-amber/10 px-3 py-1.5 text-xs text-alarm-amber">
+              Reconciler &middot; code &middot; objective
+            </span>
+            <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
+              Judge &middot; LLM &middot; subjective
+            </span>
+          </div>
+        </div>
+        <Arrow />
+        <Pill>Score</Pill>
+        <Arrow />
+        <Pill>Dashboard</Pill>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        The objective half is code you can trust by construction; the subjective half is the LLM judge, which is the part
+        we measure.
+      </p>
+    </div>
+  );
+}
 
 const RELIABILITY = [
   "Push checks into code. Whatever a fact-check can settle, code settles. The LLM never grades what the action log already proves.",
@@ -39,7 +81,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <Reveal>
       <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold text-zinc-100">{title}</h2>
+        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
         {children}
       </section>
     </Reveal>
@@ -48,13 +90,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function HowItWorks() {
   return (
-    <div className="min-h-full bg-ink">
+    <div className="min-h-full bg-background">
       <SiteNav />
       <main className="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-12">
         <header className="flex flex-col gap-3">
-          <span className="text-xs uppercase tracking-[0.2em] text-signal-amber">The honest version</span>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">How Overhear works, and why to trust it</h1>
-          <p className="text-base text-zinc-300">
+          <span className="text-xs uppercase tracking-[0.2em] text-alarm-amber">The honest version</span>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">How Overhear works, and why to trust it</h1>
+          <p className="text-base text-muted-foreground">
             Overhear is a smoke detector for voice agents: a cheap, tireless first-pass reviewer that scores every call,
             flags the risky ones for a human, and shows its own misses. It is not an oracle, and it is built to be honest
             about that.
@@ -62,26 +104,19 @@ export default function HowItWorks() {
         </header>
 
         <Section title="What it is, and the pipeline">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             A real Retell voice agent handles scheduling calls. Each call flows through tools and a webhook into two kinds
             of scoring: objective checks in code, and subjective checks by an LLM judge. The split is the whole point, the
             objective half is trustworthy by construction.
           </p>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {PIPELINE.map((step, i) => (
-              <span key={step} className="flex items-center gap-2">
-                <span className="rounded-md border border-zinc-800 bg-ink-raised px-3 py-1.5 text-xs text-zinc-300">{step}</span>
-                {i < PIPELINE.length - 1 && <span className="text-signal-amber">&rarr;</span>}
-              </span>
-            ))}
-          </div>
+          <Pipeline />
         </Section>
 
         <Section title="What we did to make it reliable">
           <ul className="flex flex-col gap-2">
             {RELIABILITY.map((point) => (
-              <li key={point} className="flex gap-2 text-sm text-zinc-400">
-                <span className="text-signal-amber">-</span>
+              <li key={point} className="flex gap-2 text-sm text-muted-foreground">
+                <span className="text-alarm-amber">-</span>
                 <span>{point}</span>
               </li>
             ))}
@@ -91,9 +126,9 @@ export default function HowItWorks() {
         <Section title="Honest FAQ">
           <div className="flex flex-col gap-5">
             {FAQ.map((item) => (
-              <div key={item.q} className="flex flex-col gap-1.5 rounded-lg border border-zinc-800/80 bg-ink-raised px-4 py-4">
-                <h3 className="text-sm font-medium text-zinc-100">{item.q}</h3>
-                <p className="text-sm text-zinc-400">{item.a}</p>
+              <div key={item.q} className="flex flex-col gap-1.5 rounded-lg border border-border/80 bg-card px-4 py-4">
+                <h3 className="text-sm font-medium text-foreground">{item.q}</h3>
+                <p className="text-sm text-muted-foreground">{item.a}</p>
               </div>
             ))}
           </div>

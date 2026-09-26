@@ -1,5 +1,6 @@
-// TrustCards - the honest, plain-words case for why the scores are trustworthy,
-// condensed into four points that each link into the full How it works page.
+// TrustCards - the honest, plain-words case for why the scores are trustworthy.
+// Four statements, not a sequence, so no numbering: each is a hairline-ruled
+// entry that links into the full How it works page.
 import Link from "next/link";
 import { Reveal } from "./Reveal";
 
@@ -18,24 +19,22 @@ const POINTS: { title: string; body: string }[] = [
   },
   {
     title: "We show you what it missed.",
-    body: "Every case is on the page, gold versus predicted, in green and red. A tool that hides its misses is not one to trust.",
+    body: "Every case is on the page, gold versus predicted. A tool that hides its misses is not one to trust.",
   },
 ];
 
 export function TrustCards() {
   return (
     <Reveal>
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-medium text-zinc-100">Why you can trust it</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <section className="flex flex-col gap-6">
+        <h2 className="font-display text-xl font-semibold tracking-tight">Why you can trust it</h2>
+        <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2">
           {POINTS.map((point) => (
-            <Link
-              key={point.title}
-              href="/how-it-works"
-              className="group flex flex-col gap-2 rounded-lg border border-zinc-800/80 bg-ink-raised px-4 py-4 transition-colors hover:border-signal-amber/50"
-            >
-              <span className="text-sm font-medium text-zinc-100 group-hover:text-signal-amber">{point.title}</span>
-              <span className="text-sm text-zinc-400">{point.body}</span>
+            <Link key={point.title} href="/how-it-works" className="group flex flex-col gap-2 border-t border-border pt-4">
+              <h3 className="text-base font-medium text-foreground transition-colors group-hover:text-alarm-amber">
+                {point.title}
+              </h3>
+              <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{point.body}</p>
             </Link>
           ))}
         </div>

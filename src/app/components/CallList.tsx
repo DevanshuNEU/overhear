@@ -1,7 +1,9 @@
-// CallList - the dashboard's main table: one row per scored call, newest
-// first. Presentational only; the page component supplies the data.
+// CallList - the dashboard's call feed. Each row leads with the score and what
+// happened; the raw call id is demoted to a small mono line so the feed reads
+// like a product, not a log. Presentational only.
 import Link from "next/link";
 import type { CallSummary } from "@/qa/queries";
+import { Badge } from "@/components/ui/badge";
 import { FAILURE_LABELS } from "./labels";
 import { ProcessingPill, ScoreBadge } from "./ScoreBadge";
 
@@ -18,7 +20,7 @@ function relativeTime(iso: string): string {
 
 export function CallList({ calls }: { calls: CallSummary[] }) {
   if (calls.length === 0) {
-    return <p className="text-sm text-zinc-400">No calls yet.</p>;
+    return <p className="text-sm text-muted-foreground">No calls yet.</p>;
   }
 
   return (
@@ -27,30 +29,37 @@ export function CallList({ calls }: { calls: CallSummary[] }) {
         <li key={call.id}>
           <Link
             href={`/calls/${call.id}`}
-            className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-ink-raised px-4 py-3 transition-colors hover:border-zinc-700 sm:flex-row sm:items-center sm:justify-between"
+            className="group flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-accent"
           >
-            <div className="flex items-center gap-3">
-              {call.status === "processing" || call.composite === null ? (
-                <ProcessingPill />
-              ) : (
-                <ScoreBadge composite={call.composite} />
-              )}
-              <span className="font-mono text-sm text-zinc-400">{call.id}</span>
-              {call.retellSentiment && (
-                <span className="text-sm text-zinc-400">{call.retellSentiment.toLowerCase()}</span>
-              )}
+            {call.status === "processing" || call.composite === null ? (
+              <ProcessingPill />
+            ) : (
+              <ScoreBadge composite={call.composite} />
+            )}
+
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {call.failureCategories.length > 0 ? (
+                  call.failureCategories.map((category) => (
+                    <Badge key={category} variant="destructive" className="bg-alarm-red/15 text-alarm-red">
+                      {FAILURE_LABELS[category] ?? category}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No issues flagged</span>
+                )}
+                {call.retellSentiment && (
+                  <Badge variant="secondary" className="font-normal">
+                    {call.retellSentiment.toLowerCase()}
+                  </Badge>
+                )}
+              </div>
+              <span className="truncate font-mono text-xs text-muted-foreground/70">{call.id}</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {call.failureCategories.map((category) => (
-                <span
-                  key={category}
-                  className="rounded-full border border-zinc-800 px-2 py-0.5 text-xs text-zinc-400"
-                >
-                  {FAILURE_LABELS[category] ?? category}
-                </span>
-              ))}
-              <span className="text-sm text-zinc-500">{relativeTime(call.scoredAt ?? call.startedAt)}</span>
-            </div>
+
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {relativeTime(call.scoredAt ?? call.startedAt)}
+            </span>
           </Link>
         </li>
       ))}
