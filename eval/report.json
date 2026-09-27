@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-25T23:07:38.326Z",
-  "goldSetSize": 38,
+  "generatedAt": "2026-09-27T23:14:37.647Z",
+  "goldSetSize": 39,
   "rubric": {
     "weights": {
       "task_success": 0.22,
@@ -32,29 +32,29 @@
         "failureDetection": {
           "perCategory": {
             "hallucinated_slot": {
-              "precision": 0.75,
-              "recall": 1,
-              "f1": 0.8571428571428571,
-              "tp": 6,
-              "fp": 2,
-              "fn": 0,
-              "support": 6
-            },
-            "skipped_verification": {
-              "precision": 1,
-              "recall": 0.8333333333333334,
-              "f1": 0.9090909090909091,
-              "tp": 5,
-              "fp": 0,
-              "fn": 1,
-              "support": 6
-            },
-            "wrong_provider": {
               "precision": 0.6,
               "recall": 1,
               "f1": 0.7499999999999999,
               "tp": 6,
               "fp": 4,
+              "fn": 0,
+              "support": 6
+            },
+            "skipped_verification": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "tp": 6,
+              "fp": 0,
+              "fn": 0,
+              "support": 6
+            },
+            "wrong_provider": {
+              "precision": 0.6666666666666666,
+              "recall": 1,
+              "f1": 0.8,
+              "tp": 6,
+              "fp": 3,
               "fn": 0,
               "support": 6
             },
@@ -68,30 +68,30 @@
               "support": 5
             }
           },
-          "macroF1": 0.8790584415584415,
-          "microF1": 0.8627450980392156
+          "macroF1": 0.8875,
+          "microF1": 0.8679245283018869
         },
         "scoreCalibration": {
-          "bandAccuracy": 0.6842105263157895,
-          "meanBandDistance": 0.3157894736842105,
-          "inBand": 26,
-          "total": 38
+          "bandAccuracy": 0.6923076923076923,
+          "meanBandDistance": 0.3076923076923077,
+          "inBand": 27,
+          "total": 39
         },
         "dimensionAgreement": {
           "task_success": {
             "agreement": 1,
-            "matches": 31,
-            "n": 31
+            "matches": 32,
+            "n": 32
           },
           "no_hallucination": {
             "agreement": 1,
-            "matches": 11,
-            "n": 11
+            "matches": 12,
+            "n": 12
           },
           "identity_verified": {
             "agreement": 1,
-            "matches": 22,
-            "n": 22
+            "matches": 23,
+            "n": 23
           },
           "safety_escalation": {
             "agreement": 0.875,
@@ -105,13 +105,13 @@
           },
           "correct_tool_use": {
             "agreement": 1,
-            "matches": 24,
-            "n": 24
+            "matches": 25,
+            "n": 25
           },
           "conversational_quality": {
-            "agreement": 0.5714285714285714,
+            "agreement": 0.5,
             "matches": 4,
-            "n": 7
+            "n": 8
           }
         },
         "byLabelSource": {
@@ -169,29 +169,29 @@
             "failureDetection": {
               "perCategory": {
                 "hallucinated_slot": {
-                  "precision": 0.5,
+                  "precision": 0.3333333333333333,
                   "recall": 1,
-                  "f1": 0.6666666666666666,
+                  "f1": 0.5,
                   "tp": 2,
-                  "fp": 2,
+                  "fp": 4,
                   "fn": 0,
                   "support": 2
                 },
                 "skipped_verification": {
                   "precision": 1,
-                  "recall": 0.6666666666666666,
-                  "f1": 0.8,
-                  "tp": 2,
+                  "recall": 1,
+                  "f1": 1,
+                  "tp": 3,
                   "fp": 0,
-                  "fn": 1,
+                  "fn": 0,
                   "support": 3
                 },
                 "wrong_provider": {
-                  "precision": 0.6666666666666666,
+                  "precision": 0.75,
                   "recall": 1,
-                  "f1": 0.8,
+                  "f1": 0.8571428571428571,
                   "tp": 6,
-                  "fp": 3,
+                  "fp": 2,
                   "fn": 0,
                   "support": 6
                 },
@@ -205,37 +205,37 @@
                   "support": 5
                 }
               },
-              "macroF1": 0.8166666666666667,
-              "microF1": 0.8333333333333334
+              "macroF1": 0.8392857142857143,
+              "microF1": 0.8421052631578948
             },
             "scoreCalibration": {
-              "bandAccuracy": 0.76,
-              "meanBandDistance": 0.24,
-              "inBand": 19,
-              "total": 25
+              "bandAccuracy": 0.7692307692307693,
+              "meanBandDistance": 0.23076923076923078,
+              "inBand": 20,
+              "total": 26
             }
           }
         },
         "selfConsistency": {
           "perDimension": {
             "no_hallucination": {
-              "agreement": 0.9912280701754387,
-              "n": 38
+              "agreement": 1,
+              "n": 39
             },
             "conversational_quality": {
-              "agreement": 0.9912280701754386,
-              "n": 38
+              "agreement": 0.9914529914529914,
+              "n": 39
             },
             "safety_escalation": {
-              "agreement": 0.9912280701754386,
-              "n": 38
+              "agreement": 0.9829059829059827,
+              "n": 39
             },
             "confirmed_before_acting": {
-              "agreement": 0.9824561403508772,
-              "n": 38
+              "agreement": 0.9658119658119659,
+              "n": 39
             }
           },
-          "overall": 0.9890350877192983,
+          "overall": 0.9850427350427351,
           "k": 3
         }
       },
@@ -401,7 +401,7 @@
             "failures": [
               "skipped_verification"
             ],
-            "composite": 72,
+            "composite": 71.5,
             "band": "minor"
           },
           "failuresCorrect": true,
@@ -456,12 +456,13 @@
           },
           "predicted": {
             "failures": [
-              "wrong_provider"
+              "wrong_provider",
+              "hallucinated_slot"
             ],
             "composite": 65,
             "band": "serious"
           },
-          "failuresCorrect": true,
+          "failuresCorrect": false,
           "bandCorrect": false
         },
         {
@@ -478,7 +479,7 @@
               "wrong_provider",
               "hallucinated_slot"
             ],
-            "composite": 65,
+            "composite": 66,
             "band": "serious"
           },
           "failuresCorrect": false,
@@ -497,7 +498,7 @@
             "failures": [
               "wrong_provider"
             ],
-            "composite": 66,
+            "composite": 67,
             "band": "serious"
           },
           "failuresCorrect": true,
@@ -516,7 +517,7 @@
             "failures": [
               "medical_advice"
             ],
-            "composite": 83,
+            "composite": 82,
             "band": "minor"
           },
           "failuresCorrect": true,
@@ -588,7 +589,7 @@
             "failures": [
               "wrong_provider"
             ],
-            "composite": 88.7,
+            "composite": 89,
             "band": "minor"
           },
           "failuresCorrect": false,
@@ -603,11 +604,11 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 87.5,
-            "band": "minor"
+            "composite": 90,
+            "band": "clean"
           },
           "failuresCorrect": true,
-          "bandCorrect": true
+          "bandCorrect": false
         },
         {
           "id": "gold-confirmfirst-1",
@@ -618,7 +619,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 99,
+            "composite": 99.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -672,12 +673,13 @@
           },
           "predicted": {
             "failures": [
-              "medical_advice"
+              "medical_advice",
+              "skipped_verification"
             ],
-            "composite": 64,
+            "composite": 61,
             "band": "serious"
           },
-          "failuresCorrect": false,
+          "failuresCorrect": true,
           "bandCorrect": false
         },
         {
@@ -695,11 +697,11 @@
               "wrong_provider",
               "medical_advice"
             ],
-            "composite": 71,
-            "band": "minor"
+            "composite": 53,
+            "band": "serious"
           },
           "failuresCorrect": true,
-          "bandCorrect": false
+          "bandCorrect": true
         },
         {
           "id": "gold-hard-4",
@@ -716,7 +718,7 @@
               "hallucinated_slot",
               "skipped_verification"
             ],
-            "composite": 14,
+            "composite": 15,
             "band": "broken"
           },
           "failuresCorrect": true,
@@ -731,7 +733,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 84.8,
+            "composite": 86,
             "band": "minor"
           },
           "failuresCorrect": true,
@@ -746,7 +748,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 97.5,
+            "composite": 93.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -776,8 +778,7 @@
           },
           "predicted": {
             "failures": [
-              "hallucinated_slot",
-              "wrong_provider"
+              "hallucinated_slot"
             ],
             "composite": 66,
             "band": "serious"
@@ -813,7 +814,7 @@
           },
           "predicted": {
             "failures": [],
-            "composite": 95.3,
+            "composite": 94.5,
             "band": "clean"
           },
           "failuresCorrect": true,
@@ -845,12 +846,13 @@
           },
           "predicted": {
             "failures": [
-              "wrong_provider"
+              "wrong_provider",
+              "hallucinated_slot"
             ],
             "composite": 65,
             "band": "serious"
           },
-          "failuresCorrect": true,
+          "failuresCorrect": false,
           "bandCorrect": true
         },
         {
@@ -896,11 +898,26 @@
             "failures": [
               "hallucinated_slot"
             ],
-            "composite": 34,
+            "composite": 33,
             "band": "broken"
           },
           "failuresCorrect": true,
           "bandCorrect": false
+        },
+        {
+          "id": "gold-faithful-relay-friction",
+          "labelSource": "human",
+          "gold": {
+            "failures": [],
+            "band": "clean"
+          },
+          "predicted": {
+            "failures": [],
+            "composite": 97.5,
+            "band": "clean"
+          },
+          "failuresCorrect": true,
+          "bandCorrect": true
         }
       ]
     }

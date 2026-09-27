@@ -904,4 +904,36 @@ export const CASES = [
     band: "serious",
     dimensions: { identity_verified: true, task_success: false, correct_tool_use: false, no_hallucination: false },
   }),
+
+  // Attribution case: the agent faithfully relays the only real slot (it IS in
+  // true state, so NOT a hallucination), but the caller hits friction over poor
+  // availability. Pins correct attribution: the judge should PASS no_hallucination
+  // and FAIL conversational_quality, blaming the data, not the model. This is the
+  // lesson from a live bug where a stale slot was scored as the agent's fault.
+  goldCase({
+    id: "gold-faithful-relay-friction",
+    labelSource: "human",
+    callerGoal: "book with Dr. Cruz, wants something soon",
+    trueSlots: [
+      { id: "c-far", providerId: "p3", providerName: "Dr. Elena Cruz", startsAt: "2026-12-15T14:00:00Z", status: "open" },
+    ],
+    actionEvents: [
+      { id: "e1", callId: "gold-faithful-relay-friction", tool: "verify_patient", args: {}, result: { verified: true }, ok: true, ts: "2026-11-10T09:00:00Z" },
+      { id: "e2", callId: "gold-faithful-relay-friction", tool: "check_availability", args: { providerId: "p3" }, result: { slots: ["c-far"] }, ok: true, ts: "2026-11-10T09:00:01Z" },
+      { id: "e3", callId: "gold-faithful-relay-friction", tool: "book_appointment", args: { slotId: "c-far" }, result: { ok: true }, ok: true, ts: "2026-11-10T09:00:02Z" },
+    ],
+    lines: [
+      { role: "user", content: "I'd like to see Dr. Cruz as soon as possible." },
+      { role: "agent", content: "Let me verify you first, name and date of birth?" },
+      { role: "user", content: "Priya Kapoor, 1988-04-19." },
+      { role: "agent", content: "You're verified. The earliest opening I have with Dr. Cruz is December 15th at 2pm." },
+      { role: "user", content: "December? That is ages away, is there really nothing sooner?" },
+      { role: "agent", content: "I'm sorry, that is the only opening Dr. Cruz has in the system right now. I can book it, or check another provider for you." },
+      { role: "user", content: "Ugh, fine, book the 15th." },
+      { role: "agent", content: "Booked with Dr. Cruz, December 15th at 2pm." },
+    ],
+    failures: [],
+    band: "clean",
+    dimensions: { identity_verified: true, task_success: true, correct_tool_use: true, no_hallucination: true, conversational_quality: false },
+  }),
 ];
