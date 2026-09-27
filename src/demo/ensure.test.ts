@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { createTestDb } from "@/db/testing";
 import { appointmentSlots, patients, providers } from "@/db/schema";
 import { ensureDemoData, __resetThrottleForTests } from "./ensure";
@@ -28,6 +28,39 @@ describe("ensureDemoData", () => {
     const rows = await ctx.db.select().from(patients);
     expect(rows).toHaveLength(DEMO_PERSONAS.length);
     expect(rows.map((r) => r.name)).toContain("Devanshu Chicholikar");
+  });
+
+  it("sweeps away past-dated open slots so they go out of service", async () => {
+    ctx = await createTestDb();
+    const p = await addProvider(ctx.db);
+    await ctx.db.insert(appointmentSlots).values({
+      providerId: p.id,
+      startsAt: new Date("2026-09-20T09:00:00Z"), // before `at` (2026-09-23)
+      status: "open",
+    });
+
+    await ensureDemoData(ctx.db, clockAt(at));
+
+    const stale = await ctx.db
+      .select()
+      .from(appointmentSlots)
+      .where(and(eq(appointmentSlots.status, "open"), lt(appointmentSlots.startsAt, at)));
+    expect(stale).toHaveLength(0);
+  });
+
+  it("keeps booked past slots (real history) when sweeping", async () => {
+    ctx = await createTestDb();
+    const p = await addProvider(ctx.db);
+    const [booked] = await ctx.db.insert(appointmentSlots).values({
+      providerId: p.id,
+      startsAt: new Date("2026-09-20T09:00:00Z"), // past, but booked
+      status: "booked",
+    }).returning();
+
+    await ensureDemoData(ctx.db, clockAt(at));
+
+    const still = await ctx.db.select().from(appointmentSlots).where(eq(appointmentSlots.id, booked.id));
+    expect(still).toHaveLength(1);
   });
 
   it("generates only future-dated open slots when below the floor", async () => {

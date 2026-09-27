@@ -33,6 +33,43 @@ describe("ClinicService", () => {
     expect(bookedSlot[0].status).toBe("booked");
   });
 
+  it("does not offer slots whose time has already passed", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    const [past] = await ctx.db.insert(appointmentSlots)
+      .values({ providerId: p.id, startsAt: new Date("2026-09-24T09:00:00Z") }).returning();
+    const [future] = await ctx.db.insert(appointmentSlots)
+      .values({ providerId: p.id, startsAt: new Date("2026-09-28T09:00:00Z") }).returning();
+    const svc = makeClinicService(ctx.db, () => new Date("2026-09-26T12:00:00Z"));
+
+    const out = await svc.checkAvailability("call_1", {});
+    const ids = out.result.slots.map((s) => s.id);
+    expect(ids).toContain(future.id);
+    expect(ids).not.toContain(past.id);
+  });
+
+  it("still offers a slot at exactly the current moment (only strictly-past drop)", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    const nowIso = "2026-09-26T12:00:00Z";
+    const [atNow] = await ctx.db.insert(appointmentSlots)
+      .values({ providerId: p.id, startsAt: new Date(nowIso) }).returning();
+    const svc = makeClinicService(ctx.db, () => new Date(nowIso));
+
+    const out = await svc.checkAvailability("call_1", {});
+    expect(out.result.slots.map((s) => s.id)).toContain(atNow.id);
+  });
+
+  it("returns nothing when the requested date is already in the past", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    await ctx.db.insert(appointmentSlots).values({ providerId: p.id, startsAt: new Date("2026-09-24T09:00:00Z") });
+    const svc = makeClinicService(ctx.db, () => new Date("2026-09-26T12:00:00Z"));
+
+    const out = await svc.checkAvailability("call_1", { date: "2026-09-24" });
+    expect(out.result.slots).toHaveLength(0);
+  });
+
   it("refuses to double-book a slot", async () => {
     ctx = await createTestDb();
     const { slot, pat } = await fixture(ctx.db);
