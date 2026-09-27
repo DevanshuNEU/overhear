@@ -7,7 +7,7 @@
 // slots to book into, topping slots up only when they run low (they go stale by
 // date and get consumed as people book). Everything here is idempotent and
 // throttled so the dashboard's 5-second auto-refresh does not hammer the DB.
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { appointmentSlots, patients, providers } from "@/db/schema";
 import { DEMO_PERSONAS } from "./personas";
@@ -55,6 +55,12 @@ async function ensureSlots(db: DB | any, now: () => Date): Promise<void> {
   // none yet there is nothing to attach slots to, so leave it to the seed.
   const provs = await db.select({ id: providers.id }).from(providers);
   if (provs.length === 0) return;
+
+  // Take past-dated open slots out of service every run. Only open ones: a booked
+  // slot in the past is real history and keeps its appointment. This runs before
+  // the floor check so stale slots are always cleared, even when future slots are
+  // plentiful.
+  await db.delete(appointmentSlots).where(and(eq(appointmentSlots.status, "open"), lt(appointmentSlots.startsAt, nowDate)));
 
   const openFuture = await db
     .select({ id: appointmentSlots.id })

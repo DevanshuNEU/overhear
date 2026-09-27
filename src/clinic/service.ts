@@ -19,7 +19,11 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
         startsAt: appointmentSlots.startsAt, status: appointmentSlots.status,
       }).from(appointmentSlots).innerJoin(providers, eq(appointmentSlots.providerId, providers.id))
         .where(eq(appointmentSlots.status, "open"));
+      const nowMs = now().getTime();
       const slots: Slot[] = rows
+        // Never offer a slot whose time has already passed: a stale past-dated
+        // open slot is out of service, not availability.
+        .filter((r: any) => new Date(r.startsAt).getTime() >= nowMs)
         .filter((r: any) => !args.providerName || r.providerName === args.providerName)
         .filter((r: any) => !args.date || new Date(r.startsAt).toISOString().slice(0, 10) === args.date)
         .map((r: any) => ({ ...r, startsAt: new Date(r.startsAt).toISOString() }));
