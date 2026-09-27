@@ -48,6 +48,21 @@ describe("ensureDemoData", () => {
     expect(stale).toHaveLength(0);
   });
 
+  it("keeps booked past slots (real history) when sweeping", async () => {
+    ctx = await createTestDb();
+    const p = await addProvider(ctx.db);
+    const [booked] = await ctx.db.insert(appointmentSlots).values({
+      providerId: p.id,
+      startsAt: new Date("2026-09-20T09:00:00Z"), // past, but booked
+      status: "booked",
+    }).returning();
+
+    await ensureDemoData(ctx.db, clockAt(at));
+
+    const still = await ctx.db.select().from(appointmentSlots).where(eq(appointmentSlots.id, booked.id));
+    expect(still).toHaveLength(1);
+  });
+
   it("generates only future-dated open slots when below the floor", async () => {
     ctx = await createTestDb();
     await addProvider(ctx.db);
