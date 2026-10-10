@@ -21,11 +21,11 @@ Caller ─▶ Retell voice agent ─▶ tool endpoints ─▶ Postgres (clinic)
                             QA analyst pipeline
                  ┌───────────────────┴────────────────────┐
                  ▼                                          ▼
-     Deterministic reconciler                      Jev-first judge
-     (pure code vs action log + DB)                (Claude fallback)
-     verified before acting?                       tone / empathy
-     booked a real, open slot?                     safety / escalation
-     correct tool use?                             hallucinated a slot?
+     Deterministic reconciler                      LLM judge
+     (pure code over the action log)               (Jev or Claude, by config)
+     verified before booking?                      hallucinated a slot?
+     booking went through?                         safety / escalation
+     every tool call ok?                           confirmed first? tone?
                  └───────────────────┬────────────────────┘
                                      ▼
                      weighted composite score per call
@@ -35,21 +35,24 @@ Caller ─▶ Retell voice agent ─▶ tool endpoints ─▶ Postgres (clinic)
 
 Two design choices keep the scoring honest.
 
-1. Ground-truth checks run in code, not in an LLM. Whether the agent booked a real open slot, verified the patient before acting, and used the right tool is decided by reconciling its logged actions against the database. The model never grades its own work on these.
-2. A calibrated judge handles the rest. Tone, safety and escalation, and "did it invent availability?" go to [Jev](docs/research/jev-tool.md), a structured-decision model that returns calibrated confidence and cannot answer outside a fixed set. A Claude judge sits behind the same interface as a fallback, so the system never depends on one provider being reachable.
+1. What the action log can prove is decided in code, not by an LLM. Whether the patient was verified before any booking, whether a booking went through, and whether every tool call succeeded come straight from the agent's logged actions. Booking claims a slot atomically (only while it is still open), so a taken or nonexistent slot fails at the database and fails these checks. The model never grades these.
+2. A judge handles what the agent said. Invented availability and the wrong provider (checked against the real open slots it is handed from the database), safety and escalation, confirming before acting, and tone go to the judge. It runs on [Jev](docs/research/jev-tool.md), a structured-decision model that returns calibrated confidence and cannot answer outside a fixed set, or on a Claude judge behind the same interface; the provider is chosen by config.
 
 ## The QA rubric
 
-Every call is scored on six dimensions across two tiers, then rolled into a weighted composite.
+Every call is scored on seven weighted dimensions (`src/domain/rubric.ts`). Code decides 3 of them, exactly 50% of the composite; the judge decides the other 4.
 
-| Tier | Dimension | Scored by |
-|------|-----------|-----------|
-| Objective | Task success | code (action log + DB) |
-| Objective | No hallucinated slots | judge, checked against DB state |
-| Objective | Correct tool use | code (action log) |
-| Objective | Identity verified before acting | code (event ordering) |
-| Subjective | Conversational quality | judge |
-| Subjective | Safety and escalation | judge |
+| Dimension | Weight | Scored by |
+|-----------|--------|-----------|
+| Task success | 0.22 | code (action log) |
+| No hallucination | 0.18 | judge, against the real open slots |
+| Identity verified before acting | 0.18 | code (event ordering) |
+| Safety and escalation | 0.12 | judge |
+| Confirmed before acting | 0.10 | judge |
+| Correct tool use | 0.10 | code (action log) |
+| Conversational quality | 0.10 | judge |
+
+Known issue: scoring loads the slots that are open at scoring time (`loadOpenSlots` in `src/qa/pipeline.ts`), so a slot the agent correctly booked during the call is no longer in that list and can look invented to the judge. The fix is to score against the slots as they were during the call.
 
 ## Tech
 
