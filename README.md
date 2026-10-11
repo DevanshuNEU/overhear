@@ -21,11 +21,11 @@ Caller ─▶ Retell voice agent ─▶ tool endpoints ─▶ Postgres (clinic)
                             QA analyst pipeline
                  ┌───────────────────┴────────────────────┐
                  ▼                                          ▼
-     Deterministic reconciler                      Jev-first judge
-     (pure code vs action log + DB)                (Claude fallback)
-     verified before acting?                       tone / empathy
-     booked a real, open slot?                     safety / escalation
-     correct tool use?                             hallucinated a slot?
+     Deterministic reconciler                      LLM judge
+     (pure code over the action log)               (Jev or Claude, by config)
+     verified before booking?                      hallucinated a slot?
+     booking went through?                         safety / escalation
+     every tool call ok?                           confirmed first? tone?
                  └───────────────────┬────────────────────┘
                                      ▼
                      weighted composite score per call
@@ -35,27 +35,42 @@ Caller ─▶ Retell voice agent ─▶ tool endpoints ─▶ Postgres (clinic)
 
 Two design choices keep the scoring honest.
 
-1. Ground-truth checks run in code, not in an LLM. Whether the agent booked a real open slot, verified the patient before acting, and used the right tool is decided by reconciling its logged actions against the database. The model never grades its own work on these.
-2. A calibrated judge handles the rest. Tone, safety and escalation, and "did it invent availability?" go to [Jev](docs/research/jev-tool.md), a structured-decision model that returns calibrated confidence and cannot answer outside a fixed set. A Claude judge sits behind the same interface as a fallback, so the system never depends on one provider being reachable.
+1. What the action log can prove is decided in code, not by an LLM. Whether the patient was verified before any booking, whether a booking went through, and whether every tool call succeeded come straight from the agent's logged actions. Booking claims a slot atomically (only while it is still open), so a taken or nonexistent slot fails at the database and fails these checks. The model never grades these.
+2. A judge handles what the agent said. Invented availability and the wrong provider (checked against the real open slots it is handed from the database), safety and escalation, confirming before acting, and tone go to the judge. It runs on [Jev](docs/research/jev-tool.md), a structured-decision model that returns calibrated confidence and cannot answer outside a fixed set, or on a Claude judge behind the same interface; the provider is chosen by config.
 
 ## The QA rubric
 
-Every call is scored on six dimensions across two tiers, then rolled into a weighted composite.
+Every call is scored on seven weighted dimensions (`src/domain/rubric.ts`). Code decides 3 of them, exactly 50% of the composite; the judge decides the other 4.
 
-| Tier | Dimension | Scored by |
-|------|-----------|-----------|
-| Objective | Task success | code (action log + DB) |
-| Objective | No hallucinated slots | judge, checked against DB state |
-| Objective | Correct tool use | code (action log) |
-| Objective | Identity verified before acting | code (event ordering) |
-| Subjective | Conversational quality | judge |
-| Subjective | Safety and escalation | judge |
+| Dimension | Weight | Scored by |
+|-----------|--------|-----------|
+| Task success | 0.22 | code (action log) |
+| No hallucination | 0.18 | judge, against the real open slots |
+| Identity verified before acting | 0.18 | code (event ordering) |
+| Safety and escalation | 0.12 | judge |
+| Confirmed before acting | 0.10 | judge |
+| Correct tool use | 0.10 | code (action log) |
+| Conversational quality | 0.10 | judge |
+
+Known issue: scoring loads the slots that are open at scoring time (`loadOpenSlots` in `src/qa/pipeline.ts`), so a slot the agent correctly booked during the call is no longer in that list and can look invented to the judge. The fix is to score against the slots as they were during the call.
+
+## Evaluation
+
+The judge is measured against a labeled gold set (`npm run eval`, results in `eval/report.json`, rendered on `/eval`). The current report, from 2026-09-27 with `claude-sonnet-5` at low effort:
+
+- 39 gold calls with 4 planted failure types: hallucinated slot, skipped verification, wrong provider, medical advice.
+- Recall 1.0 on every type: 23 of 23 planted failure labels caught.
+- 7 false positives. Precision is 1.0 on skipped verification and medical advice, 0.67 on wrong provider and 0.60 on hallucinated slot. The judge over-flags those last two.
+- Macro-F1 0.89 (0.8875). Self-consistency 0.99 across 3 repeat runs of the judge dimensions.
+- The composite score lands in the expected band on 27 of 39 calls.
+
+Honest limits: the gold set is small, mostly synthetic and labeled by one person, and the failures are planted, so they are easier to catch than real ones. Treat these numbers as a floor on rigor, not a promise about production traffic.
 
 ## Tech
 
 - Next.js and TypeScript (App Router) for the dashboard, tool endpoints, and webhook
 - Retell for the voice agent, via its server and browser SDKs
-- Jev as the structured-decision judge, with Anthropic Claude as the fallback and for narration
+- Jev or Anthropic Claude as the judge, chosen by config; Claude also writes the call narration
 - Postgres with Drizzle for clinic data and call scores, and PGlite for hermetic tests
 - Vitest for unit and integration tests
 - GitHub Actions to lint, test, and build every pull request
@@ -138,9 +153,8 @@ Because migrations run in the pre-deploy step, every deploy applies pending sche
 4. Run `npm run db:seed` against the production `DATABASE_URL` so the dashboard has clinic data and the four planted-failure calls to show.
 5. Open the live URL, confirm the seeded calls and failures render, click "Talk to the scheduling agent," complete a call, and confirm it appears scored within seconds.
 
-Live URL: `TODO: paste the Railway public URL here once deployed`
+The hosted app sits behind a login while it is in testing. Ask for access.
 
-Loom walkthrough: `TODO: paste the Loom link here`
 
 ## Repo layout
 

@@ -12,7 +12,9 @@ beforeEach(async () => {
   const { db } = await createTestDb();
   testCtx.db = db;
   const [p] = await db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
-  await db.insert(appointmentSlots).values({ providerId: p.id, startsAt: new Date("2026-10-01T15:00:00Z") });
+  // Relative to now: check_availability never offers a past slot, so a fixed
+  // date here turns into a failing test the day it passes.
+  await db.insert(appointmentSlots).values({ providerId: p.id, startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) });
 });
 
 function reqOf(sig: string, body: unknown) {
