@@ -54,11 +54,23 @@ Every call is scored on seven weighted dimensions (`src/domain/rubric.ts`). Code
 
 Known issue: scoring loads the slots that are open at scoring time (`loadOpenSlots` in `src/qa/pipeline.ts`), so a slot the agent correctly booked during the call is no longer in that list and can look invented to the judge. The fix is to score against the slots as they were during the call.
 
+## Evaluation
+
+The judge is measured against a labeled gold set (`npm run eval`, results in `eval/report.json`, rendered on `/eval`). The current report, from 2026-09-27 with `claude-sonnet-5` at low effort:
+
+- 39 gold calls with 4 planted failure types: hallucinated slot, skipped verification, wrong provider, medical advice.
+- Recall 1.0 on every type: 23 of 23 planted failure labels caught.
+- 7 false positives. Precision is 1.0 on skipped verification and medical advice, 0.67 on wrong provider and 0.60 on hallucinated slot. The judge over-flags those last two.
+- Macro-F1 0.89 (0.8875). Self-consistency 0.99 across 3 repeat runs of the judge dimensions.
+- The composite score lands in the expected band on 27 of 39 calls.
+
+Honest limits: the gold set is small, mostly synthetic and labeled by one person, and the failures are planted, so they are easier to catch than real ones. Treat these numbers as a floor on rigor, not a promise about production traffic.
+
 ## Tech
 
 - Next.js and TypeScript (App Router) for the dashboard, tool endpoints, and webhook
 - Retell for the voice agent, via its server and browser SDKs
-- Jev as the structured-decision judge, with Anthropic Claude as the fallback and for narration
+- Jev or Anthropic Claude as the judge, chosen by config; Claude also writes the call narration
 - Postgres with Drizzle for clinic data and call scores, and PGlite for hermetic tests
 - Vitest for unit and integration tests
 - GitHub Actions to lint, test, and build every pull request
@@ -141,9 +153,8 @@ Because migrations run in the pre-deploy step, every deploy applies pending sche
 4. Run `npm run db:seed` against the production `DATABASE_URL` so the dashboard has clinic data and the four planted-failure calls to show.
 5. Open the live URL, confirm the seeded calls and failures render, click "Talk to the scheduling agent," complete a call, and confirm it appears scored within seconds.
 
-Live URL: `TODO: paste the Railway public URL here once deployed`
+The hosted app sits behind a login while it is in testing. Ask for access.
 
-Loom walkthrough: `TODO: paste the Loom link here`
 
 ## Repo layout
 
