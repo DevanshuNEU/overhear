@@ -2,9 +2,9 @@
 
 An AI QA analyst for voice agents.
 
-Overhear runs a healthcare-scheduling voice agent on [Retell](https://www.retellai.com/), then grades every call it takes against the clinic's real database. It catches hallucinated appointment slots, skipped identity checks, wrong-provider bookings, and out-of-scope medical questions on its own.
+Overhear runs a healthcare-scheduling voice agent on [Retell](https://www.retellai.com/), then grades every call it takes. Code checks what the call's action log proves, and an LLM judge checks what the agent said against the clinic's real open slots. It catches hallucinated appointment slots, skipped identity checks, wrong-provider bookings, and out-of-scope medical questions on its own.
 
-As voice AI agents move into production, someone has to watch them. Overhear is a small working prototype of one answer: an AI worker that grades other AI workers. A frontline agent takes the call, and a QA analyst scores it against ground truth rather than against a model's opinion.
+As voice AI agents move into production, someone has to watch them. Overhear is a small working prototype of one answer: an AI worker that grades other AI workers. A frontline agent takes the call, and a QA analyst scores it, with code deciding whatever the call log can prove.
 
 > A personal project built to explore voice-AI quality assurance. Not affiliated with Retell.
 
