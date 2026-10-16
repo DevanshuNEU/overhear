@@ -87,6 +87,62 @@ describe("ClinicService", () => {
     expect(v.result.verified).toBe(false);
   });
 
+  // Names arrive through speech-to-text, so they are never exact. These are the
+  // real mishearings from production calls; the date of birth came through
+  // correctly every time, so it is the exact key and the name is matched loosely.
+  it("verifies a misheard name when the date of birth matches exactly", async () => {
+    ctx = await createTestDb();
+    await ctx.db.insert(patients).values([
+      { name: "Devanshu Chicholikar", dob: "2000-02-09" },
+      { name: "Aisha Rahman", dob: "1991-08-17" },
+    ]);
+    const svc = makeClinicService(ctx.db);
+    for (const [name, dob] of [
+      ["Divan Chuych Cholikar", "2000-02-09"],
+      ["Divanshu Chulikar", "2000-02-09"],
+      ["divanshu chicholikar ", "2000-02-09"],
+      ["Ayushar Rahman", "1991-08-17"],
+    ]) {
+      const v = await svc.verifyPatient("call_1", { name, dob });
+      expect(v.result.verified, name).toBe(true);
+    }
+  });
+
+  it("returns the name on file so the agent can use the right one", async () => {
+    ctx = await createTestDb();
+    const [pat] = await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "2000-02-09" }).returning();
+    const svc = makeClinicService(ctx.db);
+    const v = await svc.verifyPatient("call_1", { name: "Divanshu Chulikar", dob: "2000-02-09" });
+    expect(v.result).toEqual({ verified: true, patientId: pat.id, patientName: "Devanshu Chicholikar" });
+  });
+
+  it("does not verify a different person who shares the date of birth", async () => {
+    ctx = await createTestDb();
+    await ctx.db.insert(patients).values({ name: "Jordan Ellis", dob: "1985-03-14" });
+    const svc = makeClinicService(ctx.db);
+    const v = await svc.verifyPatient("call_1", { name: "Morgan Reyes", dob: "1985-03-14" });
+    expect(v.result.verified).toBe(false);
+  });
+
+  it("does not verify the right name with the wrong date of birth", async () => {
+    ctx = await createTestDb();
+    await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "2000-02-09" });
+    const svc = makeClinicService(ctx.db);
+    const v = await svc.verifyPatient("call_1", { name: "Devanshu Chicholikar", dob: "2000-09-02" });
+    expect(v.result.verified).toBe(false);
+  });
+
+  it("picks the closest name when two patients share a date of birth", async () => {
+    ctx = await createTestDb();
+    const [, aisha] = await ctx.db.insert(patients).values([
+      { name: "Aisha Rahim", dob: "1991-08-17" },
+      { name: "Aisha Rahman", dob: "1991-08-17" },
+    ]).returning();
+    const svc = makeClinicService(ctx.db);
+    const v = await svc.verifyPatient("call_1", { name: "Aisha Rahman", dob: "1991-08-17" });
+    expect(v.result.patientId).toBe(aisha.id);
+  });
+
   it("refuses to cancel an already-cancelled appointment", async () => {
     ctx = await createTestDb();
     const { slot, pat } = await fixture(ctx.db);
