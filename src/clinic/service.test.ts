@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createTestDb, type TestDB } from "@/db/testing";
-import { providers, appointmentSlots, patients, actionEvents } from "@/db/schema";
-import { makeClinicService } from "./service";
+import { providers, appointmentSlots, patients, appointments, actionEvents } from "@/db/schema";
+import { makeClinicService, MAX_SLOTS_OFFERED } from "./service";
 import { eq } from "drizzle-orm";
 
 let ctx: Awaited<ReturnType<typeof createTestDb>>;
@@ -74,6 +74,7 @@ describe("ClinicService", () => {
     ctx = await createTestDb();
     const { slot, pat } = await fixture(ctx.db);
     const svc = makeClinicService(ctx.db);
+    await svc.verifyPatient("call_1", { name: "Alex Kim", dob: "1990-04-02" });
     await svc.bookAppointment("call_1", { patientId: pat.id, slotId: slot.id });
     const second = await svc.bookAppointment("call_1", { patientId: pat.id, slotId: slot.id });
     expect(second.result.ok).toBe(false);
@@ -147,6 +148,7 @@ describe("ClinicService", () => {
     ctx = await createTestDb();
     const { slot, pat } = await fixture(ctx.db);
     const svc = makeClinicService(ctx.db);
+    await svc.verifyPatient("call_1", { name: "Alex Kim", dob: "1990-04-02" });
     const b = await svc.bookAppointment("call_1", { patientId: pat.id, slotId: slot.id });
     const appointmentId = b.result.appointmentId!;
 
@@ -155,5 +157,114 @@ describe("ClinicService", () => {
 
     const second = await svc.cancelAppointment("call_1", { appointmentId });
     expect(second.result.ok).toBe(false);
+  });
+
+  // The agent's prompt says "verify first", but a prompt is not a guard. These
+  // checks live in the service so a misbehaving agent cannot change another
+  // patient's appointment, whatever it says on the call.
+  describe("only changes appointments for the patient verified on this call", () => {
+    async function twoPatients(db: TestDB) {
+      const [p] = await db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+      const [s1, s2, s3] = await db.insert(appointmentSlots).values([
+        { providerId: p.id, startsAt: new Date("2026-10-01T15:00:00Z") },
+        { providerId: p.id, startsAt: new Date("2026-10-02T15:00:00Z") },
+        { providerId: p.id, startsAt: new Date("2026-10-03T15:00:00Z") },
+      ]).returning();
+      const [marcus, dana] = await db.insert(patients).values([
+        { name: "Marcus Lee", dob: "1980-01-01" },
+        { name: "Dana Fields", dob: "1975-05-05" },
+      ]).returning();
+      // Dana books her own appointment on an earlier call.
+      const svc = makeClinicService(db);
+      await svc.verifyPatient("call_dana", { name: "Dana Fields", dob: "1975-05-05" });
+      const danas = await svc.bookAppointment("call_dana", { patientId: dana.id, slotId: s1.id });
+      return { svc, s1, s2, s3, marcus, dana, danasAppointment: danas.result.appointmentId! };
+    }
+
+    it("refuses to book before anyone is verified on the call", async () => {
+      ctx = await createTestDb();
+      const { slot, pat } = await fixture(ctx.db);
+      const svc = makeClinicService(ctx.db);
+      const b = await svc.bookAppointment("call_1", { patientId: pat.id, slotId: slot.id });
+      expect(b.result).toEqual({ ok: false, error: "not_verified" });
+      const [s] = await ctx.db.select().from(appointmentSlots).where(eq(appointmentSlots.id, slot.id));
+      expect(s.status).toBe("open");
+    });
+
+    it("refuses to book for a patient other than the one verified", async () => {
+      ctx = await createTestDb();
+      const { svc, s2, dana } = await twoPatients(ctx.db);
+      await svc.verifyPatient("call_marcus", { name: "Marcus Lee", dob: "1980-01-01" });
+      const b = await svc.bookAppointment("call_marcus", { patientId: dana.id, slotId: s2.id });
+      expect(b.result).toEqual({ ok: false, error: "not_owner" });
+    });
+
+    it("refuses to cancel another patient's appointment", async () => {
+      ctx = await createTestDb();
+      const { svc, danasAppointment } = await twoPatients(ctx.db);
+      await svc.verifyPatient("call_marcus", { name: "Marcus Lee", dob: "1980-01-01" });
+      const c = await svc.cancelAppointment("call_marcus", { appointmentId: danasAppointment });
+      expect(c.result).toEqual({ ok: false, error: "not_owner" });
+      const [appt] = await ctx.db.select().from(appointments).where(eq(appointments.id, danasAppointment));
+      expect(appt.status).toBe("booked");
+    });
+
+    it("refuses to reschedule another patient's appointment", async () => {
+      ctx = await createTestDb();
+      const { svc, s1, s3, danasAppointment } = await twoPatients(ctx.db);
+      await svc.verifyPatient("call_marcus", { name: "Marcus Lee", dob: "1980-01-01" });
+      const r = await svc.rescheduleAppointment("call_marcus", { appointmentId: danasAppointment, newSlotId: s3.id });
+      expect(r.result).toEqual({ ok: false, error: "not_owner" });
+      const [appt] = await ctx.db.select().from(appointments).where(eq(appointments.id, danasAppointment));
+      expect(appt.slotId).toBe(s1.id);
+    });
+
+    it("still lets the verified patient change their own appointment", async () => {
+      ctx = await createTestDb();
+      const { svc, s3, danasAppointment } = await twoPatients(ctx.db);
+      await svc.verifyPatient("call_dana_2", { name: "Dana Fields", dob: "1975-05-05" });
+      const r = await svc.rescheduleAppointment("call_dana_2", { appointmentId: danasAppointment, newSlotId: s3.id });
+      expect(r.result.ok).toBe(true);
+    });
+
+    it("logs every refusal, so the QA pipeline sees the attempt", async () => {
+      ctx = await createTestDb();
+      const { svc, danasAppointment } = await twoPatients(ctx.db);
+      await svc.cancelAppointment("call_marcus", { appointmentId: danasAppointment });
+      const events = await ctx.db.select().from(actionEvents).where(eq(actionEvents.callId, "call_marcus"));
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ tool: "cancel_appointment", ok: false, result: { ok: false, error: "not_verified" } });
+    });
+  });
+
+  // The model sometimes invents ids. A malformed id used to throw inside
+  // Postgres before the action was logged, so the failed attempt was invisible
+  // to the reconciler and the tool route returned a 500.
+  it("rejects and logs a malformed id instead of throwing", async () => {
+    ctx = await createTestDb();
+    await fixture(ctx.db);
+    const svc = makeClinicService(ctx.db);
+    await svc.verifyPatient("call_1", { name: "Alex Kim", dob: "1990-04-02" });
+    const b = await svc.bookAppointment("call_1", { patientId: "patient-123", slotId: "tuesday-3pm" });
+    expect(b.result).toEqual({ ok: false, error: "invalid_id" });
+    const events = await ctx.db.select().from(actionEvents).where(eq(actionEvents.callId, "call_1"));
+    expect(events.find((e) => e.tool === "book_appointment")).toMatchObject({ ok: false });
+  });
+
+  // The log must hold exactly what the agent was shown: the QA pipeline reads
+  // it as "the slots the agent saw". The cap used to be applied after logging.
+  it("returns and logs the same capped, time-ordered list of slots", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    const times = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 10, 30 - i, 9)));
+    await ctx.db.insert(appointmentSlots).values(times.map((startsAt) => ({ providerId: p.id, startsAt })));
+    const svc = makeClinicService(ctx.db, () => new Date("2026-10-01T00:00:00Z"));
+
+    const out = await svc.checkAvailability("call_1", {});
+    expect(out.result.slots).toHaveLength(MAX_SLOTS_OFFERED);
+    const starts = out.result.slots.map((s) => s.startsAt);
+    expect(starts).toEqual([...starts].sort());
+    const [logged] = await ctx.db.select().from(actionEvents).where(eq(actionEvents.callId, "call_1"));
+    expect(logged.result).toEqual(out.result);
   });
 });

@@ -5,9 +5,10 @@
 //
 // Nine calls total: five clean bookings that should score high, plus one
 // call per planted failure, one per QA dimension:
-//   - skipped_verification: reconciler-visible. The booking action has no
+//   - skipped_verification: reconciler-visible. The booking attempt has no
 //     preceding verify_patient event, so identity_verified fails on its own,
-//     no LLM needed.
+//     no LLM needed. The service refuses the booking (not_verified), so the
+//     agent's "you're booked" is also a confirmation nothing backs.
 //   - hallucinated_slot: the agent offers a time that is not among the real
 //     open slots, then tries to book it. Since that slot does not exist, the
 //     booking tool call itself fails, so task_success and correct_tool_use
@@ -138,8 +139,9 @@ export async function seed(db: DB | any): Promise<void> {
     { role: "agent", content: "You're all set for November 20th at 3pm with Dr. Torres." },
   ]));
 
-  // (b) skipped verification - the agent books a real, open slot but never
-  // calls verify_patient first.
+  // (b) skipped verification - the agent tries to book a real, open slot
+  // without calling verify_patient first. The service refuses it, and the
+  // agent tells the caller they're booked anyway.
   await svc.checkAvailability("seed-fail-skipped-verification", { providerName: "Dr. Amara Osei" });
   await svc.bookAppointment("seed-fail-skipped-verification", { patientId: alex.id, slotId: o3.id });
   calls.push(call("seed-fail-skipped-verification", "Alex Kim booked with Dr. Osei without an ID check", "Neutral", [
