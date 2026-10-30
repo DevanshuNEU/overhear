@@ -49,13 +49,20 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
     await db.insert(actionEvents).values({ callId, tool, args, result, ok, ts: now() });
   }
   // The patient most recently verified on this call, from this call's own
-  // action log. A change is allowed only for that patient.
+  // action log. A change is allowed only for that patient. If the latest
+  // timestamp holds successful verifications of different patients, the order
+  // between them is unknown, so no one counts as verified.
   async function verifiedPatientId(callId: string): Promise<string | null> {
     const rows = await db.select().from(actionEvents)
       .where(and(eq(actionEvents.callId, callId), eq(actionEvents.tool, "verify_patient")))
       .orderBy(desc(actionEvents.ts));
-    const verified = rows.find((r: any) => r.result?.verified === true);
-    return verified ? (verified.result as { patientId: string }).patientId : null;
+    const verified = rows.filter((r: any) => r.result?.verified === true);
+    if (verified.length === 0) return null;
+    const latest = new Date(verified[0].ts).getTime();
+    const ids = new Set<string>(verified
+      .filter((r: any) => new Date(r.ts).getTime() === latest)
+      .map((r: any) => String(r.result.patientId).toLowerCase()));
+    return ids.size === 1 ? [...ids][0] : null;
   }
   // Every change runs through here: refusals and successes are both logged.
   async function change(
@@ -107,7 +114,7 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
     },
     async bookAppointment(callId: string, args: { patientId: string; slotId: string }): Promise<Out<Change>> {
       return change(callId, "book_appointment", args, async (verified) => {
-        if (args.patientId !== verified) return { ok: false, error: "not_owner" };
+        if (args.patientId.toLowerCase() !== verified) return { ok: false, error: "not_owner" };
         return db.transaction(async (tx: any) => {
           const [claimed] = await tx.update(appointmentSlots)
             .set({ status: "booked" })
@@ -124,7 +131,7 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
       return change(callId, "cancel_appointment", args, (verified) => db.transaction(async (tx: any) => {
         const [appt] = await tx.select().from(appointments).where(eq(appointments.id, args.appointmentId));
         if (!appt || appt.status !== "booked") return { ok: false };
-        if (appt.patientId !== verified) return { ok: false, error: "not_owner" };
+        if (appt.patientId.toLowerCase() !== verified) return { ok: false, error: "not_owner" };
         await tx.update(appointments).set({ status: "cancelled" }).where(eq(appointments.id, args.appointmentId));
         await tx.update(appointmentSlots).set({ status: "open" }).where(eq(appointmentSlots.id, appt.slotId));
         return { ok: true };
@@ -134,7 +141,7 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
       return change(callId, "reschedule_appointment", args, (verified) => db.transaction(async (tx: any) => {
         const [appt] = await tx.select().from(appointments).where(eq(appointments.id, args.appointmentId));
         if (!appt || appt.status !== "booked") return { ok: false };
-        if (appt.patientId !== verified) return { ok: false, error: "not_owner" };
+        if (appt.patientId.toLowerCase() !== verified) return { ok: false, error: "not_owner" };
         const [claimed] = await tx.update(appointmentSlots)
           .set({ status: "booked" })
           .where(and(eq(appointmentSlots.id, args.newSlotId), eq(appointmentSlots.status, "open")))

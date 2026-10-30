@@ -237,6 +237,33 @@ describe("ClinicService", () => {
     });
   });
 
+  it("refuses a change when two patients were verified in the same instant", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    const [slot] = await ctx.db.insert(appointmentSlots)
+      .values({ providerId: p.id, startsAt: new Date("2026-10-01T15:00:00Z") }).returning();
+    const [a] = await ctx.db.insert(patients).values([
+      { name: "Marcus Lee", dob: "1980-01-01" },
+      { name: "Dana Fields", dob: "1975-05-05" },
+    ]).returning();
+    // A frozen clock gives both verifications the same timestamp, so "the
+    // latest verified patient" has no single answer.
+    const svc = makeClinicService(ctx.db, () => new Date("2026-09-30T12:00:00Z"));
+    await svc.verifyPatient("call_1", { name: "Marcus Lee", dob: "1980-01-01" });
+    await svc.verifyPatient("call_1", { name: "Dana Fields", dob: "1975-05-05" });
+    const b = await svc.bookAppointment("call_1", { patientId: a.id, slotId: slot.id });
+    expect(b.result).toEqual({ ok: false, error: "not_verified" });
+  });
+
+  it("accepts the verified patient's id in any letter case", async () => {
+    ctx = await createTestDb();
+    const { slot, pat } = await fixture(ctx.db);
+    const svc = makeClinicService(ctx.db);
+    await svc.verifyPatient("call_1", { name: "Alex Kim", dob: "1990-04-02" });
+    const b = await svc.bookAppointment("call_1", { patientId: pat.id.toUpperCase(), slotId: slot.id });
+    expect(b.result.ok).toBe(true);
+  });
+
   // The model sometimes invents ids. A malformed id used to throw inside
   // Postgres before the action was logged, so the failed attempt was invisible
   // to the reconciler and the tool route returned a 500.

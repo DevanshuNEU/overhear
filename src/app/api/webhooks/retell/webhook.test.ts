@@ -77,4 +77,10 @@ describe("retell webhook", () => {
     expect(res.status).toBe(200);
     expect(scoreCall).toHaveBeenCalledTimes(1);
   });
+  it("records the call before acknowledging call_analyzed, so a lost score can be rebuilt", async () => {
+    const res = await POST(req("good", { event: "call_analyzed", call: { call_id: "c4" } }));
+    // No settle(): the record must exist by the time Retell gets its 200.
+    expect(res.status).toBe(200);
+    expect(recordPendingCall).toHaveBeenCalledWith(expect.objectContaining({ call_id: "c4" }));
+  });
 });

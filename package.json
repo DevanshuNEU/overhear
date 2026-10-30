@@ -17,7 +17,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "provision:agent": "tsx scripts/provision-agent.ts",
     "eval": "tsx scripts/run-eval.ts",
-    "eval:real": "bash scripts/run-real-eval.sh"
+    "eval:real": "bash scripts/run-real-eval.sh",
+    "rescore": "tsx scripts/rescore-unscored.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.119",

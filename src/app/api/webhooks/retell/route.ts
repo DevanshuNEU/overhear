@@ -46,6 +46,13 @@ export async function POST(req: Request) {
   }
 
   if (body.event === "call_analyzed") {
+    // Record the call before answering, so a score lost to a restart can be
+    // rebuilt later by `npm run rescore`. This write is one fast upsert.
+    try {
+      await recordPendingCall(body.call);
+    } catch (err) {
+      console.error(`recordPendingCall failed for call ${body.call.call_id}`, err);
+    }
     after(async () => {
       try {
         await scoreCall(body.call);
