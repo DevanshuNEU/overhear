@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createTestDb } from "@/db/testing";
 import { calls, qaScores } from "@/db/schema";
-import { listCalls, getCall, failureBreakdown, scoreTrend } from "./queries";
+import { listCalls, getCall, failureBreakdown, scoreTrend, listUnscoredCallIds } from "./queries";
 
 let ctx: Awaited<ReturnType<typeof createTestDb>>;
 afterEach(() => ctx?.close());
@@ -105,5 +105,13 @@ describe("queries", () => {
 
     const out = await scoreTrend(ctx.db);
     expect(out.map((o) => o.composite)).toEqual([90, 40]);
+  });
+
+  it("listUnscoredCallIds returns only calls that have no score yet", async () => {
+    ctx = await createTestDb();
+    await seed(ctx.db);
+    await ctx.db.insert(calls).values({ id: "c3", transcript: [], recordingUrl: null, retellSentiment: null, retellSummary: null });
+
+    expect(await listUnscoredCallIds(ctx.db)).toEqual(["c3"]);
   });
 });

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { verifyRetellSignature } from "@/retell/verify";
 import { recordPendingCall, scoreCall } from "@/qa/pipeline";
 
@@ -28,25 +28,39 @@ export async function POST(req: Request) {
   // wired to this agent at all.
   console.log(`retell webhook: ${body.event} for call ${body.call?.call_id}`);
 
+  // Retell waits 10 seconds for a 2xx and then retries, up to 3 times
+  // (docs.retellai.com/features/webhook-overview). Scoring calls the judge and
+  // the narrator and can take longer than that, so the work runs after the
+  // response is sent. Both writes are upserts, so a retry that still lands is
+  // harmless.
   if (body.event === "call_ended") {
     // Show the call on the dashboard as "processing" the instant the caller
     // hangs up, well before the slower call_analyzed event and scoring arrive.
+    after(async () => {
+      try {
+        await recordPendingCall(body.call);
+      } catch (err) {
+        console.error(`recordPendingCall failed for call ${body.call.call_id}`, err);
+      }
+    });
+  }
+
+  if (body.event === "call_analyzed") {
+    // Record the call before answering, so a score lost to a restart can be
+    // rebuilt later by `npm run rescore`. This write is one fast upsert.
     try {
       await recordPendingCall(body.call);
     } catch (err) {
       console.error(`recordPendingCall failed for call ${body.call.call_id}`, err);
     }
-  }
-
-  if (body.event === "call_analyzed") {
-    try {
-      await scoreCall(body.call);
-    } catch (err) {
-      // Acknowledge with 200 even when scoring fails, so Retell does not retry
-      // the webhook in a loop on a call that will not succeed. Log with the
-      // call id so the failure is diagnosable.
-      console.error(`scoreCall failed for call ${body.call.call_id}`, err);
-    }
+    after(async () => {
+      try {
+        await scoreCall(body.call);
+      } catch (err) {
+        // Log with the call id so a failed score is diagnosable.
+        console.error(`scoreCall failed for call ${body.call.call_id}`, err);
+      }
+    });
   }
   return NextResponse.json({ ok: true });
 }

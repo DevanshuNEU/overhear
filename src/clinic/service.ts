@@ -1,12 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- `db` must accept both the postgres-js DB
  * (production) and the PGlite test DB (createTestDb); their drizzle instance/transaction types
  * don't unify, so this service is intentionally untyped at the driver boundary. */
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { appointmentSlots, appointments, patients, providers, actionEvents } from "@/db/schema";
 import type { Slot, ToolName } from "@/domain/types";
 
 type Out<R> = { result: R };
+
+// Why a change was refused. Returned to the agent so it can tell the caller,
+// and logged so the QA pipeline sees the attempt.
+type Refusal = "not_verified" | "not_owner" | "invalid_id";
+type Change = { ok: boolean; error?: Refusal; appointmentId?: string };
+
+// How many slots one availability check returns. Applied before logging, so
+// the log holds exactly what the agent was shown.
+export const MAX_SLOTS_OFFERED = 20;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const allUuids = (...ids: unknown[]) => ids.every((id) => typeof id === "string" && UUID.test(id));
 
 // Real mishearings of patients' names score 0.74 to 0.79 against the name on
 // file ("Divanshu Chulikar" vs "Devanshu Chicholikar"); unrelated names score
@@ -36,6 +48,35 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
   async function log(callId: string, tool: ToolName, args: unknown, result: unknown, ok: boolean) {
     await db.insert(actionEvents).values({ callId, tool, args, result, ok, ts: now() });
   }
+  // The patient most recently verified on this call, from this call's own
+  // action log. A change is allowed only for that patient. If the latest
+  // timestamp holds successful verifications of different patients, the order
+  // between them is unknown, so no one counts as verified.
+  async function verifiedPatientId(callId: string): Promise<string | null> {
+    const rows = await db.select().from(actionEvents)
+      .where(and(eq(actionEvents.callId, callId), eq(actionEvents.tool, "verify_patient")))
+      .orderBy(desc(actionEvents.ts));
+    const verified = rows.filter((r: any) => r.result?.verified === true);
+    if (verified.length === 0) return null;
+    const latest = new Date(verified[0].ts).getTime();
+    const ids = new Set<string>(verified
+      .filter((r: any) => new Date(r.ts).getTime() === latest)
+      .map((r: any) => String(r.result.patientId).toLowerCase()));
+    return ids.size === 1 ? [...ids][0] : null;
+  }
+  // Every change runs through here: refusals and successes are both logged.
+  async function change(
+    callId: string, tool: ToolName, args: unknown,
+    run: (patientId: string) => Promise<Change>, ids: unknown[],
+  ): Promise<Out<Change>> {
+    let result: Change;
+    const patientId = await verifiedPatientId(callId);
+    if (!allUuids(...ids)) result = { ok: false, error: "invalid_id" };
+    else if (!patientId) result = { ok: false, error: "not_verified" };
+    else result = await run(patientId);
+    await log(callId, tool, args, result, result.ok);
+    return { result };
+  }
   return {
     async checkAvailability(callId: string, args: { providerName?: string; date?: string }): Promise<Out<{ slots: Slot[] }>> {
       const rows = await db.select({
@@ -50,7 +91,9 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
         .filter((r: any) => new Date(r.startsAt).getTime() >= nowMs)
         .filter((r: any) => !args.providerName || r.providerName === args.providerName)
         .filter((r: any) => !args.date || new Date(r.startsAt).toISOString().slice(0, 10) === args.date)
-        .map((r: any) => ({ ...r, startsAt: new Date(r.startsAt).toISOString() }));
+        .map((r: any) => ({ ...r, startsAt: new Date(r.startsAt).toISOString() }))
+        .sort((a: Slot, b: Slot) => a.startsAt.localeCompare(b.startsAt))
+        .slice(0, MAX_SLOTS_OFFERED);
       const result = { slots };
       await log(callId, "check_availability", args, result, true);
       return { result };
@@ -69,35 +112,36 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
       await log(callId, "verify_patient", args, result, true);
       return { result };
     },
-    async bookAppointment(callId: string, args: { patientId: string; slotId: string }): Promise<Out<{ ok: boolean; appointmentId?: string }>> {
-      const result = await db.transaction(async (tx: any) => {
-        const [claimed] = await tx.update(appointmentSlots)
-          .set({ status: "booked" })
-          .where(and(eq(appointmentSlots.id, args.slotId), eq(appointmentSlots.status, "open")))
-          .returning();
-        if (!claimed) return { ok: false };
-        const [appt] = await tx.insert(appointments)
-          .values({ slotId: args.slotId, patientId: args.patientId }).returning();
-        return { ok: true, appointmentId: appt.id };
-      });
-      await log(callId, "book_appointment", args, result, result.ok);
-      return { result };
+    async bookAppointment(callId: string, args: { patientId: string; slotId: string }): Promise<Out<Change>> {
+      return change(callId, "book_appointment", args, async (verified) => {
+        if (args.patientId.toLowerCase() !== verified) return { ok: false, error: "not_owner" };
+        return db.transaction(async (tx: any) => {
+          const [claimed] = await tx.update(appointmentSlots)
+            .set({ status: "booked" })
+            .where(and(eq(appointmentSlots.id, args.slotId), eq(appointmentSlots.status, "open")))
+            .returning();
+          if (!claimed) return { ok: false };
+          const [appt] = await tx.insert(appointments)
+            .values({ slotId: args.slotId, patientId: args.patientId }).returning();
+          return { ok: true, appointmentId: appt.id };
+        });
+      }, [args.patientId, args.slotId]);
     },
-    async cancelAppointment(callId: string, args: { appointmentId: string }): Promise<Out<{ ok: boolean }>> {
-      const result = await db.transaction(async (tx: any) => {
+    async cancelAppointment(callId: string, args: { appointmentId: string }): Promise<Out<Change>> {
+      return change(callId, "cancel_appointment", args, (verified) => db.transaction(async (tx: any) => {
         const [appt] = await tx.select().from(appointments).where(eq(appointments.id, args.appointmentId));
         if (!appt || appt.status !== "booked") return { ok: false };
+        if (appt.patientId.toLowerCase() !== verified) return { ok: false, error: "not_owner" };
         await tx.update(appointments).set({ status: "cancelled" }).where(eq(appointments.id, args.appointmentId));
         await tx.update(appointmentSlots).set({ status: "open" }).where(eq(appointmentSlots.id, appt.slotId));
         return { ok: true };
-      });
-      await log(callId, "cancel_appointment", args, result, result.ok);
-      return { result };
+      }), [args.appointmentId]);
     },
-    async rescheduleAppointment(callId: string, args: { appointmentId: string; newSlotId: string }): Promise<Out<{ ok: boolean }>> {
-      const result = await db.transaction(async (tx: any) => {
+    async rescheduleAppointment(callId: string, args: { appointmentId: string; newSlotId: string }): Promise<Out<Change>> {
+      return change(callId, "reschedule_appointment", args, (verified) => db.transaction(async (tx: any) => {
         const [appt] = await tx.select().from(appointments).where(eq(appointments.id, args.appointmentId));
         if (!appt || appt.status !== "booked") return { ok: false };
+        if (appt.patientId.toLowerCase() !== verified) return { ok: false, error: "not_owner" };
         const [claimed] = await tx.update(appointmentSlots)
           .set({ status: "booked" })
           .where(and(eq(appointmentSlots.id, args.newSlotId), eq(appointmentSlots.status, "open")))
@@ -106,9 +150,7 @@ export function makeClinicService(db: DB | any, now: () => Date = () => new Date
         await tx.update(appointmentSlots).set({ status: "open" }).where(eq(appointmentSlots.id, appt.slotId));
         await tx.update(appointments).set({ slotId: args.newSlotId }).where(eq(appointments.id, args.appointmentId));
         return { ok: true };
-      });
-      await log(callId, "reschedule_appointment", args, result, result.ok);
-      return { result };
+      }), [args.appointmentId, args.newSlotId]);
     },
   };
 }

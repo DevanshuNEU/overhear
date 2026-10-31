@@ -3,7 +3,7 @@
  * don't unify, so these read queries are intentionally untyped at the driver boundary. */
 // src/qa/queries.ts - read-only queries backing the dashboard. Shapes here
 // mirror exactly what src/qa/pipeline.ts writes into `calls` and `qa_scores`.
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, isNull } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { calls, qaScores } from "@/db/schema";
 import type { DimensionScore, FailureCategory } from "@/domain/types";
@@ -99,6 +99,17 @@ export async function getCall(db: DB | any, id: string): Promise<CallDetail | nu
     dimensions: (row.dimensions ?? []) as DimensionScore[],
     judgeSource: row.judgeSource as "jev" | "claude" | null,
   };
+}
+
+// Calls recorded but never scored, e.g. because the process restarted while
+// scoring ran after the webhook was acknowledged. scripts/rescore-unscored.ts
+// rebuilds their scores from Retell's copy of the call.
+export async function listUnscoredCallIds(db: DB | any): Promise<string[]> {
+  const rows = await db.select({ id: calls.id }).from(calls)
+    .leftJoin(qaScores, eq(calls.id, qaScores.callId))
+    .where(isNull(qaScores.callId))
+    .orderBy(asc(calls.startedAt));
+  return rows.map((row: any) => row.id);
 }
 
 export async function failureBreakdown(db: DB | any): Promise<{ category: FailureCategory; count: number }[]> {
