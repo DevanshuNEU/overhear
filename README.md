@@ -177,3 +177,7 @@ docs/                     # design doc + primary-source research
 - [`docs/design.md`](docs/design.md) is the full design: architecture, rubric, judge interface, data model, and risks.
 - [`docs/research/retell-api-facts.md`](docs/research/retell-api-facts.md) holds cited notes on Retell's webhooks, tool schema, and SDK.
 - [`docs/research/jev-tool.md`](docs/research/jev-tool.md) explains what Jev is and how it fits as the judge.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE).
