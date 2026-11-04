@@ -1,0 +1,27 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+# Each workspace gets its own node_modules. .env files are copied in from the repo root by Conductor.
+setup = "npm ci"
+# Every workspace shares the one local Postgres from docker-compose (port 5432), so dev servers take turns.
+# Tests are unaffected: they use in-memory PGlite.
+run_mode = "nonconcurrent"
+
+[scripts.run.dev]
+available_in = ["local"]
+command = "docker compose up -d db && npm run db:migrate && npm run dev -- --port $CONDUCTOR_PORT"
+default = true
+icon = "play"
+
+[scripts.run.test]
+command = "npx vitest"
+icon = "test-tube"
+
+[scripts.run.checks]
+command = "npm run lint && npm run typecheck && npx vitest run && npm run build"
+icon = "list-checks"
+
+[git]
+# One workspace per Linear issue: when its pull request merges, archive it and delete its branch.
+archive_on_merge = true
+delete_branch_on_archive = true

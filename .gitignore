@@ -53,3 +53,6 @@ next-env.d.ts
 # auto-generated agent tooling files (Next.js writes AGENTS.md; CLAUDE.md imports it)
 AGENTS.md
 CLAUDE.md
+
+# Conductor machine-local settings
+.conductor/settings.local.toml
