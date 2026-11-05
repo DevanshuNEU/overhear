@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "callId": "call_sample_needs_review",
+  "platform": "retell",
+  "verdict": "needs_review",
+  "notes": [],
+  "headline": "The caller asked for something the agent neither did nor refused.",
+  "reasons": [
+    {
+      "kind": "unanswered_request",
+      "text": "At 0:11 the caller asked to book an appointment. The availability check at 0:21 failed with an error, and no booking, transfer or refusal followed.",
+      "seqs": [
+        4,
+        7,
+        9
+      ]
+    }
+  ],
+  "results": [
+    {
+      "contract": "promise_backed",
+      "result": "not_applicable",
+      "findings": []
+    },
+    {
+      "contract": "verified_before_change",
+      "result": "not_applicable",
+      "findings": []
+    },
+    {
+      "contract": "spoken_matches_committed",
+      "result": "not_applicable",
+      "findings": []
+    },
+    {
+      "contract": "transfer_kept",
+      "result": "not_applicable",
+      "findings": []
+    },
+    {
+      "contract": "committed_matches_request",
+      "result": "not_applicable",
+      "findings": []
+    }
+  ],
+  "detections": [
+    {
+      "seq": 12,
+      "cls": "offer",
+      "quote": "I can help once it’s back online",
+      "source": "code"
+    }
+  ],
+  "llmUsed": true,
+  "request": {
+    "kind": "book",
+    "fields": {},
+    "position": 4,
+    "quote": "I actually wanted to book an appointment",
+    "source": "llm"
+  },
+  "requestSource": "llm",
+  "timezone": "UTC",
+  "policy": {
+    "packs": [
+      "healthcare"
+    ],
+    "timezone": "UTC",
+    "success": "result.ok",
+    "tools": {
+      "verify_patient": {
+        "role": "verify",
+        "success": "result.verified",
+        "patientId": "result.patientId"
+      },
+      "check_availability": {
+        "role": "lookup",
+        "items": "result.slots",
+        "id": "item.id"
+      },
+      "book_appointment": {
+        "role": "change",
+        "kind": "book",
+        "id": "args.slotId",
+        "patientId": "args.patientId"
+      },
+      "cancel_appointment": {
+        "role": "change",
+        "kind": "cancel",
+        "id": "args.appointmentId",
+        "required": []
+      },
+      "reschedule_appointment": {
+        "role": "change",
+        "kind": "reschedule",
+        "id": "args.newSlotId"
+      }
+    },
+    "fields": {
+      "date": {
+        "path": "item.startsAt",
+        "type": "date",
+        "required": true
+      },
+      "time": {
+        "path": "item.startsAt",
+        "type": "time",
+        "required": true
+      },
+      "provider": {
+        "path": "item.providerName",
+        "type": "name"
+      }
+    }
+  },
+  "evidence": {
+    "callId": "call_sample_needs_review",
+    "platform": "retell",
+    "agentVersion": "0",
+    "tier": 1,
+    "ordering": "sequence",
+    "callFields": {
+      "call_type": "web_call",
+      "disconnection_reason": "user_hangup",
+      "duration_ms": 68001,
+      "call_analysis": {
+        "call_successful": false,
+        "call_summary": "The user called to book the earliest available doctor's appointment. The scheduling system returned a temporary error, so the agent advised calling back in 15 - 30 minutes and explained it could not arrange a callback.",
+        "user_sentiment": "Neutral",
+        "in_voicemail": false
+      }
+    },
+    "callStartMs": 1793905786277,
+    "items": [
+      {
+        "kind": "turn",
+        "seq": 1,
+        "role": "agent",
+        "text": "Thank you for calling Northwind Family Clinic. This is Riley. How may I help you today?",
+        "startSec": 0.474,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 2,
+        "role": "caller",
+        "text": "Hey. What's up, Riley? How are you doing? ",
+        "startSec": 5.8749997,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 3,
+        "role": "agent",
+        "text": "I’m doing well, thank you! How can I help you today?",
+        "startSec": 8.057,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 4,
+        "role": "caller",
+        "text": "So I actually wanted to book an appointment. Doctor's appointment. ",
+        "startSec": 11.924999999999999,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 5,
+        "role": "agent",
+        "text": "Absolutely. What date would you prefer, and do you have a specific doctor in mind?",
+        "startSec": 15.837,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 6,
+        "role": "caller",
+        "text": "What's the earliest date that I can get? ",
+        "startSec": 21.265,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_call",
+        "seq": 7,
+        "id": "tc_01",
+        "name": "check_availability",
+        "args": {
+          "execution_message": "I’ll check the earliest available appointment with any provider."
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 8,
+        "role": "agent",
+        "text": "I’ll ",
+        "startSec": 24.348,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_result",
+        "seq": 9,
+        "id": "tc_01",
+        "ok": false,
+        "platformOk": false,
+        "payload": "HTTP 500: Axios Error: error code: ERR_BAD_RESPONSE, error message: Request failed with status code 500\nresponse status: 500"
+      },
+      {
+        "kind": "turn",
+        "seq": 10,
+        "role": "agent",
+        "text": "check the earliest available appointment with any provider.I’m sorry, but I can’t access the appointment calendar right now. Please try again shortly.",
+        "startSec": 24.569,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 11,
+        "role": "caller",
+        "text": "Why can't you access the appointment calendar? ",
+        "startSec": 34.325,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 12,
+        "role": "agent",
+        "text": "It looks like the scheduling system returned a temporary error. Please try again shortly, or I can help once it’s back online.",
+        "startSec": 37.088,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 13,
+        "role": "caller",
+        "text": "Okay. So can you try to give me a callback when it's back again? ",
+        "startSec": 44.555,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 14,
+        "role": "agent",
+        "text": "I can’t place callbacks, but you’re welcome to call us again shortly and I’ll check availability then.",
+        "startSec": 48.623,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 15,
+        "role": "caller",
+        "text": "After how long should I call you? ",
+        "startSec": 53.495002,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 16,
+        "role": "agent",
+        "text": "Please call back in about 15 - 30 minutes.",
+        "startSec": 56.119,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 17,
+        "role": "caller",
+        "text": "Okay. Gotcha. Thanks. ",
+        "startSec": 59.294998,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 18,
+        "role": "agent",
+        "text": "You’re welcome. Have a great day!",
+        "startSec": 61.828,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 19,
+        "role": "caller",
+        "text": "You too. Bye. ",
+        "startSec": 63.975001999999996,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 20,
+        "role": "agent",
+        "text": "Goodbye!",
+        "startSec": 65.471,
+        "interrupted": null
+      }
+    ],
+    "gaps": []
+  }
+}
