@@ -14,11 +14,14 @@ import {
 import { CONTRACT_TITLE, NOTE_LINE, RESULT_LABEL, VERDICT_LABEL, headlineFor } from "./labels";
 import { SAMPLE_REPORTS, failedSample, needsReviewSample, passedSample } from "./samples";
 
+/** A deep copy, so a test can break one field without touching the shared sample. */
 const clone = <T>(v: T): T => structuredClone(v);
+/** Every validation problem as "path: message", or an empty list when the report is valid. */
 const issues = (report: unknown) => {
   const r = CallReportSchema.safeParse(report);
   return r.success ? [] : r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
 };
+/** One contract's result entry by id. */
 const result = (r: CallReport, id: string) => r.results.find((x) => x.contract === id)!;
 
 describe("sample reports", () => {
@@ -49,7 +52,7 @@ describe("sample reports", () => {
       expect(text).not.toMatch(/\+\d{10,}|\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/); // phone numbers
       expect(text).not.toMatch(/access_token|recording|api[_-]?key|bearer/i);
       // Every uuid is one of the obviously fake ones, so no production id leaks.
-      for (const id of text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? []) {
+      for (const id of text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) ?? []) {
         expect(id).toMatch(/^00000000-0000-4000-8000-\d{12}$/);
       }
     }
@@ -201,6 +204,7 @@ describe("the contract the dashboard can rely on", () => {
 });
 
 describe("an LLM finding alone never produces violated", () => {
+  /** The failed sample with both transfer claims found only by the model, and every other claim confirmed by both. */
   const llmOnlyTransfer = () => {
     const r = clone(failedSample);
     // The code detector missed the transfer claims; only the model found them.
@@ -242,6 +246,7 @@ describe("an LLM finding alone never produces violated", () => {
 });
 
 describe("Tier 2: a backend action links to a tool call by id", () => {
+  /** The passed sample as Tier 2: a backend action placed right after the booking call, linked by tool_call_id. */
   const withBackend = () => {
     const r = clone(passedSample);
     r.evidence.tier = 2;
@@ -383,6 +388,91 @@ describe("a report cannot contradict itself", () => {
     const r = clone(failedSample);
     r.detections[0].quote = "";
     expect(issues(r).length).toBeGreaterThan(0);
+  });
+});
+
+describe("provenance is judged per cited claim", () => {
+  const mixed = () => {
+    const r = clone(failedSample);
+    r.llmUsed = true;
+    for (const d of r.detections) d.source = d.cls === "transfer" && d.seq === 27 ? "llm" : "both";
+    return r;
+  };
+
+  it("rejects the finding on the model-only claim while the corroborated one stays violated", () => {
+    const r = mixed();
+    const msgs = issues(r);
+    expect(msgs.filter((m) => /only the llm found/.test(m))).toHaveLength(1);
+    expect(msgs.join("\n")).toMatch(/findings\.1\.result/);
+    expect(msgs.join("\n")).not.toMatch(/findings\.0\.result/);
+  });
+
+  it("rejects one finding that cites a corroborated and a model-only claim as violated", () => {
+    const r = mixed();
+    const t = result(r, "transfer_kept");
+    t.findings = [{ ...t.findings[0], said: [25, 27] }];
+    expect(issues(r).join("\n")).toMatch(/only the llm found/);
+  });
+
+  it("accepts a violated transfer built on spoken tool syntax, which only code can find", () => {
+    const r = clone(failedSample);
+    r.llmUsed = true;
+    for (const d of r.detections) d.source = "both";
+    for (const d of r.detections) if (d.cls === "transfer") d.cls = "tool_syntax";
+    expect(issues(r)).toEqual([]);
+  });
+
+  it("rejects a violated transfer that cites a turn with no detected claim", () => {
+    const r = clone(failedSample);
+    r.detections = r.detections.filter((d) => d.cls !== "transfer");
+    expect(issues(r).join("\n")).toMatch(/matching claim|not_applicable|transfer_kept/);
+  });
+
+  it("rejects not_applicable transfers while a transfer claim stands", () => {
+    const r = clone(failedSample);
+    const t = result(r, "transfer_kept");
+    t.result = "not_applicable";
+    t.findings = [];
+    expect(issues(r).join("\n")).toMatch(/not_applicable only when no transfer/);
+  });
+});
+
+describe("evidence that would make a violation unsafe", () => {
+  it("rejects violated when a gap touches the finding's evidence, even if the finding does not list it", () => {
+    const r = clone(failedSample);
+    const f = result(r, "transfer_kept").findings[0];
+    r.evidence.gaps.push({ code: "evidence_conflict", detail: "The backend log and the platform record disagree.", seqs: [f.said[0]] });
+    expect(issues(r).join("\n")).toMatch(/gap touches/);
+  });
+
+  it("does not let an unrelated gap block a violation", () => {
+    const r = clone(failedSample);
+    r.evidence.gaps.push({ code: "unknown_success", detail: "A lookup had no success signal.", seqs: [8] });
+    expect(issues(r)).toEqual([]);
+  });
+
+  it("rejects a field with no committed value that claims to match", () => {
+    const r = clone(passedSample);
+    const field = result(r, "spoken_matches_committed").findings[0].fields[0];
+    field.committed = null;
+    expect(issues(r).join("\n")).toMatch(/cannot match/);
+  });
+
+  it("rejects a call field the report does not carry, such as a recording link", () => {
+    const r = clone(passedSample) as unknown as { evidence: { callFields: Record<string, unknown> } };
+    r.evidence.callFields.recording_url = "x";
+    expect(issues(r).join("\n")).toMatch(/recording_url|Unrecognized/);
+  });
+
+  it("accepts a name_and_args link only when exactly one tool call has that tool and those args", () => {
+    const r = clone(passedSample);
+    r.evidence.tier = 2;
+    const book = r.evidence.items.find((i) => i.kind === "tool_call" && i.name === "book_appointment") as { id: string; args: Record<string, unknown> };
+    r.evidence.items.push({ kind: "backend_action", seq: r.evidence.items.length + 1, id: "a1", toolCallId: null, tool: "book_appointment", args: { ...book.args }, result: { ok: true }, ok: true, ts: "2026-11-05T20:45:20.000Z", link: { toolCallId: book.id, by: "name_and_args" } });
+    expect(issues(r)).toEqual([]);
+    const second = { ...book, seq: r.evidence.items.length + 1, id: "dup" };
+    r.evidence.items.push(second as (typeof r.evidence.items)[number]);
+    expect(issues(r).join("\n")).toMatch(/exactly one tool call/);
   });
 });
 

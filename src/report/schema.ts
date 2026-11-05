@@ -31,7 +31,8 @@ export const CONTRACT_IDS = [
   "transfer_kept",
   "committed_matches_request",
 ] as const;
-export const SPEECH_CLASSES = ["completion", "transfer", "intention", "offer", "deferral", "refusal"] as const;
+// tool_syntax is an agent turn that reads a tool call out loud (6.4). Code finds it by rule, so it needs no second detector.
+export const SPEECH_CLASSES = ["completion", "transfer", "intention", "offer", "deferral", "refusal", "tool_syntax"] as const;
 export const REVIEW_REASON_KINDS = ["unverified_result", "deferral", "unanswered_request"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
@@ -45,6 +46,21 @@ export type ReviewReasonKind = (typeof REVIEW_REASON_KINDS)[number];
 
 const Seq = z.number().int().positive();
 const Args = z.record(z.string(), z.unknown());
+
+/** Equal by content: object key order is ignored, array order is not. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => sameValue(v, b[i]));
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const x = a as Record<string, unknown>;
+    const y = b as Record<string, unknown>;
+    const keys = Object.keys(x);
+    return keys.length === Object.keys(y).length && keys.every((k) => k in y && sameValue(x[k], y[k]));
+  }
+  return false;
+}
 
 // ---------- Evidence (6.1) ----------
 
@@ -95,14 +111,30 @@ export const ItemSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+export const CallFieldsSchema = z.strictObject({
+  call_type: z.string().optional(),
+  disconnection_reason: z.string().optional(),
+  duration_ms: z.number().optional(),
+  call_analysis: z
+    .strictObject({
+      call_successful: z.boolean().optional(),
+      call_summary: z.string().optional(),
+      user_sentiment: z.string().optional(),
+      in_voicemail: z.boolean().optional(),
+      custom_analysis_data: Args.optional(),
+    })
+    .optional(),
+});
+
 export const EvidenceSchema = z.strictObject({
   callId: z.string(),
   platform: z.enum(PLATFORMS),
   agentVersion: z.string().nullable(),
   tier: z.union([z.literal(1), z.literal(2)]),
   ordering: z.enum(["sequence", "timestamps", "none"]),
-  // Call-level fields worth showing (Retell disconnection_reason, call_analysis). Never urls or tokens.
-  callFields: Args,
+  // Call-level fields worth showing. A short list on purpose: recording and log links, tokens and network
+  // details never belong in a report. Fields for other platforms are added here when their adapters land.
+  callFields: CallFieldsSchema,
   callStartMs: z.number().nullable(),
   items: z.array(ItemSchema),
   gaps: z.array(GapSchema),
@@ -164,6 +196,9 @@ export const FieldCheckSchema = z.strictObject({
   values: z.array(z.string()), // as spoken or requested, in display form
   committed: z.string().nullable(), // null when it could not be resolved
   status: z.enum(["match", "differs", "not_spoken", "unresolved"]),
+}).refine((f) => !(f.committed === null && f.status === "match"), {
+  path: ["status"],
+  message: "a field with no committed value cannot match",
 });
 
 export const FindingSchema = z.strictObject({
@@ -213,6 +248,7 @@ export const CallReportSchema = z
     evidence: EvidenceSchema,
   })
   .superRefine((r, ctx) => {
+    /** Records one validation problem at a path. */
     const bad = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
     const items = r.evidence.items;
 
@@ -231,6 +267,12 @@ export const CallReportSchema = z
         if (it.link?.by === "tool_call_id" && it.link.toolCallId !== it.toolCallId) {
           bad(["evidence", "items", i, "link"], "a link made by tool_call_id must use the action's own toolCallId");
         }
+        if (it.link?.by === "name_and_args") {
+          const matches = items.filter((x) => x.kind === "tool_call" && x.name === it.tool && sameValue(x.args, it.args));
+          if (matches.length !== 1 || (matches[0] as { id: string }).id !== it.link.toolCallId) {
+            bad(["evidence", "items", i, "link"], "a name_and_args link needs exactly one tool call with this tool and these args; otherwise leave it unlinked with an ambiguous_link gap");
+          }
+        }
         if (!it.link && !r.evidence.gaps.some((g) => g.seqs.includes(it.seq) && ["unlinked_backend_action", "ambiguous_link", "turn_index_out_of_range"].includes(g.code))) {
           bad(["evidence", "items", i, "link"], "an unlinked backend action needs an unlinked_backend_action, ambiguous_link or turn_index_out_of_range gap at its seq");
         }
@@ -241,6 +283,7 @@ export const CallReportSchema = z
     if (r.callId !== r.evidence.callId) bad(["callId"], "callId must equal evidence.callId");
     if (r.platform !== r.evidence.platform) bad(["platform"], "platform must equal evidence.platform");
 
+    /** Checks that a seq names an item in the evidence. */
     const exists = (path: (string | number)[], seq: number) => {
       if (!bySeq.has(seq)) bad(path, `seq ${seq} is not in the evidence`);
     };
@@ -297,6 +340,9 @@ export const CallReportSchema = z
         if (c.findings.length) bad([...at, "findings"], "a not_run contract has no findings");
       } else if (c.findings.length === 0) {
         if (c.result !== "not_applicable") bad([...at, "result"], `a ${c.result} result needs at least one finding`);
+        if (c.contract === "transfer_kept" && r.detections.some((d) => d.cls === "transfer" || d.cls === "tool_syntax")) {
+          bad([...at, "result"], "transfer_kept is not_applicable only when no transfer claim or spoken tool syntax was detected");
+        }
       } else {
         const worst = c.findings.reduce((w, f) => (rank[f.result] > rank[w] ? f.result : w), "not_applicable" as string);
         if (c.result !== worst) bad([...at, "result"], `result is ${c.result} but the worst finding is ${worst}`);
@@ -330,6 +376,10 @@ export const CallReportSchema = z
         // A violated finding rests on complete evidence and order, and on its own fields (6.4).
         if (f.result === "violated") {
           if (f.gaps.length) bad([...fat, "gaps"], "a violated finding cannot cite a gap: a gap makes it unverified");
+          const touched = new Set([...f.said, ...f.did]);
+          if (r.evidence.gaps.some((g) => g.seqs.some((sq) => touched.has(sq)))) {
+            bad([...fat, "result"], "a gap touches this finding's evidence, so it is unverified, never violated");
+          }
           if (r.evidence.ordering === "none" && ["promise_backed", "verified_before_change", "transfer_kept"].includes(c.contract)) {
             bad([...fat, "result"], "with ordering none, a contract that depends on order is unverified, never violated");
           }
@@ -341,17 +391,25 @@ export const CallReportSchema = z
           bad([...fat, "fields"], "a passed finding has no field that differs or is unresolved");
         }
 
-        // An LLM finding alone never produces violated (6.4).
+        // An LLM finding alone never produces violated (6.4). Provenance is judged per cited claim.
         const classes = claimClass[c.contract];
-        const claims = classes ? f.said.flatMap((sq) => r.detections.filter((d) => d.seq === sq && classes.includes(d.cls))) : [];
-        const llmOnly = claims.length > 0 && claims.every((d) => d.source === "llm");
-        // With the model on, a claim only the code found is just as unconfirmed (6.4).
-        const codeOnlyWithLlm = r.llmUsed && claims.length > 0 && claims.every((d) => d.source === "code");
-        if (llmOnly && f.result === "violated") bad([...fat, "result"], "a claim only the llm found cannot produce violated");
-        if ((llmOnly || codeOnlyWithLlm) && f.result !== "violated" && (f.result !== "unverified" || !f.gaps.includes("llm_code_disagreement"))) {
+        const detectionsAt = (sq: number) => r.detections.filter((d) => d.seq === sq && classes?.includes(d.cls));
+        const cited = classes ? f.said.filter((sq) => detectionsAt(sq).length > 0) : [];
+        const sourcesAt = (sq: number) => new Set(detectionsAt(sq).map((d) => d.source));
+        // Corroborated: both detectors agree. llm-only: only the model. code-only: only the code, which matters once a model ran.
+        const llmOnly = cited.filter((sq) => [...sourcesAt(sq)].every((x) => x === "llm"));
+        const codeOnly = r.llmUsed ? cited.filter((sq) => [...sourcesAt(sq)].every((x) => x === "code")) : [];
+        const uncorroborated = llmOnly.length + codeOnly.length > 0;
+        if (llmOnly.length > 0 && f.result === "violated") bad([...fat, "result"], "a claim only the llm found cannot produce violated");
+        if (codeOnly.length > 0 && f.result === "violated") bad([...fat, "result"], "with llmUsed, a claim only the code found cannot produce violated");
+        if (uncorroborated && f.result !== "violated" && (f.result !== "unverified" || !f.gaps.includes("llm_code_disagreement"))) {
           bad([...fat, "gaps"], "a claim only one detector found must be unverified and name llm_code_disagreement");
         }
-        if (codeOnlyWithLlm && f.result === "violated") bad([...fat, "result"], "with llmUsed, a claim only the code found cannot produce violated");
+        // A violated claim-based finding names the claim it rests on.
+        if (f.result === "violated" && classes && f.said.length > 0) {
+          const matching = f.said.some((sq) => r.detections.some((d) => d.seq === sq && (classes.includes(d.cls) || (c.contract === "transfer_kept" && d.cls === "tool_syntax"))));
+          if (!matching) bad([...fat, "said"], "a violated finding must cite an agent turn where a matching claim was detected");
+        }
       });
     });
 

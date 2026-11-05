@@ -40,6 +40,7 @@ export const REASON_LINE: Record<ReviewReasonKind, string> = {
 
 const REASON_ORDER: ReviewReasonKind[] = ["unverified_result", "deferral", "unanswered_request"];
 
+/** The one line a call shows for its verdict, notes and reasons, word for word from spec 6.8. */
 export function headlineFor(verdict: Verdict, notes: Note[], reasons: { kind: ReviewReasonKind }[]): string {
   if (verdict === "failed") return "The call broke a rule, and the call record shows it.";
   if (verdict === "needs_review") {

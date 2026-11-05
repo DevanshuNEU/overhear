@@ -26,12 +26,14 @@ A report that breaks one of these does not validate.
 1. The verdict follows the results: `failed` if any contract is violated, else `needs_review` if any is unverified or there is a reason, else `passed`.
 2. A contract's result is the worst of its findings.
 3. An LLM finding alone never produces `violated`. A finding that cites a claim only the model found must be `unverified` and name the `llm_code_disagreement` gap. `llmUsed` says whether a model ran; when it did, a claim only the code found is `unverified` too.
-4. A `violated` finding cites no gap, and is never given when `ordering` is `none` for a contract that depends on order. A `passed` finding has no field that differs or is unresolved.
+4. A `violated` finding cites no gap, and is never given when `ordering` is `none` for a contract that depends on order. A violated finding that cites an agent turn needs a detected claim at that turn. A `passed` finding has no field that differs or is unresolved, and a field with no committed value never matches.
 5. Every `seq` points at a real item, in the right kind of item. Items are numbered 1, 2, 3 in timeline order. A tool result matches a tool call by id.
-6. A backend action keeps the `toolCallId` it logged, and links to a tool call by `link` (`tool_call_id` or `name_and_args`). Without a link it needs a gap. Tier 1 evidence has no backend actions.
-7. A report with no request source has `committed_matches_request` as `not_run`, and says `request_not_checked`.
-8. A deferral is never a pass: it forces `needs_review` with a `deferral` reason.
-9. Unknown fields are rejected, so a change on one side is loud on the other.
+6. A backend action keeps the `toolCallId` it logged, and links to a tool call by `link` (`tool_call_id` or `name_and_args`). A `name_and_args` link needs exactly one tool call with that tool and those args. Without a link it needs a gap. Tier 1 evidence has no backend actions.
+7. A report with no request source has `committed_matches_request` as `not_run`. If it passed, it also carries the `request_not_checked` note. Failed and needs-review reports carry no notes.
+8. A deferral is never a pass. When no contract is violated, it forces `needs_review` with a `deferral` reason. When a contract is violated, the verdict is `failed` and `reasons` is empty.
+9. Provenance is judged per cited claim, so one corroborated claim does not rescue a finding that also cites a model-only one. Spoken tool syntax (`tool_syntax`) is found by rule, so it needs no second detector.
+10. `callFields` holds a short list of call-level fields. Links, tokens and network details are rejected.
+11. Unknown fields are rejected, so a change on one side is loud on the other.
 
 ## The samples
 
