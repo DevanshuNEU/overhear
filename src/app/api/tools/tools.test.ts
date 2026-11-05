@@ -4,8 +4,9 @@ vi.mock("@/retell/verify", () => ({ verifyRetellSignature: (_b: string, s: strin
 const testCtx = vi.hoisted(() => ({ db: null as unknown }));
 vi.mock("@/db/client", () => ({ get db() { return testCtx.db; } }));
 
-import { createTestDb } from "@/db/testing";
-import { providers, appointmentSlots } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { createTestDb, type TestDB } from "@/db/testing";
+import { providers, appointmentSlots, actionEvents } from "@/db/schema";
 import { POST as checkAvailability } from "./check-availability/route";
 
 beforeEach(async () => {
@@ -33,5 +34,28 @@ describe("tool route", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.slots).toHaveLength(1);
+  });
+  it("passes the in-flight tool_call_id through to action_events", async () => {
+    const body = {
+      name: "check_availability", args: {},
+      call: {
+        call_id: "c_live",
+        transcript_with_tool_calls: [
+          { role: "agent", content: "Let me look." },
+          { role: "tool_call_invocation", tool_call_id: "tc_live", name: "check_availability", arguments: "{}" },
+        ],
+      },
+    };
+    const res = await checkAvailability(reqOf("good", body));
+    expect(res.status).toBe(200);
+    const [row] = await (testCtx.db as TestDB).select().from(actionEvents).where(eq(actionEvents.callId, "c_live"));
+    expect(row.toolCallId).toBe("tc_live");
+  });
+
+  it("logs found: true or false for the tool_call_id", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    await checkAvailability(reqOf("good", { name: "check_availability", call: { call_id: "c_none" }, args: {} }));
+    expect(info).toHaveBeenCalledWith("tool_call_id", { tool: "check_availability", found: false });
+    info.mockRestore();
   });
 });

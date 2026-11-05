@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { verifyRetellSignature } from "@/retell/verify";
 import { makeClinicService, type ClinicService } from "@/clinic/service";
 import { db } from "@/db/client";
+import { inFlightToolCallId } from "@/retell/tool-call-id";
 
 // Every ClinicService method resolves `{ result: R }` (see `Out<R>` in
 // `@/clinic/service`). Retell's tool-call webhook expects the flat `R`
@@ -19,8 +20,13 @@ export function makeToolRoute(handler: Handler) {
     if (!(await verifyRetellSignature(raw, req.headers.get("x-retell-signature")))) {
       return NextResponse.json({ error: "invalid signature" }, { status: 401 });
     }
-    const body = JSON.parse(raw) as { name: string; call: { call_id: string }; args?: any };
-    const svc = makeClinicService(db);
+    const body = JSON.parse(raw) as {
+      name: string; call: { call_id: string; transcript_with_tool_calls?: unknown[] }; args?: any;
+    };
+    // Whether Retell sends the in-flight id is read off this log line after a live call.
+    const toolCallId = inFlightToolCallId(body);
+    console.info("tool_call_id", { tool: body.name, found: toolCallId !== null });
+    const svc = makeClinicService(db, undefined, { toolCallId });
     const { result } = await handler({ callId: body.call.call_id, args: body.args ?? {}, svc });
     const json = JSON.stringify(result);
     if (json.length > 15000) {

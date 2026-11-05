@@ -34,6 +34,7 @@ export const calls = pgTable("calls", {
   retellSentiment: text("retell_sentiment"),
   retellSummary: text("retell_summary"),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  rawCall: jsonb("raw_call"), // the Retell call as sent with call_analysis; null until then
 });
 
 export const actionEvents = pgTable("action_events", {
@@ -44,6 +45,7 @@ export const actionEvents = pgTable("action_events", {
   result: jsonb("result").notNull(),
   ok: boolean("ok").notNull(),
   ts: timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
+  toolCallId: text("tool_call_id"), // Retell's in-flight tool_call_id; null when the request didn't carry one
 });
 
 export const qaScores = pgTable("qa_scores", {
