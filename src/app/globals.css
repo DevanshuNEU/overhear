@@ -153,3 +153,50 @@
     @apply font-sans;
   }
 }
+
+/* The call report screen (/reports). A light tool surface with one accent, scoped to .report so the
+   dark demo pages are untouched. Status colours carry equal weight: red for a broken rule, amber for
+   a result that could not be checked, and a calm ink for a pass. Contrast ratios are in the note on
+   the pull request. */
+.report {
+  color-scheme: light;
+  --report-canvas: #fbfbfd;
+  --report-surface: #ffffff;
+  --report-line: #e3e3ec;
+  --report-line-strong: #7c7c93;
+  --report-ink: #15152b;
+  --report-ink-2: #43435c;
+  --report-muted: #5b5b74;
+  --report-accent: #4338ca;
+  --report-accent-tint: #eeedfc;
+  --report-critical: #a8201a;
+  --report-critical-tint: #fdeceb;
+  --report-critical-mark: #fbe3e0;
+  --report-warning: #7a4100;
+  --report-warning-tint: #fff1d0;
+  --report-warning-mark: #ffe9b5;
+  --report-calm-mark: #ecebf3;
+}
+
+@theme inline {
+  --color-report-canvas: var(--report-canvas);
+  --color-report-surface: var(--report-surface);
+  --color-report-line: var(--report-line);
+  --color-report-line-strong: var(--report-line-strong);
+  --color-report-ink: var(--report-ink);
+  --color-report-ink-2: var(--report-ink-2);
+  --color-report-muted: var(--report-muted);
+  --color-report-accent: var(--report-accent);
+  --color-report-accent-tint: var(--report-accent-tint);
+  --color-report-critical: var(--report-critical);
+  --color-report-critical-tint: var(--report-critical-tint);
+  --color-report-critical-mark: var(--report-critical-mark);
+  --color-report-warning: var(--report-warning);
+  --color-report-warning-tint: var(--report-warning-tint);
+  --color-report-warning-mark: var(--report-warning-mark);
+  --color-report-calm-mark: var(--report-calm-mark);
+}
+
+body:has(> .report) {
+  background: #fbfbfd;
+}

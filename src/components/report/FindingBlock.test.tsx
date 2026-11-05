@@ -1,0 +1,82 @@
+import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { FindingBlock } from "./FindingBlock";
+import type { Detection, Evidence, Finding } from "@/report/schema";
+
+const evidence: Evidence = {
+  callId: "call_x",
+  platform: "retell",
+  agentVersion: null,
+  tier: 2,
+  ordering: "sequence",
+  callFields: {},
+  callStartMs: null,
+  gaps: [],
+  items: [
+    { kind: "turn", seq: 1, role: "caller", text: "Book me with Dr. Lee on Tuesday.", startSec: 3, interrupted: null },
+    { kind: "turn", seq: 2, role: "agent", text: "You're booked with Dr. Lee on Tuesday.", startSec: 9.4, interrupted: null },
+    { kind: "tool_call", seq: 3, id: "tc_1", name: "book_appointment", args: { slot: "s1" } },
+    { kind: "tool_result", seq: 4, id: "tc_1", ok: null, platformOk: null, payload: "timeout" },
+    { kind: "backend_action", seq: 5, id: "ae_1", toolCallId: "tc_1", tool: "book_appointment", args: {}, result: { ok: false }, ok: false, ts: "2026-11-05T10:00:00Z", link: { toolCallId: "tc_1", by: "tool_call_id" } },
+    { kind: "event", seq: 6, type: "transfer_started", data: { to: "nurse" } },
+  ],
+};
+const detections: Detection[] = [{ seq: 2, cls: "completion", quote: "You're booked", source: "code" }];
+
+const finding: Finding = {
+  result: "violated",
+  text: "At 0:09 the agent said the booking was done. It was not.",
+  said: [2],
+  did: [3, 4, 5, 6],
+  asked: [1],
+  gaps: [],
+  fields: [
+    { field: "provider", type: "name", from: "requested", values: ["Dr. Lee"], committed: "Dr. Osei", status: "differs" },
+    { field: "date", type: "date", from: "spoken", values: ["Tuesday"], committed: null, status: "unresolved" },
+  ],
+};
+
+describe("FindingBlock", () => {
+  const setup = (f: Finding = finding) => render(<FindingBlock finding={f} evidence={evidence} detections={detections} contract="promise_backed" />);
+
+  it("shows the caller's request in the asked lane", () => {
+    setup();
+    const asked = screen.getByRole("group", { name: "Asked" });
+    expect(asked).toHaveTextContent("Book me with Dr. Lee on Tuesday.");
+    expect(within(asked).getByText("0:03")).toBeInTheDocument();
+  });
+
+  it("describes each kind of thing the system did, in order", () => {
+    setup();
+    const did = screen.getByRole("group", { name: "Did" });
+    const lines = within(did).getAllByRole("listitem").map((li) => li.querySelector("[data-line]")?.textContent);
+    expect(lines).toEqual([
+      "Called book_appointment",
+      "book_appointment gave no success signal",
+      "book_appointment recorded as failed",
+      "Event: transfer_started",
+    ]);
+  });
+
+  it("tags what the backend logged, and nothing else", () => {
+    setup();
+    expect(screen.getAllByText("Backend log")).toHaveLength(1);
+  });
+
+  it("marks differing and unresolved details in words, not only colour", () => {
+    setup();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Differs")).toBeInTheDocument();
+    expect(within(table).getByText("Couldn't resolve")).toBeInTheDocument();
+    // A requested value is labelled as requested, a spoken one as spoken.
+    expect(within(table).getByText("Requested: Dr. Lee")).toBeInTheDocument();
+    expect(within(table).getByText("Spoken: Tuesday")).toBeInTheDocument();
+  });
+
+  it("leaves out the lanes a finding does not use", () => {
+    setup({ ...finding, asked: [], said: [], fields: [] });
+    expect(screen.queryByRole("group", { name: "Asked" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Said" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
