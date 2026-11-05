@@ -105,6 +105,13 @@ async function buildContext(call: RetellCall): Promise<CallContext> {
   };
 }
 
+// raw_call is kept only once Retell has analyzed the call. A body without
+// call_analysis (call_ended) must neither set raw_call nor clear one a
+// call_analyzed body already wrote, so it contributes no key at all.
+function rawCallValue(call: RetellCall): { rawCall?: RetellCall } {
+  return call.call_analysis ? { rawCall: call } : {};
+}
+
 // Record a call the moment it ends (call_ended webhook), before it has been
 // scored. This writes only the `calls` row, no `qa_scores`, so the dashboard's
 // left join surfaces it as "processing" until call_analyzed fires and
@@ -118,6 +125,7 @@ export async function recordPendingCall(call: RetellCall): Promise<void> {
     recordingUrl: call.recording_url ?? null,
     retellSentiment: call.call_analysis?.user_sentiment ?? null,
     retellSummary: call.call_analysis?.call_summary ?? null,
+    ...rawCallValue(call),
   };
   await db.insert(calls).values({ id: call.call_id, ...values }).onConflictDoUpdate({
     target: calls.id,
@@ -156,6 +164,7 @@ export async function scoreCall(call: RetellCall): Promise<CompositeScore> {
       recordingUrl: call.recording_url ?? null,
       retellSentiment: call.call_analysis?.user_sentiment ?? null,
       retellSummary: call.call_analysis?.call_summary ?? null,
+      ...rawCallValue(call),
     }).onConflictDoUpdate({
       target: calls.id,
       set: {
@@ -163,6 +172,7 @@ export async function scoreCall(call: RetellCall): Promise<CompositeScore> {
         recordingUrl: call.recording_url ?? null,
         retellSentiment: call.call_analysis?.user_sentiment ?? null,
         retellSummary: call.call_analysis?.call_summary ?? null,
+        ...rawCallValue(call),
       },
     });
 

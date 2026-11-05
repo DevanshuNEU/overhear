@@ -1,0 +1,91 @@
+import { describe, it, expect } from "vitest";
+import { inFlightToolCallId } from "./tool-call-id";
+
+const inv = (id: string, name: string) => ({ role: "tool_call_invocation", tool_call_id: id, name, arguments: "{}" });
+const res = (id: string) => ({ role: "tool_call_result", tool_call_id: id, content: "{}" });
+
+describe("inFlightToolCallId", () => {
+  it("returns the id of the last invocation whose name matches and has no result", () => {
+    const body = {
+      name: "book_appointment",
+      call: {
+        transcript_with_tool_calls: [
+          inv("a1", "verify_patient"), res("a1"),
+          { role: "agent", content: "One sec." }, inv("b2", "book_appointment"),
+        ],
+      },
+    };
+    expect(inFlightToolCallId(body)).toBe("b2");
+  });
+
+  it("returns null when that invocation already has a result", () => {
+    const body = {
+      name: "book_appointment",
+      call: { transcript_with_tool_calls: [inv("b2", "book_appointment"), res("b2")] },
+    };
+    expect(inFlightToolCallId(body)).toBeNull();
+  });
+
+  it("returns null for an args-only payload", () => {
+    expect(inFlightToolCallId({ name: "x" })).toBeNull();
+  });
+
+  it("skips an earlier answered call to the same tool and picks the open one", () => {
+    const body = {
+      name: "check_availability",
+      call: { transcript_with_tool_calls: [inv("c1", "check_availability"), res("c1"), inv("c2", "check_availability")] },
+    };
+    expect(inFlightToolCallId(body)).toBe("c2");
+  });
+
+  it("returns null when no invocation matches the tool name", () => {
+    const body = { name: "book_appointment", call: { transcript_with_tool_calls: [inv("a1", "verify_patient")] } };
+    expect(inFlightToolCallId(body)).toBeNull();
+  });
+
+  it("ignores malformed items without throwing", () => {
+    const body = {
+      name: "book_appointment",
+      call: { transcript_with_tool_calls: [null, "x", 3, { role: "tool_call_invocation" }, inv("b2", "book_appointment")] },
+    };
+    expect(inFlightToolCallId(body)).toBe("b2");
+  });
+
+  it("returns null when the request has no tool name, even if an invocation has none", () => {
+    const body = { call: { transcript_with_tool_calls: [{ role: "tool_call_invocation", tool_call_id: "x" }] } };
+    expect(inFlightToolCallId(body)).toBeNull();
+  });
+
+  it("ignores a result that has no invocation", () => {
+    const body = { name: "book_appointment", call: { transcript_with_tool_calls: [res("ghost")] } };
+    expect(inFlightToolCallId(body)).toBeNull();
+  });
+
+  it("tells two open calls to the same tool apart by their arguments", () => {
+    const withArgs = (id: string, args: object) => ({ ...inv(id, "book_appointment"), arguments: JSON.stringify(args) });
+    const call = { transcript_with_tool_calls: [withArgs("p1", { slotId: "A" }), withArgs("p2", { slotId: "B" })] };
+    expect(inFlightToolCallId({ name: "book_appointment", args: { slotId: "A" }, call })).toBe("p1");
+    expect(inFlightToolCallId({ name: "book_appointment", args: { slotId: "B" }, call })).toBe("p2");
+  });
+
+  it("matches arguments by content, whatever the key order, and keeps array order", () => {
+    const withArgs = (id: string, args: object) => ({ ...inv(id, "book_appointment"), arguments: JSON.stringify(args) });
+    const call = {
+      transcript_with_tool_calls: [
+        withArgs("p1", { slotId: "A", patient: { id: 1, name: "x" }, tags: [1, 2] }),
+        withArgs("p2", { slotId: "B" }),
+      ],
+    };
+    const args = { tags: [1, 2], patient: { name: "x", id: 1 }, slotId: "A" };
+    expect(inFlightToolCallId({ name: "book_appointment", args, call })).toBe("p1");
+    // Reordered array elements are a different value, so this falls back to the last open call.
+    const reordered = { tags: [2, 1], patient: { name: "x", id: 1 }, slotId: "A" };
+    expect(inFlightToolCallId({ name: "book_appointment", args: reordered, call })).toBe("p2");
+  });
+
+  it("falls back to the last open call when no arguments match", () => {
+    const withArgs = (id: string, args: object) => ({ ...inv(id, "book_appointment"), arguments: JSON.stringify(args) });
+    const call = { transcript_with_tool_calls: [withArgs("p1", { slotId: "A" }), withArgs("p2", { slotId: "B" })] };
+    expect(inFlightToolCallId({ name: "book_appointment", args: { slotId: "Z" }, call })).toBe("p2");
+  });
+});

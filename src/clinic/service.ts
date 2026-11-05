@@ -44,9 +44,13 @@ export function nameSimilarity(a: string, b: string): number {
   return 1 - prev[y.length] / Math.max(x.length, y.length);
 }
 
-export function makeClinicService(db: DB | any, now: () => Date = () => new Date()) {
+export function makeClinicService(
+  db: DB | any,
+  now: () => Date = () => new Date(),
+  opts: { toolCallId?: string | null } = {},
+) {
   async function log(callId: string, tool: ToolName, args: unknown, result: unknown, ok: boolean) {
-    await db.insert(actionEvents).values({ callId, tool, args, result, ok, ts: now() });
+    await db.insert(actionEvents).values({ callId, tool, args, result, ok, ts: now(), toolCallId: opts.toolCallId ?? null });
   }
   // The patient most recently verified on this call, from this call's own
   // action log. A change is allowed only for that patient. If the latest

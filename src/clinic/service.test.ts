@@ -33,6 +33,28 @@ describe("ClinicService", () => {
     expect(bookedSlot[0].status).toBe("booked");
   });
 
+  it("stores the tool_call_id it was created with on every logged action", async () => {
+    ctx = await createTestDb();
+    await fixture(ctx.db);
+    const svc = makeClinicService(ctx.db, undefined, { toolCallId: "tc_9" });
+
+    await svc.verifyPatient("call_1", { name: "Alex Kim", dob: "1990-04-02" });
+
+    const [row] = await ctx.db.select().from(actionEvents).where(eq(actionEvents.callId, "call_1"));
+    expect(row.toolCallId).toBe("tc_9");
+  });
+
+  it("stores a null tool_call_id when none was given", async () => {
+    ctx = await createTestDb();
+    await fixture(ctx.db);
+    const svc = makeClinicService(ctx.db);
+
+    await svc.verifyPatient("call_1", { name: "Alex Kim", dob: "1990-04-02" });
+
+    const [row] = await ctx.db.select().from(actionEvents).where(eq(actionEvents.callId, "call_1"));
+    expect(row.toolCallId).toBeNull();
+  });
+
   it("does not offer slots whose time has already passed", async () => {
     ctx = await createTestDb();
     const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
