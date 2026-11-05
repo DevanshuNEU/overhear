@@ -44,6 +44,17 @@ export type Note = (typeof NOTES)[number];
 export type ContractId = (typeof CONTRACT_IDS)[number];
 export type ReviewReasonKind = (typeof REVIEW_REASON_KINDS)[number];
 
+// Gaps about the evidence itself. One that touches a finding's seqs makes the finding unverified. The other two
+// (unresolved_committed_detail, llm_code_disagreement) belong to one contract and are cited through Finding.gaps.
+const EVIDENCE_GAPS = new Set<string>([
+  "missing_tool_transcript",
+  "unlinked_backend_action",
+  "ambiguous_link",
+  "turn_index_out_of_range",
+  "unknown_success",
+  "evidence_conflict",
+]);
+
 const Seq = z.number().int().positive();
 const Args = z.record(z.string(), z.unknown());
 
@@ -373,13 +384,16 @@ export const CallReportSchema = z
           if (!gapCodes.has(g)) bad([...fat, "gaps", i], `gap ${g} is not listed in evidence.gaps`);
         });
 
-        // A violated finding rests on complete evidence and order, and on its own fields (6.4).
-        if (f.result === "violated") {
-          if (f.gaps.length) bad([...fat, "gaps"], "a violated finding cannot cite a gap: a gap makes it unverified");
+        // A gap in a finding's evidence makes it unverified (6.4), so neither violated nor passed may rest on one.
+        if (f.result !== "unverified") {
+          if (f.gaps.length) bad([...fat, "gaps"], `a ${f.result} finding cannot cite a gap: a gap makes it unverified`);
           const touched = new Set([...f.said, ...f.did]);
-          if (r.evidence.gaps.some((g) => g.seqs.some((sq) => touched.has(sq)))) {
-            bad([...fat, "result"], "a gap touches this finding's evidence, so it is unverified, never violated");
+          if (r.evidence.gaps.some((g) => EVIDENCE_GAPS.has(g.code) && g.seqs.some((sq) => touched.has(sq)))) {
+            bad([...fat, "result"], `a gap touches this finding's evidence, so it is unverified, never ${f.result}`);
           }
+        }
+        // A violated finding rests on complete order, and on its own fields (6.4).
+        if (f.result === "violated") {
           if (r.evidence.ordering === "none" && ["promise_backed", "verified_before_change", "transfer_kept"].includes(c.contract)) {
             bad([...fat, "result"], "with ordering none, a contract that depends on order is unverified, never violated");
           }
@@ -393,8 +407,10 @@ export const CallReportSchema = z
 
         // An LLM finding alone never produces violated (6.4). Provenance is judged per cited claim.
         const classes = claimClass[c.contract];
+        /** The detections of this contract's claim class at one agent turn. */
         const detectionsAt = (sq: number) => r.detections.filter((d) => d.seq === sq && classes?.includes(d.cls));
         const cited = classes ? f.said.filter((sq) => detectionsAt(sq).length > 0) : [];
+        /** Which detectors found the claim at one turn. */
         const sourcesAt = (sq: number) => new Set(detectionsAt(sq).map((d) => d.source));
         // Corroborated: both detectors agree. llm-only: only the model. code-only: only the code, which matters once a model ran.
         const llmOnly = cited.filter((sq) => [...sourcesAt(sq)].every((x) => x === "llm"));

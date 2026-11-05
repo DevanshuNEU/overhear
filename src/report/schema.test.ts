@@ -447,7 +447,26 @@ describe("evidence that would make a violation unsafe", () => {
 
   it("does not let an unrelated gap block a violation", () => {
     const r = clone(failedSample);
-    r.evidence.gaps.push({ code: "unknown_success", detail: "A lookup had no success signal.", seqs: [8] });
+    r.evidence.gaps.push({ code: "unknown_success", detail: "A caller turn had no success signal.", seqs: [2] });
+    expect(issues(r)).toEqual([]);
+  });
+
+  it("rejects a passed finding that cites the unknown_success gap", () => {
+    const r = clone(passedSample);
+    r.evidence.gaps.push({ code: "unknown_success", detail: "The booking result had no success signal.", seqs: [33] });
+    result(r, "promise_backed").findings[0].gaps = ["unknown_success"];
+    expect(issues(r).join("\n")).toMatch(/passed finding cannot cite a gap/);
+  });
+
+  it("rejects a passed finding when a gap touches its evidence, even if it does not list it", () => {
+    const r = clone(passedSample);
+    r.evidence.gaps.push({ code: "unknown_success", detail: "The booking result had no success signal.", seqs: [33] });
+    expect(issues(r).join("\n")).toMatch(/never passed/);
+  });
+
+  it("does not let an unrelated gap block a pass", () => {
+    const r = clone(passedSample);
+    r.evidence.gaps.push({ code: "unknown_success", detail: "A lookup had no success signal.", seqs: [13] });
     expect(issues(r)).toEqual([]);
   });
 
