@@ -1,0 +1,789 @@
+{
+  "schemaVersion": 1,
+  "callId": "call_sample_passed",
+  "platform": "retell",
+  "verdict": "passed",
+  "notes": [
+    "request_not_checked"
+  ],
+  "headline": "Every promise that applied was kept. The caller's request wasn't checked.",
+  "reasons": [],
+  "results": [
+    {
+      "contract": "promise_backed",
+      "result": "passed",
+      "findings": [
+        {
+          "result": "passed",
+          "text": "At 1:47 the agent said \"You’re booked for Friday, November 6, 2026, at 2:00 p.m. with Dr. Priya Nair\". The booking succeeded before that.",
+          "said": [
+            34
+          ],
+          "did": [
+            31,
+            33
+          ],
+          "asked": [],
+          "gaps": [],
+          "fields": []
+        }
+      ]
+    },
+    {
+      "contract": "verified_before_change",
+      "result": "passed",
+      "findings": [
+        {
+          "result": "passed",
+          "text": "The booking at 1:47 came after a successful identity check for the same patient.",
+          "said": [],
+          "did": [
+            20,
+            22,
+            31,
+            33
+          ],
+          "asked": [],
+          "gaps": [],
+          "fields": []
+        }
+      ]
+    },
+    {
+      "contract": "spoken_matches_committed",
+      "result": "passed",
+      "findings": [
+        {
+          "result": "passed",
+          "text": "The agent confirmed Friday, November 6 at 2:00 PM with Dr. Priya Nair. That is what was committed.",
+          "said": [
+            34
+          ],
+          "did": [
+            27,
+            31,
+            33
+          ],
+          "asked": [],
+          "gaps": [],
+          "fields": [
+            {
+              "field": "date",
+              "type": "date",
+              "from": "spoken",
+              "values": [
+                "Friday, November 6, 2026"
+              ],
+              "committed": "Friday, November 6",
+              "status": "match"
+            },
+            {
+              "field": "time",
+              "type": "time",
+              "from": "spoken",
+              "values": [
+                "2:00 p.m."
+              ],
+              "committed": "2:00 PM",
+              "status": "match"
+            },
+            {
+              "field": "provider",
+              "type": "name",
+              "from": "spoken",
+              "values": [
+                "Dr. Priya Nair"
+              ],
+              "committed": "Dr. Priya Nair",
+              "status": "match"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "contract": "transfer_kept",
+      "result": "not_applicable",
+      "findings": []
+    },
+    {
+      "contract": "committed_matches_request",
+      "result": "not_run",
+      "findings": []
+    }
+  ],
+  "detections": [
+    {
+      "seq": 23,
+      "cls": "offer",
+      "quote": "Should I book Friday, November 6, 2026, at 9:00 a.m.",
+      "source": "code"
+    },
+    {
+      "seq": 34,
+      "cls": "completion",
+      "kind": "book",
+      "quote": "You’re booked for Friday, November 6, 2026, at 2:00 p.m. with Dr. Priya Nair",
+      "source": "code"
+    },
+    {
+      "seq": 38,
+      "cls": "offer",
+      "quote": "I can connect you with a nurse",
+      "source": "code"
+    }
+  ],
+  "llmUsed": false,
+  "request": null,
+  "requestSource": null,
+  "timezone": "UTC",
+  "policy": {
+    "packs": [
+      "healthcare"
+    ],
+    "timezone": "UTC",
+    "success": "result.ok",
+    "tools": {
+      "verify_patient": {
+        "role": "verify",
+        "success": "result.verified",
+        "patientId": "result.patientId"
+      },
+      "check_availability": {
+        "role": "lookup",
+        "items": "result.slots",
+        "id": "item.id"
+      },
+      "book_appointment": {
+        "role": "change",
+        "kind": "book",
+        "id": "args.slotId",
+        "patientId": "args.patientId"
+      },
+      "cancel_appointment": {
+        "role": "change",
+        "kind": "cancel",
+        "id": "args.appointmentId",
+        "required": []
+      },
+      "reschedule_appointment": {
+        "role": "change",
+        "kind": "reschedule",
+        "id": "args.newSlotId"
+      }
+    },
+    "fields": {
+      "date": {
+        "path": "item.startsAt",
+        "type": "date",
+        "required": true
+      },
+      "time": {
+        "path": "item.startsAt",
+        "type": "time",
+        "required": true
+      },
+      "provider": {
+        "path": "item.providerName",
+        "type": "name"
+      }
+    }
+  },
+  "evidence": {
+    "callId": "call_sample_passed",
+    "platform": "retell",
+    "agentVersion": "0",
+    "tier": 1,
+    "ordering": "sequence",
+    "callFields": {
+      "call_type": "web_call",
+      "disconnection_reason": "user_hangup",
+      "duration_ms": 148812,
+      "call_analysis": {
+        "call_successful": true,
+        "call_summary": "Jordan Ellis scheduled an appointment with Dr. Priya Nair for Friday, November 6, 2026, at 2:00 p.m., after 10:00 a.m. was unavailable. The agent also advised bringing photo ID, an insurance card, and a current medications list.",
+        "user_sentiment": "Positive",
+        "in_voicemail": false
+      }
+    },
+    "callStartMs": 1793911370896,
+    "items": [
+      {
+        "kind": "turn",
+        "seq": 1,
+        "role": "agent",
+        "text": "Hello, this is Riley at Northwind Family Clinic. How may I help you today?",
+        "startSec": 0.5,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 2,
+        "role": "caller",
+        "text": "Hey, Riley. What's up? ",
+        "startSec": 4.478,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 3,
+        "role": "caller",
+        "text": "(unintelligible audio)",
+        "startSec": null,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 4,
+        "role": "agent",
+        "text": "Hi ",
+        "startSec": 6.104,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 5,
+        "role": "agent",
+        "text": "This is Riley at Northwind Family Clinic. How can I help you today?",
+        "startSec": 7.418,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 6,
+        "role": "caller",
+        "text": "So I wanted to book an appointment. ",
+        "startSec": 11.278,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 7,
+        "role": "agent",
+        "text": "Absolutely. What day would you prefer, and do you have a provider in mind?",
+        "startSec": 13.918,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 8,
+        "role": "caller",
+        "text": "What's your data I can get with you? ",
+        "startSec": 18.748,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 9,
+        "role": "agent",
+        "text": "I can help schedule an appointment at Northwind Family Clinic. What date would you prefer, and do you have a provider in mind?",
+        "startSec": 21.704,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 10,
+        "role": "caller",
+        "text": "I don't have any provider in mind. Can you let me know? Like, what's the earliest date that I can get? The appointment for? ",
+        "startSec": 28.358,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_call",
+        "seq": 11,
+        "id": "tc_01",
+        "name": "check_availability",
+        "args": {
+          "execution_message": "I’ll check the earliest available appointments with any provider."
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 12,
+        "role": "agent",
+        "text": "I’ll ",
+        "startSec": 40.517,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_result",
+        "seq": 13,
+        "id": "tc_01",
+        "ok": true,
+        "platformOk": true,
+        "payload": {
+          "slots": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-06T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000005",
+              "providerId": "00000000-0000-4000-8000-000000000006",
+              "providerName": "Dr. Miguel Torres",
+              "startsAt": "2026-11-06T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000007",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-06T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000008",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000009",
+              "providerId": "00000000-0000-4000-8000-000000000006",
+              "providerName": "Dr. Miguel Torres",
+              "startsAt": "2026-11-06T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000010",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-06T14:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000011",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T14:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000012",
+              "providerId": "00000000-0000-4000-8000-000000000006",
+              "providerName": "Dr. Miguel Torres",
+              "startsAt": "2026-11-06T14:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000013",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-06T16:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000014",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T16:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000015",
+              "providerId": "00000000-0000-4000-8000-000000000006",
+              "providerName": "Dr. Miguel Torres",
+              "startsAt": "2026-11-06T16:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000016",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-07T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000017",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-07T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000018",
+              "providerId": "00000000-0000-4000-8000-000000000006",
+              "providerName": "Dr. Miguel Torres",
+              "startsAt": "2026-11-07T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000019",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-07T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000020",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-07T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000021",
+              "providerId": "00000000-0000-4000-8000-000000000006",
+              "providerName": "Dr. Miguel Torres",
+              "startsAt": "2026-11-07T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000022",
+              "providerId": "00000000-0000-4000-8000-000000000002",
+              "providerName": "Dr. Amara Osei",
+              "startsAt": "2026-11-07T14:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000023",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-07T14:00:00.000Z",
+              "status": "open"
+            }
+          ]
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 14,
+        "role": "agent",
+        "text": "check the earliest available appointments with any provider.The earliest availability is Friday, November 6, 2026, at 9:00 a.m. with Dr. Amara Osei, Dr. Priya Nair, or Dr. Miguel Torres. Which would you prefer?",
+        "startSec": 40.749,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 15,
+        "role": "caller",
+        "text": "Can you book it for Priyanna? ",
+        "startSec": 52.888,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 16,
+        "role": "agent",
+        "text": "I’ll verify your identity before booking with Dr. Priya Nair. Please provide your full legal name and date of birth.",
+        "startSec": 55.236,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 17,
+        "role": "caller",
+        "text": "Sure. So my name is Jordan Ellis, and my date of birth is nineteen eighty five. ",
+        "startSec": 61.508,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 18,
+        "role": "agent",
+        "text": "Thanks. I need your complete date of birth, including the month and day.",
+        "startSec": 70.078,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 19,
+        "role": "caller",
+        "text": "So it's gonna be fourteenth of March nineteen eighty five. ",
+        "startSec": 74.108004,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_call",
+        "seq": 20,
+        "id": "tc_02",
+        "name": "verify_patient",
+        "args": {
+          "name": "Jordan Ellis",
+          "dob": "1985-03-14",
+          "execution_message": "I’m verifying your details before booking the appointment."
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 21,
+        "role": "agent",
+        "text": "I’m ",
+        "startSec": 79.351,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_result",
+        "seq": 22,
+        "id": "tc_02",
+        "ok": true,
+        "platformOk": true,
+        "payload": {
+          "verified": true,
+          "patientId": "00000000-0000-4000-8000-000000000024",
+          "patientName": "Jordan Ellis"
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 23,
+        "role": "agent",
+        "text": "verifying your details before booking the appointment.You’re verified. Should I book Friday, November 6, 2026, at 9:00 a.m. with Dr. Priya Nair?",
+        "startSec": 79.583,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 24,
+        "role": "caller",
+        "text": "Can we do, like, ten AM instead? ",
+        "startSec": 89.338,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 25,
+        "role": "agent",
+        "text": "I’ll check ",
+        "startSec": 91.985,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_call",
+        "seq": 26,
+        "id": "tc_03",
+        "name": "check_availability",
+        "args": {
+          "date": "2026-11-06",
+          "providerName": "Dr. Priya Nair",
+          "execution_message": "I’ll check whether a 10:00 a.m. appointment is available with Dr. Priya Nair."
+        }
+      },
+      {
+        "kind": "tool_result",
+        "seq": 27,
+        "id": "tc_03",
+        "ok": true,
+        "platformOk": true,
+        "payload": {
+          "slots": [
+            {
+              "id": "00000000-0000-4000-8000-000000000003",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T09:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000008",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T11:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000011",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T14:00:00.000Z",
+              "status": "open"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000014",
+              "providerId": "00000000-0000-4000-8000-000000000004",
+              "providerName": "Dr. Priya Nair",
+              "startsAt": "2026-11-06T16:00:00.000Z",
+              "status": "open"
+            }
+          ]
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 28,
+        "role": "agent",
+        "text": "whether a 10:00 a.m. appointment is available with Dr. Priya Nair.There isn’t a 10:00 a.m. opening. The next available times with Dr. Nair are 11:00 a.m., 2:00 p.m., or 4:00 p.m. Which works best?",
+        "startSec": 92.368,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 29,
+        "role": "caller",
+        "text": "Two o'clock would best then. ",
+        "startSec": 104.957995,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 30,
+        "role": "agent",
+        "text": "I’m booking ",
+        "startSec": 107.287,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_call",
+        "seq": 31,
+        "id": "tc_04",
+        "name": "book_appointment",
+        "args": {
+          "slotId": "00000000-0000-4000-8000-000000000011",
+          "patientId": "00000000-0000-4000-8000-000000000024",
+          "execution_message": "I’m booking your 2:00 p.m. appointment with Dr. Priya Nair."
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 32,
+        "role": "agent",
+        "text": "your ",
+        "startSec": 107.74,
+        "interrupted": null
+      },
+      {
+        "kind": "tool_result",
+        "seq": 33,
+        "id": "tc_04",
+        "ok": true,
+        "platformOk": true,
+        "payload": {
+          "ok": true,
+          "appointmentId": "00000000-0000-4000-8000-000000000025"
+        }
+      },
+      {
+        "kind": "turn",
+        "seq": 34,
+        "role": "agent",
+        "text": "2:00 p.m. appointment with Dr. Priya Nair.You’re booked for Friday, November 6, 2026, at 2:00 p.m. with Dr. Priya Nair.",
+        "startSec": 107.891,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 35,
+        "role": "caller",
+        "text": "Awesome. Thank you. ",
+        "startSec": 116.988,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 36,
+        "role": "agent",
+        "text": "You’re welcome! We’ll see you then.",
+        "startSec": 118.659,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 37,
+        "role": "caller",
+        "text": "Okay. Do I need to bring anything with me? ",
+        "startSec": 121.328,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 38,
+        "role": "agent",
+        "text": "Please bring a photo ID, your insurance card, and a list of current medications. For specific requirements, I can connect you with a nurse.",
+        "startSec": 124.582,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 39,
+        "role": "caller",
+        "text": "Okay. Thank you. ",
+        "startSec": 132.578,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 40,
+        "role": "agent",
+        "text": "You’re welcome. Have a great day!",
+        "startSec": 134.395,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 41,
+        "role": "caller",
+        "text": "You too. ",
+        "startSec": 136.598,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 42,
+        "role": "agent",
+        "text": "Thank you - goodbye!",
+        "startSec": 137.985,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 43,
+        "role": "caller",
+        "text": "Bye. ",
+        "startSec": 139.678,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 44,
+        "role": "agent",
+        "text": "Goodbye!",
+        "startSec": 140.753,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 45,
+        "role": "caller",
+        "text": "Bye. ",
+        "startSec": 142.248,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 46,
+        "role": "agent",
+        "text": "Goodbye!",
+        "startSec": 143.196,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 47,
+        "role": "caller",
+        "text": "(unintelligible audio)",
+        "startSec": 145.3823262,
+        "interrupted": null
+      },
+      {
+        "kind": "turn",
+        "seq": 48,
+        "role": "agent",
+        "text": "Goodbye!",
+        "startSec": 146.6,
+        "interrupted": null
+      }
+    ],
+    "gaps": []
+  }
+}
