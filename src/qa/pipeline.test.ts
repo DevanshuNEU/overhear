@@ -72,4 +72,42 @@ describe("recordPendingCall raw_call", () => {
     await recordPendingCall(ended);
     expect(await rawOf()).toEqual(analyzed);
   });
+
+  it("stores raw_call when the analyzed call arrives first, with no row yet", async () => {
+    ctx = await createTestDb();
+    testCtx.db = ctx.db;
+    const rows = () => ctx.db.select().from(calls).where(eq(calls.id, "r2"));
+    expect(await rows()).toHaveLength(0);
+
+    const analyzed: RetellCall = { call_id: "r2", transcript_object: [], call_analysis: { call_summary: "s" } };
+    await recordPendingCall(analyzed);
+
+    const [row] = await rows();
+    expect(row.rawCall).toEqual(analyzed);
+  });
+});
+
+describe("scoreCall raw_call", () => {
+  it("stores raw_call when scoring an analyzed call whose pending write never happened", async () => {
+    ctx = await createTestDb();
+    testCtx.db = ctx.db;
+    const analyzed: RetellCall = { call_id: "r3", transcript_object: [], call_analysis: { call_summary: "s" } };
+
+    await scoreCall(analyzed);
+
+    const [row] = await ctx.db.select().from(calls).where(eq(calls.id, "r3"));
+    expect(row.rawCall).toEqual(analyzed);
+  });
+
+  it("leaves a stored raw_call alone when the scored call has no call_analysis", async () => {
+    ctx = await createTestDb();
+    testCtx.db = ctx.db;
+    const analyzed: RetellCall = { call_id: "r4", transcript_object: [], call_analysis: { call_summary: "s" } };
+    await recordPendingCall(analyzed);
+
+    await scoreCall({ call_id: "r4", transcript_object: [] });
+
+    const [row] = await ctx.db.select().from(calls).where(eq(calls.id, "r4"));
+    expect(row.rawCall).toEqual(analyzed);
+  });
 });

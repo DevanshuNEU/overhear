@@ -68,6 +68,21 @@ describe("inFlightToolCallId", () => {
     expect(inFlightToolCallId({ name: "book_appointment", args: { slotId: "B" }, call })).toBe("p2");
   });
 
+  it("matches arguments by content, whatever the key order, and keeps array order", () => {
+    const withArgs = (id: string, args: object) => ({ ...inv(id, "book_appointment"), arguments: JSON.stringify(args) });
+    const call = {
+      transcript_with_tool_calls: [
+        withArgs("p1", { slotId: "A", patient: { id: 1, name: "x" }, tags: [1, 2] }),
+        withArgs("p2", { slotId: "B" }),
+      ],
+    };
+    const args = { tags: [1, 2], patient: { name: "x", id: 1 }, slotId: "A" };
+    expect(inFlightToolCallId({ name: "book_appointment", args, call })).toBe("p1");
+    // Reordered array elements are a different value, so this falls back to the last open call.
+    const reordered = { tags: [2, 1], patient: { name: "x", id: 1 }, slotId: "A" };
+    expect(inFlightToolCallId({ name: "book_appointment", args: reordered, call })).toBe("p2");
+  });
+
   it("falls back to the last open call when no arguments match", () => {
     const withArgs = (id: string, args: object) => ({ ...inv(id, "book_appointment"), arguments: JSON.stringify(args) });
     const call = { transcript_with_tool_calls: [withArgs("p1", { slotId: "A" }), withArgs("p2", { slotId: "B" })] };

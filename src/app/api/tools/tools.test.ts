@@ -54,6 +54,18 @@ describe("tool route", () => {
 
   it("logs found: true or false for the tool_call_id", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    await checkAvailability(reqOf("good", {
+      name: "check_availability", args: {},
+      call: {
+        call_id: "c_found",
+        transcript_with_tool_calls: [
+          { role: "tool_call_invocation", tool_call_id: "tc_found", name: "check_availability", arguments: "{}" },
+        ],
+      },
+    }));
+    expect(info).toHaveBeenCalledWith("tool_call_id", { tool: "check_availability", found: true });
+
+    info.mockClear();
     await checkAvailability(reqOf("good", { name: "check_availability", call: { call_id: "c_none" }, args: {} }));
     expect(info).toHaveBeenCalledWith("tool_call_id", { tool: "check_availability", found: false });
     info.mockRestore();
