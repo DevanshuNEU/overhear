@@ -123,4 +123,25 @@ describe("CallTimeline", () => {
     expect(within(rowOf(49)).getByText("Backend log")).toBeInTheDocument();
     expect(within(rowOf(48)).queryByText("Backend log")).not.toBeInTheDocument();
   });
+
+  it("marks the claim words on a threaded turn, the same highlight as the Said lane", () => {
+    render(<CallTimeline report={failedSample} />);
+    const first = Array.from(document.getElementById("item-25")!.querySelectorAll("mark")).map((m) => m.textContent);
+    expect(first).toEqual(["I'll go ahead and connect you with a nurse now"]);
+    expect(Array.from(rowOf(27).querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["Transferring you to a nurse now"]);
+  });
+
+  it("marks no words on a turn that no broken or unchecked finding cites", () => {
+    render(<CallTimeline report={failedSample} />);
+    expect(rowOf(1).querySelectorAll("mark")).toHaveLength(0);
+    const { container } = render(<CallTimeline report={passedSample} />);
+    expect(container.querySelectorAll("mark")).toHaveLength(0);
+  });
+
+  it("draws the findings of one rule in one column, so their dots line up", () => {
+    render(<CallTimeline report={failedSample} />);
+    const left = (seq: number) => rowOf(seq).querySelector("[data-rail] [style]")?.getAttribute("style");
+    expect(rowOf(25).querySelector("[data-rail]")!.getAttribute("data-col")).toBe(rowOf(27).querySelector("[data-rail]")!.getAttribute("data-col"));
+    expect(left(25)).toBeTruthy();
+  });
 });

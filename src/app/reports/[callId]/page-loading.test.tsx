@@ -26,7 +26,7 @@ describe("/reports/[callId] while a report is made ready", () => {
       release();
       await waited;
     });
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(failedSample.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The agent said twice that it was transferring the caller");
   });
 
   it("still answers not found before it shows any loading screen", async () => {

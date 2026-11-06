@@ -9,22 +9,53 @@ describe("CallReportView on the failed sample", () => {
   const report = failedSample;
   const setup = () => render(<CallReportView report={report} />);
 
-  it("leads with the verdict and the headline", () => {
+  it("leads with the verdict and the answer", () => {
     setup();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(report.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The agent said twice that it was transferring the caller");
     expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.getByText(report.callId)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy call ID" })).toBeInTheDocument();
   });
 
-  it("answers first: the broken rule's sentence leads, and the stored headline follows in secondary ink", () => {
+  it("answers first with the broken rule, and adds no stored headline after it", () => {
     setup();
     const h1 = screen.getByRole("heading", { level: 1 });
-    const lead = h1.querySelector("[data-answer]")!;
-    expect(lead).toHaveTextContent("At 2:01 the agent said it was transferring the caller. No transfer was attempted. This happened twice.");
-    expect(h1.querySelector("[data-headline]")).toHaveTextContent(report.headline);
-    expect(h1.querySelector("[data-headline]")).toHaveClass("text-report-muted");
-    expect(lead.compareDocumentPosition(h1.querySelector("[data-headline]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(h1.querySelector("[data-answer]")).toHaveTextContent("The agent said twice that it was transferring the caller, at 2:01 and 2:22. No transfer was attempted.");
+    expect(h1.querySelector("[data-headline]")).toBeNull();
+    expect(h1).not.toHaveTextContent(report.headline);
+  });
+
+  it("does not say a sentence twice in a row: when one finding is the lead, its section goes straight to the evidence", () => {
+    const base = report.results.find((c) => c.contract === "transfer_kept")!;
+    const once = { ...report, results: report.results.map((c) => (c.contract === "transfer_kept" ? { ...c, findings: base.findings.slice(0, 1) } : c)) };
+    render(<CallReportView report={once} />);
+    const sentence = "At 2:01 the agent said it was transferring the caller. No transfer was attempted.";
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(sentence);
+    const section = screen.getByRole("region", { name: "Promised transfers happen" });
+    expect(within(section).getByText(sentence)).toHaveClass("sr-only");
+    expect(within(section).getByRole("group", { name: "Said" })).toBeInTheDocument();
+  });
+
+  it("keeps each finding's own sentence when the lead is the rule's template", () => {
+    setup();
+    const section = screen.getByRole("region", { name: "Promised transfers happen" });
+    for (const f of report.results.find((c) => c.contract === "transfer_kept")!.findings) {
+      expect(within(section).getByText(f.text)).not.toHaveClass("sr-only");
+    }
+  });
+
+  it("shows only the claim and the sentence either side, with the whole turn behind a disclosure", () => {
+    setup();
+    const said = within(screen.getByRole("region", { name: "Promised transfers happen" })).getAllByRole("group", { name: "Said" })[0];
+    const details = said.querySelector("details")!;
+    expect(details.open).toBe(false);
+    expect(within(details).getByText("Whole turn")).toBeInTheDocument();
+    const preview = said.querySelector("[data-preview]")!;
+    expect(preview).toHaveTextContent("Your appointment with Dr. Nair is confirmed for September 24th at 9:00 AM.");
+    expect(preview).toHaveTextContent("I'll go ahead and connect you with a nurse now");
+    expect(preview).toHaveTextContent("Is there anything else I can help you with before I transfer you?");
+    expect(preview).not.toHaveTextContent("Now let me book that appointment");
+    expect(details).toHaveTextContent("Now let me book that appointment");
   });
 
   it("shows the key facts with units and a denominator", () => {
@@ -104,7 +135,7 @@ describe("CallReportView on the failed sample", () => {
 
   it("still renders when the report's timezone cannot be read, leaving out the start time", () => {
     render(<CallReportView report={{ ...report, timezone: "Mars/Base" }} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(report.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The agent said twice");
     expect(screen.queryByText("Started")).not.toBeInTheDocument();
   });
 
@@ -138,7 +169,7 @@ describe("CallReportView on a call that needs review", () => {
   it("states why, under the headline, before the rules", () => {
     render(<CallReportView report={needsReviewSample} />);
     expect(screen.getByText("Needs review")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(needsReviewSample.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(needsReviewSample.reasons[0].text);
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings.indexOf("Why it needs review")).toBeGreaterThanOrEqual(0);
     expect(headings.indexOf("Why it needs review")).toBeLessThan(headings.indexOf("Other rules"));
@@ -161,7 +192,7 @@ describe("CallReportView on an unverified result", () => {
     setup();
     const gaps = screen.getByRole("region", { name: "What we couldn't check" });
     expect(within(gaps).getAllByText("A tool result gave no success signal")).toHaveLength(1);
-    expect(within(gaps).getByText(/^Stopped: Promises backed by the system/)).toBeInTheDocument();
+    expect(within(gaps).getByText(/^Rules it blocks: Promises backed by the system/)).toBeInTheDocument();
     // Not repeated in the rules below. (The timeline's tag for the same gap is a link, not a second explanation.)
     const rows = screen.getByRole("region", { name: "Said and did" });
     expect(within(rows).queryByText("A tool result gave no success signal")).not.toBeInTheDocument();

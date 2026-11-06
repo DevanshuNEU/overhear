@@ -6,6 +6,7 @@ import { CallTimeline } from "./CallTimeline";
 import { ContractSection } from "./ContractSection";
 import { GapsSection } from "./GapsSection";
 import { OpenTarget } from "./OpenTarget";
+import { answerOf } from "./answer";
 import { ReasonsSection } from "./ReasonsSection";
 import { ReportHeader } from "./ReportHeader";
 
@@ -19,12 +20,15 @@ function sortedForReading(results: ContractResult[]): ContractResult[] {
 export function CallReportView({ report }: { report: CallReport }) {
   const shown = sortedForReading(report.results);
   const skipped = report.results.filter((c) => !SHOWN.includes(c.result));
+  const answer = answerOf(report);
+  const src = answer?.source;
+  const leadReason = src?.kind === "reason" ? src.index : undefined;
   return (
     <div className="space-y-12">
       <OpenTarget />
       <ReportHeader report={report} />
-      <ReasonsSection report={report} />
-      <GapsSection report={report} />
+      <ReasonsSection report={report} leadReason={leadReason} />
+      <GapsSection report={report} saidInLead={leadReason === undefined ? undefined : report.reasons[leadReason].text} />
       {shown.length > 0 ? (
         <section aria-labelledby="rows-heading">
           <h2 id="rows-heading" className="mb-4 text-base font-semibold">
@@ -32,7 +36,7 @@ export function CallReportView({ report }: { report: CallReport }) {
           </h2>
           <div className="border-b border-report-line">
             {shown.map((c) => (
-              <ContractSection key={c.contract} contract={c} evidence={report.evidence} detections={report.detections} policy={report.policy} />
+              <ContractSection key={c.contract} contract={c} evidence={report.evidence} detections={report.detections} policy={report.policy} leadFinding={src?.kind === "finding" && src.contract === c.contract ? src.index : undefined} />
             ))}
           </div>
         </section>

@@ -11,9 +11,11 @@ import { getReport, readyDelay } from "@/report/store";
 
 type Props = { params: Promise<{ callId: string }> };
 
+// The page leads with a specific sentence, so the stored headline goes in the tab's title.
 export async function generateMetadata({ params }: Props) {
   const { callId } = await params;
-  return { title: `${callId} - ${PAGE_NAME}` };
+  const found = await getReport(callId);
+  return { title: found.status === "found" ? `${found.report.headline} - ${callId} - ${PAGE_NAME}` : `${callId} - ${PAGE_NAME}` };
 }
 
 /** Holds the report back until it is ready. With no wait it shows at once, so a normal load never suspends. */

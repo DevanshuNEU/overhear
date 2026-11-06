@@ -27,7 +27,7 @@ describe("the first engine release's report shape (scheduling only)", () => {
 
   it("shows the failed call with no identity rule, no empty section and the right counts", () => {
     render(<CallReportView report={schedulingOnly(failedSample)} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(failedSample.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The agent said twice that it was transferring the caller");
     expect(screen.queryByText("Identity checked before changes")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Promised transfers happen" })).toHaveTextContent("Broken");
     for (const title of ["Promises backed by the system", "Spoken details match the booking"]) {

@@ -1,13 +1,15 @@
 // The call, in order, with threads: a rail for each finding that needs attention runs through the
 // items it rests on, and every item a finding cites carries a tag that links back to that finding.
 import { useId } from "react";
-import type { CallReport } from "@/report/schema";
+import type { CallReport, Detection } from "@/report/schema";
 import { BACKEND_LOG_TAG, HEADING, ORDER_NOTE, SPEAKER_LABEL, tagResultSuffix } from "@/report/labels";
 import { formatClock } from "./format";
 import { RawDetail } from "./RawDetail";
 import { RESULT_TONE } from "./StatusBadge";
 import { timelineRows, type TimelineRow } from "./rows";
-import { railMarks, threadsOf, type Thread } from "./threads";
+import { claimsFor } from "./claims";
+import { markQuotes } from "./highlight";
+import { railColumns, railMarks, threadsOf, type Thread } from "./threads";
 
 const RAIL_STEP = 14;
 const DOT_TOP = 13;
@@ -19,14 +21,16 @@ const TAG_CLASS = {
   muted: "border border-report-line text-report-ink-2",
 };
 
-function Rails({ railed, marks }: { railed: Thread[]; marks: ReturnType<typeof railMarks>[number] }) {
-  if (railed.length === 0) return null;
+function Rails({ columns, marks }: { columns: Map<string, number>; marks: ReturnType<typeof railMarks>[number] }) {
+  const width = new Set(columns.values()).size;
+  if (width === 0) return null;
   return (
-    <div aria-hidden className="relative shrink-0" style={{ width: railed.length * RAIL_STEP }}>
+    <div aria-hidden className="relative shrink-0" style={{ width: width * RAIL_STEP }}>
       {marks.map((m) => {
-        const left = railed.findIndex((t) => t.id === m.id) * RAIL_STEP + 3;
+        const col = columns.get(m.id) ?? 0;
+        const left = col * RAIL_STEP + 3;
         return (
-          <span key={m.id} data-rail data-mark={m.mark}>
+          <span key={m.id} data-rail data-mark={m.mark} data-col={col}>
             <span
               className="absolute w-0.5 bg-report-accent"
               style={{ left: left + 3, top: m.first ? DOT_TOP + 5 : 0, bottom: m.last ? `calc(100% - ${DOT_TOP + 5}px)` : 0 }}
@@ -59,7 +63,7 @@ function TagLinks({ threads }: { threads: Thread[] }) {
 }
 
 /** Turns by one speaker: when and who once, then each turn's words held to a readable line length. */
-function Speech({ row, threads }: { row: Extract<TimelineRow, { kind: "speech" }>; threads: Thread[] }) {
+function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind: "speech" }>; threads: Thread[]; detections: Detection[] }) {
   const first = row.turns[0];
   return (
     <div className="min-w-0 py-2.5 sm:grid sm:grid-cols-[3rem_4.5rem_1fr] sm:gap-x-3">
@@ -68,10 +72,13 @@ function Speech({ row, threads }: { row: Extract<TimelineRow, { kind: "speech" }
       <div className="min-w-0 space-y-1">
         {row.turns.map((turn, i) => {
           const tags = threads.filter((t) => t.seqs.includes(turn.seq));
+          // The claim words of any broken or unchecked finding that cites this turn, marked as in the Said lane.
+          const quotes = tags.flatMap((t) => (t.contract ? claimsFor(t.contract, detections).filter((d) => d.seq === turn.seq).map((d) => d.quote) : []));
+          const markClass = tags.some((t) => t.result === "violated") ? "bg-report-critical-mark" : "bg-report-warning-mark";
           return (
             <div key={turn.seq}>
               <p id={i === 0 ? undefined : `item-${turn.seq}`} className="max-w-[68ch] scroll-mt-6 [overflow-wrap:anywhere] text-[15px] leading-relaxed target:bg-report-accent-tint">
-                {turn.text}
+                {markQuotes(turn.text, quotes, markClass)}
               </p>
               {tags.length > 0 ? (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -107,7 +114,7 @@ function Action({ row, threads }: { row: Extract<TimelineRow, { kind: "action" }
 export function CallTimeline({ report }: { report: CallReport }) {
   const id = useId();
   const threads = threadsOf(report);
-  const railed = threads.filter((t) => t.railed);
+  const columns = railColumns(threads);
   const rows = timelineRows(report.evidence);
   const marks = railMarks(threads, rows.map((r) => r.seqs));
   const tagged = threads.filter(needsAttention);
@@ -124,10 +131,10 @@ export function CallTimeline({ report }: { report: CallReport }) {
             id={`item-${row.seqs[0]}`}
             className="flex scroll-mt-6 gap-2 target:bg-report-accent-tint target:outline target:outline-2 target:-outline-offset-2 target:outline-report-accent has-[:target]:bg-report-accent-tint"
           >
-            <Rails railed={railed} marks={marks[i]} />
+            <Rails columns={columns} marks={marks[i]} />
             <div className="min-w-0 flex-1">
               {row.kind === "speech" ? (
-                <Speech row={row} threads={tagged} />
+                <Speech row={row} threads={tagged} detections={report.detections} />
               ) : (
                 <Action row={row} threads={tagged.filter((t) => t.seqs.some((s) => row.seqs.includes(s)))} />
               )}

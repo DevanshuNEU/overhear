@@ -8,13 +8,26 @@ import { FindingBlock } from "./FindingBlock";
 import { ResultBadge } from "./StatusBadge";
 import { contractAnchor, findingAnchor } from "./threads";
 
-export function ContractSection({ contract, evidence, detections, policy }: { contract: ContractResult; evidence: Evidence; detections: Detection[]; policy?: Policy }) {
+export function ContractSection({
+  contract,
+  evidence,
+  detections,
+  policy,
+  leadFinding,
+}: {
+  contract: ContractResult;
+  evidence: Evidence;
+  detections: Detection[];
+  policy?: Policy;
+  /** The finding whose sentence the lead above has already said, if it is in this rule. */
+  leadFinding?: number;
+}) {
   const id = useId();
   const title = capitalize(CONTRACT_TITLE[contract.contract]);
   const findings = (
     <div className="divide-y divide-report-line">
       {contract.findings.map((f, i) => (
-        <FindingBlock key={i} finding={f} evidence={evidence} detections={detections} contract={contract.contract} policy={policy} anchor={findingAnchor(contract.contract, i)} />
+        <FindingBlock key={i} finding={f} evidence={evidence} detections={detections} contract={contract.contract} policy={policy} anchor={findingAnchor(contract.contract, i)} hideText={leadFinding === i} />
       ))}
     </div>
   );

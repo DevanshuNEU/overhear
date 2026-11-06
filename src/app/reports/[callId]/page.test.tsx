@@ -12,7 +12,7 @@ const params = (callId: string) => ({ params: Promise.resolve({ callId }) });
 describe("/reports/[callId]", () => {
   it("renders the report for a known call", async () => {
     render(await ReportPage(params(failedSample.callId)));
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(failedSample.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The agent said twice that it was transferring the caller");
   });
 
   it("has no route-level loading screen, because that streams a 200 before the lookup can say 404", () => {
@@ -34,7 +34,11 @@ describe("/reports/[callId]", () => {
     expect(document.body).not.toHaveTextContent("Transferring you to a nurse now");
   });
 
-  it("titles the tab with the call id", async () => {
-    expect(await generateMetadata(params(failedSample.callId))).toEqual({ title: `${failedSample.callId} - Overhear` });
+  it("titles the tab with the stored headline and the call id, since the page itself leads with a specific sentence", async () => {
+    expect(await generateMetadata(params(failedSample.callId))).toEqual({ title: `${failedSample.headline} - ${failedSample.callId} - Overhear` });
+  });
+
+  it("titles the tab with the call id alone when there is no report to read", async () => {
+    expect(await generateMetadata(params("call_nope"))).toEqual({ title: "call_nope - Overhear" });
   });
 });

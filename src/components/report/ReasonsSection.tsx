@@ -7,13 +7,13 @@ import { HEADING, SHOW_IN_CALL } from "@/report/labels";
 import { LaneRows } from "./LaneRows";
 import { reasonAnchor } from "./threads";
 
-function ReasonBlock({ report, index }: { report: CallReport; index: number }) {
+function ReasonBlock({ report, index, hideText }: { report: CallReport; index: number; hideText: boolean }) {
   const id = useId();
   const reason = report.reasons[index];
   const first = Math.min(...reason.seqs);
   return (
     <article id={reasonAnchor(index)} aria-labelledby={id} className="scroll-mt-6 py-5 first:pt-0 last:pb-0 target:rounded-md target:bg-report-accent-tint target:ring-8 target:ring-report-accent-tint">
-      <p id={id} className="max-w-[62ch] break-words text-base font-medium leading-snug">
+      <p id={id} className={hideText ? "sr-only" : "max-w-[62ch] break-words text-base font-medium leading-snug"}>
         {reason.text}
       </p>
       {Number.isFinite(first) ? (
@@ -30,7 +30,7 @@ function ReasonBlock({ report, index }: { report: CallReport; index: number }) {
   );
 }
 
-export function ReasonsSection({ report }: { report: CallReport }) {
+export function ReasonsSection({ report, leadReason }: { report: CallReport; leadReason?: number }) {
   if (report.verdict !== "needs_review") return null;
   // Reasons that name something of their own. A rule that could not be checked is said once, under "What we couldn't
   // check", so its reason is left out only when a gap there already says the same words. Any other wording is kept.
@@ -44,7 +44,7 @@ export function ReasonsSection({ report }: { report: CallReport }) {
       </h2>
       <div className="divide-y divide-report-line border-y border-report-line py-5">
         {named.map((i) => (
-          <ReasonBlock key={i} report={report} index={i} />
+          <ReasonBlock key={i} report={report} index={i} hideText={i === leadReason} />
         ))}
       </div>
     </section>

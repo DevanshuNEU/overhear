@@ -180,4 +180,10 @@ describe("FindingBlock", () => {
     render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" anchor="f" />);
     expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAccessibleDescription(finding.text);
   });
+
+  it("hides its sentence from the eye, not from a screen reader, when the lead above already said it", () => {
+    render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" hideText />);
+    expect(screen.getByText(finding.text)).toHaveClass("sr-only");
+    expect(screen.getByRole("article", { name: finding.text })).toBeInTheDocument();
+  });
 });

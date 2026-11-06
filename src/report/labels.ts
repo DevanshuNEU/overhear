@@ -119,10 +119,38 @@ export function uncheckedCountLine(rules: number): string {
 /** The one line a rule gives when it could not be checked: the reason is said once, in the section it points to. */
 export const SEE_GAPS = "See what we couldn't check.";
 
-/** Names the rules a gap stopped. */
+/** Names the rules a gap blocks. */
 export function blockedLine(titles: string[]): string {
-  return `Stopped: ${titles.join(", ")}.`;
+  return `Rules it blocks: ${titles.join(", ")}.`;
 }
+
+/** Opens the whole of a turn when the Said lane shows only the claim and the sentences beside it. */
+export const WHOLE_TURN = "Whole turn";
+
+/** "a", "a and b", "a, b and c". */
+function listed(items: string[]): string {
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/** ", at 2:01 and 2:22", or nothing when a time is missing for any of them. */
+function atTimes(times: string[]): string {
+  return times.length === 0 ? "" : `, at ${listed(times)}`;
+}
+
+const timesOf = (n: number) => (n === 2 ? "twice" : `${n} times`);
+
+/**
+ * The lead sentence for a rule that broke more than once: a template per rule, filled only with the count and the
+ * times of the findings. It states nothing the findings do not. `times` is empty when any time is unknown.
+ * A rule with no template falls back to the first finding's sentence and a count (see answer.ts).
+ */
+export const LEAD_TEMPLATES: Partial<Record<ContractId, (count: number, times: string[]) => string>> = {
+  promise_backed: (n, times) => `The agent made ${n} promises the system had not backed${atTimes(times)}.`,
+  verified_before_change: (n) => `${n} changes were made before the caller's identity was checked.`,
+  spoken_matches_committed: (n, times) => `The agent confirmed details that differed from the booking ${n} times${atTimes(times)}.`,
+  transfer_kept: (n, times) => `The agent said ${timesOf(n)} that it was transferring the caller${atTimes(times)}. No transfer was attempted.`,
+  committed_matches_request: (n) => `${n} bookings differed from what the caller asked for.`,
+};
 
 export const LOADING_LABEL = "Loading the call";
 

@@ -16,7 +16,7 @@ function stoppedBy(report: CallReport, gap: Gap): string[] {
     .map((c) => capitalize(CONTRACT_TITLE[c.contract]));
 }
 
-export function GapsSection({ report }: { report: CallReport }) {
+export function GapsSection({ report, saidInLead }: { report: CallReport; saidInLead?: string }) {
   const gaps = report.evidence.gaps;
   if (gaps.length === 0) return null;
   return (
@@ -34,7 +34,7 @@ export function GapsSection({ report }: { report: CallReport }) {
                 <TriangleAlert aria-hidden className="mt-1 size-4 shrink-0" strokeWidth={2.5} />
                 {GAP_LABEL[g.code]}
               </p>
-              <p className="mt-1 max-w-[62ch] break-words text-[15px] text-report-ink-2">{g.detail}</p>
+              {g.detail === saidInLead ? null : <p className="mt-1 max-w-[62ch] break-words text-[15px] text-report-ink-2">{g.detail}</p>}
               {stopped.length > 0 ? <p className="mt-1 max-w-[62ch] text-[15px]">{blockedLine(stopped)}</p> : null}
               {Number.isFinite(first) ? (
                 <a

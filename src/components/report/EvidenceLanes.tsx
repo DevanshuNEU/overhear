@@ -3,10 +3,10 @@
 import { useId } from "react";
 import type { ReactNode } from "react";
 import type { Detection, Evidence, Item } from "@/report/schema";
-import { BACKEND_LOG_TAG, LANE_LABEL, NOTHING_DID } from "@/report/labels";
+import { BACKEND_LOG_TAG, LANE_LABEL, NOTHING_DID, WHOLE_TURN } from "@/report/labels";
 import { describeActions } from "./describe";
 import { formatClock } from "./format";
-import { markQuotes } from "./highlight";
+import { markQuotes, windowAround } from "./highlight";
 import { RawDetail } from "./RawDetail";
 
 type Turn = Extract<Item, { kind: "turn" }>;
@@ -36,12 +36,27 @@ function Time({ sec }: { sec: number | null }) {
 function Turns({ turns, quotes, markClass }: { turns: Turn[]; quotes?: Map<number, string[]>; markClass: string }) {
   return (
     <div className="space-y-3">
-      {turns.map((t, i) => (
-        <p key={i} className="break-words text-[15px] leading-relaxed">
-          <Time sec={t.startSec} />
-          {markQuotes(t.text, quotes?.get(t.seq) ?? [], markClass)}
-        </p>
-      ))}
+      {turns.map((t, i) => {
+        const claim = quotes?.get(t.seq) ?? [];
+        // Show the claim and the sentence either side. The whole turn waits behind a disclosure.
+        const window = windowAround(t.text, claim);
+        return (
+          <div key={i} className="text-[15px] leading-relaxed">
+            <p className="break-words">
+              <Time sec={t.startSec} />
+              <span data-preview>{markQuotes(window ? window.text : t.text, claim, markClass)}</span>
+            </p>
+            {window ? (
+              <details className="mt-1">
+                <summary className="inline-block cursor-pointer rounded py-0.5 text-[13px] text-report-muted hover:text-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent">
+                  {WHOLE_TURN}
+                </summary>
+                <p className="mt-1 break-words text-report-ink-2">{markQuotes(t.text, claim, markClass)}</p>
+              </details>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

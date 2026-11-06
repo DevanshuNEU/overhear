@@ -48,4 +48,11 @@ describe("ReasonsSection", () => {
     const { container } = render(<ReasonsSection report={passedSample} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("goes straight to the evidence for the reason the lead already said", () => {
+    render(<ReasonsSection report={needsReviewSample} leadReason={0} />);
+    const reason = screen.getByRole("article");
+    expect(within(reason).getByText(needsReviewSample.reasons[0].text)).toHaveClass("sr-only");
+    expect(within(reason).getByRole("group", { name: "Asked" })).toBeInTheDocument();
+  });
 });

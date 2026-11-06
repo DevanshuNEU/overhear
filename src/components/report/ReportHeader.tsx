@@ -29,10 +29,7 @@ export function ReportHeader({ report }: { report: CallReport }) {
         <CopyId value={report.callId} />
       </div>
       <h1 className="mt-4 max-w-[46ch] break-words text-2xl font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">
-        {answer ? <span data-answer>{answer} </span> : null}
-        <span data-headline className={answer ? "text-report-muted" : undefined}>
-          {report.headline}
-        </span>
+        {answer ? <span data-answer>{answer.text}</span> : <span data-headline>{report.headline}</span>}
       </h1>
       <ul aria-label={KEY_FACTS_LABEL} className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 sm:flex sm:flex-wrap">
         {facts(report).map((f) => (

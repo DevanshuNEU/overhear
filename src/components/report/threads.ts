@@ -82,3 +82,20 @@ export function railMarks(threads: Thread[], rows: number[][]): RailMark[][] {
   }
   return marks;
 }
+
+/**
+ * Which column of the rail area each railed thread draws in. The findings of one rule share a column, so their
+ * dots line up down the page; reasons and gaps each have their own. Columns are numbered from zero, in the order
+ * the rules first appear.
+ */
+export function railColumns(threads: Thread[]): Map<string, number> {
+  const columns = new Map<string, number>();
+  const byKey = new Map<string, number>();
+  for (const t of threads) {
+    if (!t.railed) continue;
+    const key = t.contract ?? t.id;
+    if (!byKey.has(key)) byKey.set(key, byKey.size);
+    columns.set(t.id, byKey.get(key)!);
+  }
+  return columns;
+}

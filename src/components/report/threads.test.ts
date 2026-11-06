@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
-import { railMarks, threadsOf } from "./threads";
+import { railColumns, railMarks, threadsOf } from "./threads";
 
 describe("threadsOf", () => {
   it("makes one thread per finding, with the seqs it rests on in call order", () => {
@@ -76,5 +76,23 @@ describe("railMarks", () => {
 
   it("gives a thread of one row a dot that is both first and last", () => {
     expect(railMarks([thread("a", [5])], one(5))[4]).toEqual([{ id: "a", mark: "dot", first: true, last: true }]);
+  });
+});
+
+describe("railColumns", () => {
+  it("puts the findings of one rule in one column, and other rules in their own", () => {
+    const threads = threadsOf(unverifiedSample);
+    const cols = railColumns(threads);
+    const railed = threads.filter((t) => t.railed);
+    expect(new Set(railed.map((t) => cols.get(t.id))).size).toBe(new Set(railed.map((t) => t.contract ?? t.id)).size);
+    const failed = threadsOf(failedSample).filter((t) => t.railed);
+    const failedCols = railColumns(threadsOf(failedSample));
+    expect(failed).toHaveLength(2);
+    expect(failedCols.get(failed[0].id)).toBe(failedCols.get(failed[1].id));
+  });
+
+  it("numbers columns from zero, in the order the rules first appear", () => {
+    const cols = railColumns(threadsOf(unverifiedSample));
+    expect([...new Set(cols.values())].sort()).toEqual(Array.from({ length: new Set(cols.values()).size }, (_, i) => i));
   });
 });
