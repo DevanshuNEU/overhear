@@ -227,6 +227,38 @@ describe("committedDetails", () => {
     expect(committedDetails(e, PRESET, b).fields.date).toBe("2026-11-06T15:00:00.000Z");
   });
 
+  it("ids that differ only in case: an exact match wins, case-insensitive is the fallback", () => {
+    const slots = [{ id: "recAb", startsAt: "2026-11-06T09:00:00.000Z" }, { id: "recaB", startsAt: "2026-11-06T15:00:00.000Z" }];
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots }),
+      ...tool("tc_2", "book_appointment", { slotId: "recaB" }, { ok: true }),
+      ...tool("tc_3", "book_appointment", { slotId: "recAb" }, { ok: true }),
+      ...tool("tc_4", "book_appointment", { slotId: "RECAB" }, { ok: true }),
+    ]);
+    const [a, b, c] = changes(e, PRESET);
+    expect(committedDetails(e, PRESET, a).fields.date).toBe("2026-11-06T15:00:00.000Z");
+    expect(committedDetails(e, PRESET, b).fields.date).toBe("2026-11-06T09:00:00.000Z");
+    // No exact match: the first case-insensitive match in the lookup's order.
+    expect(committedDetails(e, PRESET, c).fields.date).toBe("2026-11-06T09:00:00.000Z");
+  });
+
+  it("an exact id in an older lookup beats a case-only match in a newer one", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [{ id: "recAb", startsAt: "2026-11-06T09:00:00.000Z" }] }),
+      ...tool("tc_2", "check_availability", {}, { slots: [{ id: "recab", startsAt: "2026-11-06T15:00:00.000Z" }] }),
+      ...tool("tc_3", "book_appointment", { slotId: "recAb" }, { ok: true }),
+    ]);
+    expect(committedDetails(e, PRESET, changes(e, PRESET)[0]).fields.date).toBe("2026-11-06T09:00:00.000Z");
+  });
+
+  it("a lookup whose success is unknown does not offer items", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [{ id: "s-1", startsAt: "2026-11-06T09:00:00.000Z" }] }, null),
+      ...tool("tc_2", "book_appointment", { slotId: "s-1" }, { ok: true }),
+    ]);
+    expect(committedDetails(e, PRESET, changes(e, PRESET)[0]).unresolved).toEqual(["date", "time"]);
+  });
+
   it("a malformed policy path is a policy mistake and throws", () => {
     const bad: Policy = { ...PRESET, fields: { date: { path: "nowhere.startsAt", type: "date", required: true } } };
     const e = booked();

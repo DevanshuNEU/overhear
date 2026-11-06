@@ -3,20 +3,18 @@
 // The tool calls in a record, paired with their results; the ones that change something; and, for each change,
 // the date, time and provider it committed. Tier 1 has no backend log, so a change's own arguments and result are
 // all it says about itself. The slot's date, time and provider live in the lookup that offered the slot, so an
-// item. field is read from the most recent earlier lookup whose item id equals the change's id. A detail that can't
-// be read, or that Retell scrubbed to a placeholder, is unresolved and says so in a gap: it is never guessed, and
+// item. field is read from the most recent earlier successful lookup whose item id equals the change's id (an exact
+// match first, then one that ignores letter case). A detail that can't be read, or that Retell scrubbed to a placeholder, is unresolved and says so in a gap: it is never guessed, and
 // never compared.
-import type { ChangeKind, Evidence, Gap, Item, Policy } from "@/report/schema";
+import type { ChangeKind, Evidence, Gap, Policy } from "@/report/schema";
 import { readPath, type PathRoots } from "./paths";
+import { pairToolItems } from "./pairing";
 import { isPlaceholder } from "./placeholder";
 import { toolPolicy, type ToolPolicy } from "./policy";
 import { unresolvedDetail, type UnresolvedWhy } from "./wording";
 
 export type Role = ToolPolicy["role"];
 export type FieldType = Policy["fields"][string]["type"];
-
-type ToolCall = Extract<Item, { kind: "tool_call" }>;
-type ToolResult = Extract<Item, { kind: "tool_result" }>;
 
 /** One tool call and the result that answers it. resultSeq, ok and result are null when no result came back. */
 export interface ToolUse {
@@ -34,17 +32,14 @@ export interface ToolUse {
 
 /**
  * The calls to tools the policy gives this role, in the order they were made. A tool the policy does not name has
- * no role and is left out. A result answers the nearest earlier call with its id, so a reused id pairs each result
- * with one call only.
+ * no role and is left out. Results are paired by pairToolItems, the rule resolveOk uses too.
  */
 export function toolCalls(ev: Evidence, policy: Policy, role: Role): ToolUse[] {
-  const calls = ev.items.filter((it): it is ToolCall => it.kind === "tool_call");
-  const results = ev.items.filter((it): it is ToolResult => it.kind === "tool_result");
-  return calls.flatMap((call, i): ToolUse[] => {
+  const pairing = pairToolItems(ev.items);
+  return pairing.calls.flatMap((call): ToolUse[] => {
     const tp = toolPolicy(policy, call.name);
     if (tp?.role !== role) return [];
-    const nextSameId = calls.slice(i + 1).find((c) => c.id === call.id)?.seq ?? Infinity;
-    const result = results.find((r) => r.id === call.id && r.seq > call.seq && r.seq < nextSameId);
+    const result = pairing.resultOf(call);
     const use: ToolUse = {
       callSeq: call.seq,
       resultSeq: result?.seq ?? null,
@@ -152,18 +147,29 @@ export function providerNames(ev: Evidence, policy: Policy): string[] {
   return [...new Set(names)];
 }
 
-/** The item the change picked: from the latest earlier successful lookup that offered an item with the change's id. */
+/**
+ * The item the change picked: from the latest earlier successful lookup that offered an item with the change's id.
+ * Only a lookup whose ok is true counts: a failed one offers nothing, and so does one whose success is unknown (after
+ * resolveOk a lookup with a readable items list is already true, so a null one has no list to read). An id matches
+ * exactly first, across every earlier lookup, newest first; only when none matches exactly does a match that
+ * ignores letter case count, so ids that differ only in case never pick each other's item when the exact one exists.
+ */
 function pickedItem(ev: Evidence, policy: Policy, change: ToolUse, changeId: unknown): unknown {
   const wanted = idKey(changeId);
   if (wanted === null) return undefined;
   const earlier = toolCalls(ev, policy, "lookup")
-    .filter((u) => u.resultSeq !== null && u.resultSeq < change.callSeq && u.ok !== false)
+    .filter((u) => u.resultSeq !== null && u.resultSeq < change.callSeq && u.ok === true)
     .sort((a, b) => b.resultSeq! - a.resultSeq!);
-  for (const use of earlier) {
-    const idPath = toolPolicy(policy, use.tool)?.id;
-    if (idPath === undefined) continue;
-    const hit = itemsOf(policy, use).find((it) => idKey(readPath(idPath, { item: it })) === wanted);
-    if (hit !== undefined) return hit;
+  for (const exact of [true, false]) {
+    for (const use of earlier) {
+      const idPath = toolPolicy(policy, use.tool)?.id;
+      if (idPath === undefined) continue;
+      const hit = itemsOf(policy, use).find((it) => {
+        const key = idKey(readPath(idPath, { item: it }));
+        return key !== null && (exact ? key.exact === wanted.exact : key.folded === wanted.folded);
+      });
+      if (hit !== undefined) return hit;
+    }
   }
   return undefined;
 }
@@ -181,11 +187,14 @@ function readItem(path: string, picked: unknown): unknown {
   return picked === undefined ? undefined : readPath(path, { item: picked });
 }
 
-/** An id as a comparable key: strings and finite numbers by value, ignoring case and outer spaces; anything else, or a placeholder, none. */
-function idKey(v: unknown): string | null {
+/**
+ * An id as comparable keys: strings and finite numbers by value, ignoring outer spaces. exact keeps the letter case
+ * and folded drops it. Anything else, or a placeholder, has none.
+ */
+function idKey(v: unknown): { exact: string; folded: string } | null {
   if (typeof v !== "string" && !(typeof v === "number" && Number.isFinite(v))) return null;
-  const s = String(v).trim().toLowerCase();
-  return s === "" || isPlaceholder(s) ? null : s;
+  const s = String(v).trim();
+  return s === "" || isPlaceholder(s) ? null : { exact: s, folded: s.toLowerCase() };
 }
 
 /** Nothing to read: missing, null, or an empty or whitespace string. */

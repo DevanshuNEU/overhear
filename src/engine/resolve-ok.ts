@@ -12,11 +12,9 @@
 // arguments. Tier 2's backend actions join this order in M2.
 import type { Evidence, Gap, Item, Policy } from "@/report/schema";
 import { readPath } from "./paths";
+import { pairToolItems, type ToolCall, type ToolResult } from "./pairing";
 import { toolPolicy } from "./policy";
 import { unknownSuccessConflictDetail, unknownSuccessDetail } from "./wording";
-
-type ToolCall = Extract<Item, { kind: "tool_call" }>;
-type ToolResult = Extract<Item, { kind: "tool_result" }>;
 
 /**
  * The evidence with every tool result's ok settled from its payload and platformOk, replacing any ok already set.
@@ -24,13 +22,12 @@ type ToolResult = Extract<Item, { kind: "tool_result" }>;
  * it twice gives the same evidence. Pure: the input is not changed.
  */
 export function resolveOk(ev: Evidence, policy: Policy): Evidence {
-  const calls = new Map<string, ToolCall>();
-  for (const it of ev.items) if (it.kind === "tool_call" && !calls.has(it.id)) calls.set(it.id, it);
+  const pairing = pairToolItems(ev.items);
 
   const gaps: Gap[] = ev.gaps.filter((g) => g.code !== "unknown_success");
   const items = ev.items.map((it): Item => {
     if (it.kind !== "tool_result") return it;
-    const call = calls.get(it.id);
+    const call = pairing.callOf(it);
     const { ok, readsLikeError } = settle(it, call, policy);
     if (ok === null) {
       const name = call?.name ?? "tool";
