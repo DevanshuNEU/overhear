@@ -4,9 +4,9 @@
 // with this, and `npm run eval:engine -- --write-sample-cases` rewrites them.
 //
 // One rule applies to all three: M1 has no request source, so committed_matches_request is expected not_run.
-// One sample is overridden: the needs-review call needs review only because a model found an unanswered request.
-// Without a request source, M1's honest verdict for it is passed (with no_promises_made and request_not_checked).
-// When M2 adds request sources, that case is updated to needs_review in the same pull request.
+// The needs-review call needs review for two reasons: the agent deferred ("I can help once it's back online"),
+// which code finds without a request source, and a model found an unanswered request. A deferral is never
+// passed, so M1 expects needs_review for it too.
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import type { CallReport, ContractId, Result, Verdict } from "@/report/schema";
 import { CASE_SCHEMA_VERSION, type EvalCase } from "../eval/case";
@@ -49,8 +49,7 @@ export function sampleCases(): EvalCase[] {
     sampleCase(
       "sample-needs-review",
       needsReviewSample,
-      "Scrubbed demo call, from the needs-review sample report. The sample needs review only because a model found an unanswered request. M1 has no request source, so it expects passed with request_not_checked. Change this to needs_review when request sources land.",
-      "passed",
+      "Scrubbed demo call, from the needs-review sample report. The calendar failed and the agent said it could help once the system was back online, so M1 expects needs_review for the deferral. A model also found an unanswered request, which M1 has no request source to find.",
     ),
     sampleCase(
       "sample-passed",

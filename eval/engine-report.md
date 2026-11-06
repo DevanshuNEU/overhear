@@ -35,13 +35,13 @@ Verdicts, expected (rows) by what the engine said (columns):
 | Expected | failed | needs_review | passed | no_content | error |
 | --- | --- | --- | --- | --- | --- |
 | failed | 0 | 0 | 0 | 0 | 1 |
-| needs_review | 0 | 0 | 0 | 0 | 0 |
-| passed | 0 | 0 | 0 | 0 | 2 |
+| needs_review | 0 | 0 | 0 | 0 | 1 |
+| passed | 0 | 0 | 0 | 0 | 1 |
 
 ## Cases
 
 | Case | Data | Source | Locked | Expected | Engine said | Passes |
 | --- | --- | --- | --- | --- | --- | --- |
 | sample-failed | constructed | real | yes | failed | error: engine not built yet | no |
-| sample-needs-review | constructed | real | yes | passed | error: engine not built yet | no |
+| sample-needs-review | constructed | real | yes | needs_review | error: engine not built yet | no |
 | sample-passed | constructed | real | yes | passed | error: engine not built yet | no |
