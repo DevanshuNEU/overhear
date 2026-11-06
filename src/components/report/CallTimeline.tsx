@@ -39,45 +39,51 @@ function Rails({ railed, marks }: { railed: Thread[]; marks: ReturnType<typeof r
   );
 }
 
-// Tags sit in the text column, under the words they belong to.
-const TEXT_COLUMN = "sm:pl-[calc(3rem+4.5rem+1.5rem)]";
+// What the system did is set apart from speech by a hairline on the left, in the text column.
+const TEXT_COLUMN = "sm:ml-[calc(3rem+4.5rem+0.75rem)]";
 
-function Tags({ threads }: { threads: Thread[] }) {
-  if (threads.length === 0) return null;
+function TagLinks({ threads }: { threads: Thread[] }) {
+  return threads.map((t) => (
+    <a
+      key={t.id}
+      href={`#${t.anchor}`}
+      className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-[12px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent ${TAG_CLASS[RESULT_TONE[t.result]]}`}
+    >
+      {t.label}
+      <span className="sr-only">{tagResultSuffix(t.result)}</span>
+    </a>
+  ));
+}
+
+/** A turn: when, who, and the words held to a readable line length. Tags sit under the words. */
+function Turn({ item, threads }: { item: Extract<Item, { kind: "turn" }>; threads: Thread[] }) {
   return (
-    <div className={`mt-1.5 flex flex-wrap gap-1.5 ${TEXT_COLUMN}`}>
-      {threads.map((t) => (
-        <a
-          key={t.id}
-          href={`#${t.anchor}`}
-          className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-[12px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent ${TAG_CLASS[RESULT_TONE[t.result]]}`}
-        >
-          {t.label}
-          <span className="sr-only">{tagResultSuffix(t.result)}</span>
-        </a>
-      ))}
+    <div className="min-w-0 py-2.5 sm:grid sm:grid-cols-[3rem_4.5rem_1fr] sm:gap-x-3">
+      <span className="mr-2 text-[13px] tabular-nums text-report-muted sm:mr-0 sm:pt-0.5 sm:text-right">{item.startSec === null ? "" : formatClock(item.startSec)}</span>
+      <span className={`mr-2 text-[13px] font-medium sm:mr-0 sm:pt-0.5 ${item.role === "agent" ? "text-report-ink" : "text-report-muted"}`}>{SPEAKER_LABEL[item.role]}</span>
+      <div className="min-w-0">
+        <p className="max-w-[68ch] [overflow-wrap:anywhere] text-[15px] leading-relaxed">{item.text}</p>
+        {threads.length > 0 ? (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <TagLinks threads={threads} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function Body({ item, report }: { item: Item; report: CallReport }) {
-  if (item.kind === "turn") {
-    return (
-      <div className="min-w-0 sm:grid sm:grid-cols-[3rem_4.5rem_1fr] sm:gap-x-3">
-        <span className="mr-2 text-[13px] tabular-nums text-report-muted sm:mr-0 sm:pt-0.5 sm:text-right">{item.startSec === null ? "" : formatClock(item.startSec)}</span>
-        <span className={`mr-2 text-[13px] font-medium sm:mr-0 sm:pt-0.5 ${item.role === "agent" ? "text-report-ink" : "text-report-muted"}`}>{SPEAKER_LABEL[item.role]}</span>
-        <p className="[overflow-wrap:anywhere] text-[15px] leading-relaxed">{item.text}</p>
-      </div>
-    );
-  }
+/** What the system did: the line, its raw detail and the findings that cite it, together on one line that wraps. */
+function SystemRow({ item, report, threads }: { item: Exclude<Item, { kind: "turn" }>; report: CallReport; threads: Thread[] }) {
   const did = describeDid(item, report.evidence)!;
   return (
-    <div className={`min-w-0 ${TEXT_COLUMN}`}>
-      <div className="flex flex-wrap items-baseline gap-x-2">
+    <div data-system className={`min-w-0 border-l-2 border-report-line py-1.5 pl-3 ${TEXT_COLUMN}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="[overflow-wrap:anywhere] text-[14px] leading-relaxed text-report-ink-2">{did.line}</p>
         {did.backend ? <span className="rounded bg-report-accent-tint px-1.5 text-[12px] text-report-accent">{BACKEND_LOG_TAG}</span> : null}
+        <RawDetail raw={did.raw} inline />
+        <TagLinks threads={threads} />
       </div>
-      <RawDetail raw={did.raw} />
     </div>
   );
 }
@@ -96,9 +102,12 @@ export function CallTimeline({ report }: { report: CallReport }) {
         {report.evidence.items.map((item) => (
           <li key={item.seq} id={`item-${item.seq}`} className="flex scroll-mt-6 gap-2 target:bg-report-accent-tint target:outline target:outline-2 target:-outline-offset-2 target:outline-report-accent">
             <Rails railed={railed} marks={railsAt(threads, item.seq)} />
-            <div className="min-w-0 flex-1 py-2">
-              <Body item={item} report={report} />
-              <Tags threads={threads.filter((t) => t.seqs.includes(item.seq))} />
+            <div className="min-w-0 flex-1">
+              {item.kind === "turn" ? (
+                <Turn item={item} threads={threads.filter((t) => t.seqs.includes(item.seq))} />
+              ) : (
+                <SystemRow item={item} report={report} threads={threads.filter((t) => t.seqs.includes(item.seq))} />
+              )}
             </div>
           </li>
         ))}

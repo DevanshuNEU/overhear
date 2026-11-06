@@ -2,10 +2,11 @@
 import { RAW_DETAIL_LABEL } from "@/report/labels";
 import { rawText } from "./format";
 
-export function RawDetail({ raw }: { raw: unknown }) {
+/** `inline` puts the summary on the line it follows; an open detail then takes a full row of its own. */
+export function RawDetail({ raw, inline = false }: { raw: unknown; inline?: boolean }) {
   if (raw === undefined || raw === null) return null;
   return (
-    <details data-raw className="mt-1">
+    <details data-raw className={inline ? "open:basis-full" : "mt-1"}>
       <summary className="inline-block cursor-pointer rounded py-0.5 text-[13px] text-report-muted hover:text-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent">
         {RAW_DETAIL_LABEL}
       </summary>

@@ -30,6 +30,20 @@ describe("CallTimeline", () => {
     expect(document.getElementById("item-24")).toHaveTextContent("book_appointment succeeded");
   });
 
+  it("keeps what the system did on one line: the line, its raw detail and its tags together", () => {
+    render(<CallTimeline report={failedSample} />);
+    const row = document.getElementById("item-22")!.querySelector("[data-system]")!;
+    expect(row).toHaveTextContent("Called book_appointment");
+    expect(row.querySelector("details[data-raw]")).not.toBeNull();
+    expect(within(row as HTMLElement).getAllByRole("link").length).toBe(3);
+  });
+
+  it("holds spoken words to a readable line length", () => {
+    render(<CallTimeline report={failedSample} />);
+    const words = document.getElementById("item-25")!.querySelector("p")!;
+    expect(words.className).toContain("max-w-[68ch]");
+  });
+
   it("tags an item with each finding that cites it, linking back to the finding", () => {
     render(<CallTimeline report={failedSample} />);
     const turn25 = document.getElementById("item-25")!;
