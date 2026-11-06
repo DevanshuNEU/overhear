@@ -5,7 +5,8 @@
 // tool's own path comes first; lookups ignore the top-level path and count as successful when their items path
 // reads a list. Otherwise the platform's field saying it worked makes it true. With none of these, ok stays null and
 // an unknown_success gap names the result. Nothing else ever makes ok true: text such as "OK", a 2xx-looking body or
-// a truthy non-boolean is not read as success. Tier 2's backend actions join this order in M2.
+// a truthy non-boolean is not read as success, and neither is anything in the arguments. Tier 2's backend actions
+// join this order in M2.
 import type { Evidence, Gap, Item, Policy } from "@/report/schema";
 import { readPath } from "./paths";
 import { toolPolicy } from "./policy";
@@ -42,7 +43,8 @@ export function resolveOk(ev: Evidence, policy: Policy): Evidence {
 function settle(result: ToolResult, call: ToolCall | undefined, policy: Policy): boolean | null {
   if (result.platformOk === false) return false;
   const tool = call ? toolPolicy(policy, call.name) : undefined;
-  const roots = { args: call?.args, result: result.payload };
+  // Only the result is a root: what the agent sent (args) says nothing about whether the tool worked.
+  const roots = { result: result.payload };
   const path = tool?.role === "lookup" ? tool.success : (tool?.success ?? policy.success);
   if (path !== undefined) {
     const value = readPath(path, roots);

@@ -63,6 +63,14 @@ describe("resolveOk: the payload path", () => {
     expect(settle("book_slot", { results: [{ ok: false }, { ok: true }] }, true, indexed).ok).toBe(false);
   });
 
+  it("reads success only from the result, never from what the agent sent", () => {
+    const fromArgs = only("book_slot", { role: "change", kind: "book", success: "args.confirmed", items: "args.slots" });
+    const out = resolveOk(ev(tool("tc_1", "book_slot", { status: "queued" }, null, { confirmed: true, slots: [] })), fromArgs);
+    expect(oks(out)).toEqual([null]);
+    const lookup = only("find_slots", { role: "lookup", items: "args.slots" });
+    expect(oks(resolveOk(ev(tool("tc_1", "find_slots", "busy", null, { slots: [] })), lookup))).toEqual([null]);
+  });
+
   it("a payload value that is not a boolean does not settle anything", () => {
     for (const ok of ["true", 1, "ok", null, {}]) {
       expect(settle("book_appointment", { ok }, true).ok).toBe(true); // platformOk true settles it
@@ -162,6 +170,13 @@ describe("resolveOk: the evidence it returns", () => {
     const call = ev(tool("tc_1", "book_appointment", "OK", null));
     const stale = { ...call, items: call.items.map((it): Item => (it.kind === "tool_result" ? { ...it, ok: true } : it)) };
     expect(oks(resolveOk(stale, PRESET))).toEqual([null]);
+  });
+
+  it("drops an unknown_success gap the evidence no longer supports", () => {
+    const call = ev(tool("tc_1", "book_appointment", { ok: true }, null), {
+      gaps: [{ code: "unknown_success", detail: "stale", seqs: [2], tool: "book_appointment" }],
+    });
+    expect(resolveOk(call, PRESET).gaps).toEqual([]);
   });
 
   it("keeps the gaps it was given, does not change its input, and gives the same evidence when run twice", () => {

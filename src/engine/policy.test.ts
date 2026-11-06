@@ -45,7 +45,7 @@ describe("packs", () => {
 
   it("runs the scheduling pack in M1", () => {
     expect(M1_CONTRACTS).toEqual(contractsFor(["scheduling"]));
-    expect(PACKS.healthcare).toEqual(expect.arrayContaining(PACKS.scheduling));
+    expect(PACKS.healthcare).toEqual(expect.arrayContaining([...PACKS.scheduling]));
   });
 });
 
