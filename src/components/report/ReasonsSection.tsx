@@ -3,9 +3,9 @@
 // named once and linked, because each rule's section already says why.
 import { useId } from "react";
 import type { CallReport } from "@/report/schema";
-import { CONTRACT_TITLE, COULDNT_CHECK_LEAD, HEADING, SHOW_IN_CALL, capitalize } from "@/report/labels";
+import { HEADING, SHOW_IN_CALL } from "@/report/labels";
 import { LaneRows } from "./LaneRows";
-import { contractAnchor, reasonAnchor } from "./threads";
+import { reasonAnchor } from "./threads";
 
 function ReasonBlock({ report, index }: { report: CallReport; index: number }) {
   const id = useId();
@@ -31,9 +31,10 @@ function ReasonBlock({ report, index }: { report: CallReport; index: number }) {
 }
 
 export function ReasonsSection({ report }: { report: CallReport }) {
-  if (report.verdict !== "needs_review" || report.reasons.length === 0) return null;
+  if (report.verdict !== "needs_review") return null;
+  // Reasons that name something of their own. A rule that could not be checked is said once, under "What we couldn't check".
   const named = report.reasons.flatMap((r, i) => (r.kind === "unverified_result" ? [] : [i]));
-  const unchecked = [...new Set(report.reasons.flatMap((r) => (r.kind === "unverified_result" && r.contract ? [r.contract] : [])))];
+  if (named.length === 0) return null;
   return (
     <section aria-labelledby="reasons-heading">
       <h2 id="reasons-heading" className="mb-4 text-base font-semibold">
@@ -43,19 +44,6 @@ export function ReasonsSection({ report }: { report: CallReport }) {
         {named.map((i) => (
           <ReasonBlock key={i} report={report} index={i} />
         ))}
-        {unchecked.length > 0 ? (
-          <p className="text-[15px] leading-relaxed first:pt-0 [&:not(:first-child)]:pt-5">
-            <span className="font-medium text-report-warning">{COULDNT_CHECK_LEAD}</span>{" "}
-            {unchecked.map((c, i) => (
-              <span key={c}>
-                {i > 0 ? ", " : ""}
-                <a href={`#${contractAnchor(c)}`} className="text-report-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent">
-                  {capitalize(CONTRACT_TITLE[c])}
-                </a>
-              </span>
-            ))}
-          </p>
-        ) : null}
       </div>
     </section>
   );

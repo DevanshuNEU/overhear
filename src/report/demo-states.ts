@@ -1,5 +1,5 @@
 // Screens for the states the three samples do not reach: an unverified result with a gap, a report that
-// fails the schema, and a slow load. They are built from the samples and served only when
+// fails the schema, and a slow load (the wait itself is in store.ts). They are built from the samples and served only when
 // OVERHEAR_DEMO_STATES=1 outside production, so a person can look at those states running. They never
 // load in a real run: store.ts imports this file only when the flag is on.
 import { CallReportSchema, type CallReport } from "./schema";
@@ -52,9 +52,7 @@ const unreadableRecord = { ...renamed(failedSample, "call_demo_unreadable"), ver
 export async function demoSource(callId: string): Promise<unknown | undefined> {
   if (callId === "call_demo_unverified") return unverifiedSample;
   if (callId === "call_demo_unreadable") return unreadableRecord;
-  if (callId === "call_demo_slow") {
-    await new Promise((resolve) => setTimeout(resolve, 4000));
-    return renamed(failedSample, "call_demo_slow");
-  }
+  // Slow to become ready, not slow to find: see readyDelay in store.ts.
+  if (callId === "call_demo_slow") return renamed(failedSample, "call_demo_slow");
   return undefined;
 }

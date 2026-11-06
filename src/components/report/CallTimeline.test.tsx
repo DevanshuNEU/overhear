@@ -4,59 +4,64 @@ import { CallTimeline } from "./CallTimeline";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
 
+const rowOf = (seq: number) => document.getElementById(`item-${seq}`)!.closest("li")!;
+
 describe("CallTimeline", () => {
-  it("lists every item of the call in order, under its own heading", () => {
+  it("gives every item of the call its own anchor, in rows that are fewer than the items", () => {
     render(<CallTimeline report={failedSample} />);
     const section = screen.getByRole("region", { name: "The call" });
-    const items = within(section).getAllByRole("listitem").filter((li) => li.id.startsWith("item-"));
-    expect(items).toHaveLength(failedSample.evidence.items.length);
-    expect(items.map((li) => li.id)).toEqual(failedSample.evidence.items.map((it) => `item-${it.seq}`));
+    for (const it of failedSample.evidence.items) expect(document.getElementById(`item-${it.seq}`)).not.toBeNull();
+    expect(within(section).getAllByRole("listitem").length).toBeLessThan(failedSample.evidence.items.length);
   });
 
-  it("names who spoke and when, and keeps the words as spoken", () => {
+  it("names who spoke and when once for turns by one speaker, and keeps the words as spoken", () => {
     render(<CallTimeline report={failedSample} />);
-    const turn = document.getElementById("item-27")!;
-    expect(within(turn).getByText("Agent")).toBeInTheDocument();
-    expect(within(turn).getByText("2:22")).toBeInTheDocument();
-    expect(turn).toHaveTextContent("Transferring you to a nurse now");
-    expect(within(document.getElementById("item-15")!).getByText("Caller")).toBeInTheDocument();
+    const callers = rowOf(2);
+    expect(rowOf(3)).toBe(callers);
+    expect(rowOf(4)).toBe(callers);
+    expect(within(callers).getAllByText("Caller")).toHaveLength(1);
+    expect(within(callers).getByText("0:06")).toBeInTheDocument();
+    expect(within(callers).queryByText("0:13")).not.toBeInTheDocument();
+    expect(callers).toHaveTextContent("with whatever the available doctor is.");
+    expect(rowOf(27)).toHaveTextContent("Transferring you to a nurse now");
+    expect(within(rowOf(27)).getByText("Agent")).toBeInTheDocument();
   });
 
-  it("shows tool calls, results and raw detail as quiet lines, with raw detail closed", () => {
+  it("does not group turns across something the system did", () => {
     render(<CallTimeline report={failedSample} />);
-    const call = document.getElementById("item-22")!;
-    expect(call).toHaveTextContent("Called book_appointment");
-    expect((call.querySelector("details[data-raw]") as HTMLDetailsElement).open).toBe(false);
-    expect(document.getElementById("item-24")).toHaveTextContent("book_appointment succeeded");
+    expect(rowOf(5)).not.toBe(rowOf(7));
   });
 
-  it("keeps what the system did on one line: the line, its raw detail and its tags together", () => {
+  it("shows a tool call and its result as one line, with raw detail on that line and closed", () => {
     render(<CallTimeline report={failedSample} />);
-    const row = document.getElementById("item-22")!.querySelector("[data-system]")!;
-    expect(row).toHaveTextContent("Called book_appointment");
-    expect(row.querySelector("details[data-raw]")).not.toBeNull();
-    expect(within(row as HTMLElement).getAllByRole("link").length).toBe(3);
+    const row = rowOf(22);
+    expect(rowOf(24)).toBe(row);
+    expect(row).toHaveTextContent("book_appointment succeeded");
+    expect(row).not.toHaveTextContent("Called book_appointment");
+    const system = row.querySelector("[data-system]")!;
+    expect((system.querySelector("details[data-raw]") as HTMLDetailsElement).open).toBe(false);
+    expect(system.textContent).not.toContain("check_availability");
   });
 
   it("holds spoken words to a readable line length", () => {
     render(<CallTimeline report={failedSample} />);
-    const words = document.getElementById("item-25")!.querySelector("p")!;
-    expect(words.className).toContain("max-w-[68ch]");
+    expect(rowOf(25).querySelector("p")!.className).toContain("max-w-[68ch]");
   });
 
-  it("tags an item with each finding that cites it, linking back to the finding", () => {
+  it("tags only the findings that need attention, linking back, and never the ones that held", () => {
     render(<CallTimeline report={failedSample} />);
-    const turn25 = document.getElementById("item-25")!;
-    const links = within(turn25).getAllByRole("link");
+    const links = within(rowOf(25)).getAllByRole("link");
     // The result is part of the link's name, so it is never colour alone.
-    expect(links.map((a) => a.textContent)).toEqual([
-      "Promises backed by the system, Passed",
-      "Spoken details match the booking, Passed",
-      "Transfers kept, 1 of 2, Violated",
-    ]);
-    expect(links[2]).toHaveAttribute("href", "#finding-transfer_kept-0");
-    // An item no finding cites carries no tag.
-    expect(within(document.getElementById("item-1")!).queryAllByRole("link")).toHaveLength(0);
+    expect(links.map((a) => a.textContent)).toEqual(["Promised transfers happen, 1 of 2, Broken"]);
+    expect(links[0]).toHaveAttribute("href", "#finding-transfer_kept-0");
+    // The passed rules that cite the booking call leave it untagged.
+    expect(within(rowOf(22)).queryAllByRole("link")).toHaveLength(0);
+    expect(within(rowOf(1)).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("tags nothing on a call that held", () => {
+    render(<CallTimeline report={passedSample} />);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
   it("draws a thread for each finding that needs attention, and none for a call that held", () => {
@@ -69,32 +74,27 @@ describe("CallTimeline", () => {
 
   it("tags the items a review reason rests on and links to the reason", () => {
     render(<CallTimeline report={needsReviewSample} />);
-    expect(document.getElementById("item-9")).toHaveTextContent("check_availability failed");
-    const link = within(document.getElementById("item-9")!).getByRole("link");
-    expect(link).toHaveTextContent("Unanswered request");
+    const row = rowOf(9);
+    expect(row).toHaveTextContent("check_availability failed");
+    const link = within(row).getByRole("link");
+    expect(link).toHaveTextContent("Unanswered request, Couldn't check");
     expect(link).toHaveAttribute("href", "#reason-0");
-    expect(within(document.getElementById("item-2")!).queryAllByRole("link")).toHaveLength(0);
+    expect(within(rowOf(2)).queryAllByRole("link")).toHaveLength(0);
   });
 
-  it("tags an item with a gap and links to it", () => {
+  it("tags an item with a gap and with the rules it stopped, and links to them", () => {
     render(<CallTimeline report={unverifiedSample} />);
-    const links = within(document.getElementById("item-33")!).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]);
+    const links = within(rowOf(33)).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]);
     expect(links).toContainEqual(["A tool result gave no success signal, Couldn't check", "#gap-0"]);
+    expect(links).toContainEqual(["Promises backed by the system, Couldn't check", "#finding-promise_backed-0"]);
   });
 
-  it("runs one rail through each unverified rule, and a line between its items", () => {
-    const { container } = render(<CallTimeline report={unverifiedSample} />);
-    const railedAt = (seq: number) => document.getElementById(`item-${seq}`)!.querySelectorAll("[data-rail]").length;
-    expect(railedAt(21)).toBeGreaterThan(0); // between the identity check (20) and the booking call (31)
-    expect(container.querySelectorAll("[data-rail]").length).toBeGreaterThan(5);
-  });
-
-  it("marks a rail's first item with a dot, the items between with a line, and its last with a dot", () => {
+  it("marks a rail's first row with a dot, the rows between with a line, and its last row with a dot", () => {
     render(<CallTimeline report={unverifiedSample} />);
-    const marks = (seq: number) => Array.from(document.getElementById(`item-${seq}`)!.querySelectorAll("[data-rail]")).map((r) => r.getAttribute("data-mark"));
+    const marks = (seq: number) => Array.from(rowOf(seq).querySelectorAll("[data-rail]")).map((r) => r.getAttribute("data-mark"));
     expect(marks(20)).toEqual(["dot"]); // the identity check starts its rail
-    expect(marks(21)).toEqual(["line"]); // an agent turn it passes by
-    expect(marks(22)).toEqual(["dot"]); // and cites again
+    expect(marks(21)).toEqual(["line"]); // the agent's words it passes by
+    expect(marks(31).length).toBeGreaterThan(1); // the booking call is where several rails meet
   });
 
   it("says so when the order of the items could not be established", () => {
@@ -112,7 +112,7 @@ describe("CallTimeline", () => {
     };
     const report = { ...passedSample, evidence: { ...passedSample.evidence, tier: 2 as const, items: [...passedSample.evidence.items, backend] } };
     render(<CallTimeline report={report} />);
-    expect(within(document.getElementById("item-49")!).getByText("Backend log")).toBeInTheDocument();
-    expect(within(document.getElementById("item-48")!).queryByText("Backend log")).not.toBeInTheDocument();
+    expect(within(rowOf(49)).getByText("Backend log")).toBeInTheDocument();
+    expect(within(rowOf(48)).queryByText("Backend log")).not.toBeInTheDocument();
   });
 });

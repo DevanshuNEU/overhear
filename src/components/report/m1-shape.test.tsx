@@ -29,7 +29,7 @@ describe("the first engine release's report shape (scheduling only)", () => {
     render(<CallReportView report={schedulingOnly(failedSample)} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(failedSample.headline);
     expect(screen.queryByText("Identity checked before changes")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Transfers kept" })).toHaveTextContent("Violated");
+    expect(screen.getByRole("region", { name: "Promised transfers happen" })).toHaveTextContent("Broken");
     for (const title of ["Promises backed by the system", "Spoken details match the booking"]) {
       expect(screen.getByRole("heading", { level: 3, name: title })).toBeInTheDocument();
     }
@@ -43,7 +43,7 @@ describe("the first engine release's report shape (scheduling only)", () => {
     const { container } = render(<CallReportView report={schedulingOnly(passedSample)} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Every promise that applied was kept. The caller's request wasn't checked.");
     expect(screen.queryByText("Identity checked before changes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Violated")).not.toBeInTheDocument();
+    expect(screen.queryByText("Broken")).not.toBeInTheDocument();
     expect(container.querySelectorAll("section > details")).toHaveLength(2);
     expect(within(screen.getByRole("list", { name: "Key facts" })).getByText("2 kept")).toBeInTheDocument();
   });

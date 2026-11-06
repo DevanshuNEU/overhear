@@ -46,12 +46,12 @@ describe("FindingBlock", () => {
     expect(within(asked).getByText("0:03")).toBeInTheDocument();
   });
 
-  it("describes each kind of thing the system did, in order", () => {
+  it("describes each kind of thing the system did, one line per action, in order", () => {
     setup();
     const did = screen.getByRole("group", { name: "Did" });
     const lines = within(did).getAllByRole("listitem").map((li) => li.querySelector("[data-line]")?.textContent);
+    // A tool call and its result are one line; the backend's record and the event keep a line each.
     expect(lines).toEqual([
-      "Called book_appointment",
       "book_appointment gave no success signal",
       "book_appointment recorded as failed",
       "Event: transfer_started",
@@ -179,24 +179,5 @@ describe("FindingBlock", () => {
   it("describes the link by the finding it belongs to, so a list of links is not N identical names", () => {
     render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" anchor="f" />);
     expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAccessibleDescription(finding.text);
-  });
-
-  it("names the gap behind an unverified finding in words and links to the detail", () => {
-    const gapped: Evidence = { ...evidence, gaps: [{ code: "unknown_success", detail: "The booking call returned no success field.", seqs: [4], tool: "book_appointment" }] };
-    render(<FindingBlock finding={{ ...finding, result: "unverified", gaps: ["unknown_success"] }} evidence={gapped} detections={detections} contract="promise_backed" />);
-    const gap = screen.getByRole("link", { name: "A tool result gave no success signal" });
-    expect(gap).toHaveAttribute("href", "#gap-0");
-  });
-
-  it("names a gap once when a finding lists it twice", () => {
-    const gapped: Evidence = { ...evidence, gaps: [{ code: "unknown_success", detail: "x", seqs: [4] }] };
-    render(<FindingBlock finding={{ ...finding, result: "unverified", gaps: ["unknown_success", "unknown_success"] }} evidence={gapped} detections={detections} contract="promise_backed" />);
-    expect(screen.getAllByText("A tool result gave no success signal")).toHaveLength(1);
-  });
-
-  it("still names a gap the evidence list does not carry, as plain words", () => {
-    render(<FindingBlock finding={{ ...finding, result: "unverified", gaps: ["llm_code_disagreement"] }} evidence={evidence} detections={detections} contract="promise_backed" />);
-    expect(screen.getByText("The model and the rules disagree on a claim")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /disagree/ })).not.toBeInTheDocument();
   });
 });

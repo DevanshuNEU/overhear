@@ -1,27 +1,54 @@
-// What a thing the system did is called on screen, and the raw record behind it.
+// What the system did, said in one line per action, and the raw record behind it.
 import type { Evidence, Item } from "@/report/schema";
-import { backendActionLine, eventLine, toolCallLine, toolResultLine } from "@/report/labels";
+import { backendActionLine, eventLine, toolNoResultLine, toolResultLine } from "@/report/labels";
 
-export type DidLine = { line: string; raw: unknown; backend: boolean };
+export type DidEntry = {
+  /** The seqs this line stands for: a tool call and its result are one line. */
+  seqs: number[];
+  line: string;
+  raw: unknown;
+  backend: boolean;
+};
 
-/** The one line an item gets in the Did lane and the timeline. A turn is not something the system did, so it gets none. */
-export function describeDid(item: Item, evidence: Evidence): DidLine | null {
-  // A result is named by the call it answers. If its id belongs to more than one call it answers none for sure,
-  // so it keeps the id and takes no tool's name.
-  const callName = (id: string) => {
-    const calls = evidence.items.filter((x) => x.kind === "tool_call" && x.id === id);
-    return calls.length === 1 && calls[0].kind === "tool_call" ? calls[0].name : id;
+type Call = Extract<Item, { kind: "tool_call" }>;
+type Result = Extract<Item, { kind: "tool_result" }>;
+
+/** The line for one tool call and, when it came back, its result. */
+export function describeAction(call: Call, result: Result | undefined): DidEntry {
+  return {
+    seqs: result ? [call.seq, result.seq] : [call.seq],
+    line: result ? toolResultLine(call.name, result.ok) : toolNoResultLine(call.name),
+    raw: result ? { call: call.args, result: result.payload } : { call: call.args },
+    backend: false,
   };
-  switch (item.kind) {
-    case "tool_call":
-      return { line: toolCallLine(item.name), raw: item.args, backend: false };
-    case "tool_result":
-      return { line: toolResultLine(callName(item.id), item.ok), raw: item.payload, backend: false };
-    case "backend_action":
-      return { line: backendActionLine(item.tool, item.ok), raw: { args: item.args, result: item.result, ts: item.ts }, backend: true };
-    case "event":
-      return { line: eventLine(item.type), raw: item.data, backend: false };
-    case "turn":
-      return null;
+}
+
+/** A tool call's result, found by the id they share. */
+export function resultOf(evidence: Evidence, call: Call): Result | undefined {
+  return evidence.items.find((x): x is Result => x.kind === "tool_result" && x.id === call.id);
+}
+
+/**
+ * The lines for a list of seqs, in call order. A call and its result are one line, whichever of the two the list
+ * names. Backend actions and events keep a line each. Turns are not something the system did, so they get none.
+ */
+export function describeActions(evidence: Evidence, seqs: number[]): DidEntry[] {
+  const bySeq = new Map(evidence.items.map((it) => [it.seq, it]));
+  const seen = new Set<string>();
+  const entries: { at: number; entry: DidEntry }[] = [];
+  for (const seq of seqs) {
+    const item = bySeq.get(seq);
+    if (!item) continue;
+    if (item.kind === "tool_call" || item.kind === "tool_result") {
+      const call = item.kind === "tool_call" ? item : evidence.items.find((x): x is Call => x.kind === "tool_call" && x.id === item.id);
+      if (!call || seen.has(call.id)) continue;
+      seen.add(call.id);
+      entries.push({ at: call.seq, entry: describeAction(call, resultOf(evidence, call)) });
+    } else if (item.kind === "backend_action") {
+      entries.push({ at: item.seq, entry: { seqs: [item.seq], line: backendActionLine(item.tool, item.ok), raw: { args: item.args, result: item.result, ts: item.ts }, backend: true } });
+    } else if (item.kind === "event") {
+      entries.push({ at: item.seq, entry: { seqs: [item.seq], line: eventLine(item.type), raw: item.data, backend: false } });
+    }
   }
+  return entries.sort((a, b) => a.at - b.at).map((e) => e.entry);
 }

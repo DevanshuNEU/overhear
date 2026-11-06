@@ -4,7 +4,7 @@ import { useId } from "react";
 import type { ReactNode } from "react";
 import type { Detection, Evidence, Item } from "@/report/schema";
 import { BACKEND_LOG_TAG, LANE_LABEL, NOTHING_DID } from "@/report/labels";
-import { describeDid } from "./describe";
+import { describeActions } from "./describe";
 import { formatClock } from "./format";
 import { markQuotes } from "./highlight";
 import { RawDetail } from "./RawDetail";
@@ -80,27 +80,23 @@ export function SaidLane({
   );
 }
 
-export function DidLane({ evidence, seqs, hideWhenEmpty = false }: { evidence: Evidence; seqs: number[]; hideWhenEmpty?: boolean }) {
-  const lines = itemsAt(evidence, seqs).flatMap((it) => {
-    const l = describeDid(it, evidence);
-    return l ? [{ seq: it.seq, ...l }] : [];
-  });
+/** What the system did, one line per action. A tool call and its result are one line, with the raw record on the same line. */
+export function DidLane({ evidence, seqs, hideWhenEmpty = false, absence }: { evidence: Evidence; seqs: number[]; hideWhenEmpty?: boolean; absence?: ReactNode }) {
+  const lines = describeActions(evidence, seqs);
   if (lines.length === 0 && hideWhenEmpty) return null;
   return (
     <Lane label={LANE_LABEL.did}>
       {lines.length === 0 ? (
-        <p className="text-[15px] text-report-ink-2">{NOTHING_DID}</p>
+        (absence ?? <p className="text-[15px] text-report-ink-2">{NOTHING_DID}</p>)
       ) : (
-        <ol className="space-y-3">
+        <ol className="space-y-2">
           {lines.map((l, i) => (
-            <li key={i}>
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span data-line className="min-w-0 [overflow-wrap:anywhere] text-[15px] leading-relaxed">
-                  {l.line}
-                </span>
-                {l.backend ? <span className="rounded bg-report-accent-tint px-1.5 text-[12px] text-report-accent">{BACKEND_LOG_TAG}</span> : null}
-              </div>
-              <RawDetail raw={l.raw} />
+            <li key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span data-line className="min-w-0 [overflow-wrap:anywhere] text-[15px] leading-relaxed">
+                {l.line}
+              </span>
+              {l.backend ? <span className="rounded bg-report-accent-tint px-1.5 text-[12px] text-report-accent">{BACKEND_LOG_TAG}</span> : null}
+              <RawDetail raw={l.raw} inline />
             </li>
           ))}
         </ol>

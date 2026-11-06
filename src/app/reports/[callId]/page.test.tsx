@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import ReportPage, { generateMetadata } from "./page";
 import { failedSample } from "@/report/samples";
@@ -11,6 +13,11 @@ describe("/reports/[callId]", () => {
   it("renders the report for a known call", async () => {
     render(await ReportPage(params(failedSample.callId)));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(failedSample.headline);
+  });
+
+  it("has no route-level loading screen, because that streams a 200 before the lookup can say 404", () => {
+    expect(fs.existsSync(path.resolve(__dirname, "../loading.tsx"))).toBe(false);
+    expect(fs.existsSync(path.resolve(__dirname, "loading.tsx"))).toBe(false);
   });
 
   it("falls through to the not found page for an unknown call", async () => {

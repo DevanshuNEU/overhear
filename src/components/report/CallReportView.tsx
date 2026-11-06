@@ -32,7 +32,7 @@ export function CallReportView({ report }: { report: CallReport }) {
           </h2>
           <div className="border-b border-report-line">
             {shown.map((c) => (
-              <ContractSection key={c.contract} contract={c} evidence={report.evidence} detections={report.detections} />
+              <ContractSection key={c.contract} contract={c} evidence={report.evidence} detections={report.detections} policy={report.policy} />
             ))}
           </div>
         </section>

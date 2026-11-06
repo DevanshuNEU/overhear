@@ -65,13 +65,20 @@ export function threadsOf(report: CallReport): Thread[] {
   return [...findings, ...reasons, ...gaps];
 }
 
-/** What each railed thread draws at one item: a dot where the thread cites it, a line where it passes by. */
-export function railsAt(threads: Thread[], seq: number): RailMark[] {
-  return threads.flatMap((t) => {
-    if (!t.railed || t.seqs.length === 0) return [];
-    const first = t.seqs[0];
-    const last = t.seqs[t.seqs.length - 1];
-    if (seq < first || seq > last) return [];
-    return [{ id: t.id, mark: t.seqs.includes(seq) ? ("dot" as const) : ("line" as const), first: seq === first, last: seq === last }];
-  });
+/**
+ * What each railed thread draws at each row of the timeline: a dot on a row that cites it, a line on the rows
+ * between. A row can stand for several seqs (a tool call and its result are one row), so a thread's span is
+ * read in rows, in the order they are shown.
+ */
+export function railMarks(threads: Thread[], rows: number[][]): RailMark[][] {
+  const marks: RailMark[][] = rows.map(() => []);
+  for (const t of threads) {
+    if (!t.railed || t.seqs.length === 0) continue;
+    const cited = rows.flatMap((row, i) => (row.some((s) => t.seqs.includes(s)) ? [i] : []));
+    if (cited.length === 0) continue;
+    const first = cited[0];
+    const last = cited[cited.length - 1];
+    for (let i = first; i <= last; i++) marks[i].push({ id: t.id, mark: cited.includes(i) ? "dot" : "line", first: i === first, last: i === last });
+  }
+  return marks;
 }

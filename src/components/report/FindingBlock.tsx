@@ -1,9 +1,9 @@
 // One finding: the sentence the engine wrote, the caller's request when there is one, then the
 // said | did rows, then the compared details. Every lane is built from the finding's own seqs.
 import { useId } from "react";
-import type { ContractId, Detection, Evidence, Finding } from "@/report/schema";
+import type { ContractId, Detection, Evidence, Finding, Policy } from "@/report/schema";
 import { FIELD_COLUMN_LABEL, FIELD_STATUS_LABEL, NOTHING_COMMITTED, SHOW_IN_CALL, capitalize, comparedLine } from "@/report/labels";
-import { GapLines } from "./GapLines";
+import { AbsenceProof } from "./AbsenceProof";
 import { LaneRows } from "./LaneRows";
 
 // The speech classes each contract's claim is made of, so the words marked are the words the verdict
@@ -44,12 +44,15 @@ export function FindingBlock({
   evidence,
   detections,
   contract,
+  policy,
   anchor,
 }: {
   finding: Finding;
   evidence: Evidence;
   detections: Detection[];
   contract: ContractId;
+  /** The policy that names which tools transfer or change a booking, so an absence can be proved. */
+  policy?: Policy;
   /** The id other parts of the page link to: the timeline's tags point here. */
   anchor?: string;
 }) {
@@ -70,7 +73,6 @@ export function FindingBlock({
           {SHOW_IN_CALL}
         </a>
       ) : null}
-      <GapLines finding={finding} evidence={evidence} />
       <LaneRows
         evidence={evidence}
         asked={finding.asked}
@@ -79,6 +81,7 @@ export function FindingBlock({
         detections={claims}
         markClass={MARK_CLASS[finding.result]}
         showEmptyDid
+        absence={<AbsenceProof evidence={evidence} policy={policy} contract={contract} finding={finding} />}
       />
       {finding.fields.length > 0 ? (
         <table className="mt-5 w-full table-fixed border-collapse text-left text-sm">
