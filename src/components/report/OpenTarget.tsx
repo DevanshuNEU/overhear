@@ -32,6 +32,10 @@ export function OpenTarget() {
   useEffect(() => {
     const fromAddress = () => openTarget(idOf(window.location.hash));
     const fromClick = (event: MouseEvent) => {
+      // A modified or middle click opens the link elsewhere, and a canceled click goes nowhere,
+      // so neither should change this page.
+      const elsewhere = event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey;
+      if (elsewhere || event.defaultPrevented) return;
       const link = event.target instanceof Element ? event.target.closest('a[href^="#"]') : null;
       if (link) openTarget(idOf(link.getAttribute("href") ?? ""));
     };

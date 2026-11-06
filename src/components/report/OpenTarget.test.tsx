@@ -74,4 +74,46 @@ describe("OpenTarget", () => {
     container.querySelector("a")!.click();
     expect(details.open).toBe(true);
   });
+
+  it.each([
+    ["ctrlKey", { ctrlKey: true }],
+    ["metaKey", { metaKey: true }],
+    ["shiftKey", { shiftKey: true }],
+    ["altKey", { altKey: true }],
+    ["a middle click", { button: 1 }],
+  ])("leaves the row closed on a click with %s, which opens elsewhere", (_, init) => {
+    window.location.hash = "";
+    const { container } = render(
+      <>
+        <OpenTarget />
+        <a href="#modified">go</a>
+        <details>
+          <summary>one</summary>
+          <p id="modified">here</p>
+        </details>
+      </>,
+    );
+    container
+      .querySelector("a")!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
+    expect(container.querySelector("details")!.open).toBe(false);
+  });
+
+  it("leaves the row closed when another handler already canceled the click", () => {
+    window.location.hash = "";
+    const { container } = render(
+      <>
+        <OpenTarget />
+        <a href="#canceled" onClick={(e) => e.preventDefault()}>
+          go
+        </a>
+        <details>
+          <summary>one</summary>
+          <p id="canceled">here</p>
+        </details>
+      </>,
+    );
+    container.querySelector("a")!.click();
+    expect(container.querySelector("details")!.open).toBe(false);
+  });
 });
