@@ -14,6 +14,24 @@ const CLAIM_CLASSES: Partial<Record<ContractId, Detection["cls"][]>> = {
   transfer_kept: ["transfer", "tool_syntax"],
 };
 
+/**
+ * The claim words to mark for one finding. Several claims can share a turn, and a finding is about one of them.
+ * Where the finding's own sentence quotes a claim, only the quotes it holds are marked. Where it quotes none,
+ * a turn with a single claim of this kind has that one marked, and a turn with several is left unmarked, since
+ * marking all of them would colour words the finding is not about.
+ */
+function citedClaims(finding: Finding, contract: ContractId, detections: Detection[]): Detection[] {
+  const classes = CLAIM_CLASSES[contract] ?? [];
+  const ofKind = detections.filter((d) => classes.includes(d.cls));
+  const bySeq = new Map<number, Detection[]>();
+  for (const d of ofKind) bySeq.set(d.seq, [...(bySeq.get(d.seq) ?? []), d]);
+  return [...bySeq.values()].flatMap((atTurn) => {
+    const quoted = atTurn.filter((d) => finding.text.includes(d.quote));
+    if (quoted.length > 0) return quoted;
+    return atTurn.length === 1 ? atTurn : [];
+  });
+}
+
 const MARK_CLASS = {
   violated: "bg-report-critical-mark",
   unverified: "bg-report-warning-mark",
@@ -32,8 +50,7 @@ export function FindingBlock({
   contract: ContractId;
 }) {
   const id = useId();
-  const classes = CLAIM_CLASSES[contract] ?? [];
-  const claims = detections.filter((d) => classes.includes(d.cls));
+  const claims = citedClaims(finding, contract, detections);
   const hasSaid = finding.said.length > 0;
   return (
     <article aria-labelledby={id} className="py-5 first:pt-0 last:pb-0">
@@ -62,7 +79,7 @@ export function FindingBlock({
           <tbody>
             {finding.fields.map((f, i) => (
               <tr key={i} className="align-top">
-                <th scope="row" className="border-b border-report-line py-2 pr-3 font-medium">{capitalize(f.field)}</th>
+                <th scope="row" className="min-w-0 [overflow-wrap:anywhere] border-b border-report-line py-2 pr-3 font-medium">{capitalize(f.field)}</th>
                 <td className="[overflow-wrap:anywhere] border-b border-report-line py-2 pr-3">{comparedLine(f.from, f.values)}</td>
                 <td className="[overflow-wrap:anywhere] border-b border-report-line py-2 pr-3">{f.committed ?? NOTHING_COMMITTED}</td>
                 <td className={`border-b border-report-line py-2 ${f.status === "differs" ? "font-medium text-report-critical" : f.status === "unresolved" ? "font-medium text-report-warning" : ""}`}>

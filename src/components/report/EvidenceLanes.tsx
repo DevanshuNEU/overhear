@@ -13,7 +13,7 @@ import {
   toolCallLine,
   toolResultLine,
 } from "@/report/labels";
-import { formatClock } from "./format";
+import { formatClock, rawText } from "./format";
 import { markQuotes } from "./highlight";
 
 type Turn = Extract<Item, { kind: "turn" }>;
@@ -89,9 +89,11 @@ export function SaidLane({
 
 /** The one line a thing the system did gets, and the raw record behind it. */
 function didLine(item: Item, evidence: Evidence): { line: string; raw: unknown; backend: boolean } | null {
+  // A result is named by the call it answers. If its id belongs to more than one call it answers none for sure,
+  // so it keeps the id and takes no tool's name.
   const callName = (id: string) => {
-    const call = evidence.items.find((x) => x.kind === "tool_call" && x.id === id);
-    return call && call.kind === "tool_call" ? call.name : id;
+    const calls = evidence.items.filter((x) => x.kind === "tool_call" && x.id === id);
+    return calls.length === 1 && calls[0].kind === "tool_call" ? calls[0].name : id;
   };
   switch (item.kind) {
     case "tool_call":
@@ -121,7 +123,7 @@ export function DidLane({ evidence, seqs }: { evidence: Evidence; seqs: number[]
           {lines.map((l, i) => (
             <li key={i}>
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span data-line className="break-words text-[15px] leading-relaxed">
+                <span data-line className="min-w-0 [overflow-wrap:anywhere] text-[15px] leading-relaxed">
                   {l.line}
                 </span>
                 {l.backend ? <span className="rounded bg-report-accent-tint px-1.5 text-[12px] text-report-accent">{BACKEND_LOG_TAG}</span> : null}
@@ -132,7 +134,7 @@ export function DidLane({ evidence, seqs }: { evidence: Evidence; seqs: number[]
                     {RAW_DETAIL_LABEL}
                   </summary>
                   <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-report-line bg-report-canvas p-3 font-mono text-[12px] leading-relaxed text-report-ink-2">
-                    {typeof l.raw === "string" ? l.raw : JSON.stringify(l.raw, null, 2)}
+                    {rawText(l.raw)}
                   </pre>
                 </details>
               ) : null}

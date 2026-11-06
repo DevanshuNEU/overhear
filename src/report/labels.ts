@@ -125,6 +125,8 @@ export function comparedLine(from: FieldCheck["from"], values: string[]): string
 export const COPY_ID_LABEL = "Copy call ID";
 export const COPIED_LABEL = "Copied";
 export const RAW_DETAIL_LABEL = "Raw detail";
+/** Shown inside the raw detail when the record cannot be turned into text (a value JSON cannot hold, or a loop). */
+export const RAW_UNAVAILABLE = "The raw record couldn't be shown.";
 export const BACKEND_LOG_TAG = "Backend log";
 export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";

@@ -10,7 +10,7 @@ function facts(report: CallReport): { label: string; value: string }[] {
   const started = evidence.callStartMs === null ? null : formatStarted(evidence.callStartMs, report.timezone);
   const list = [
     { label: FACT_LABEL.platform, value: PLATFORM_LABEL[report.platform] },
-    evidence.callFields.duration_ms !== undefined ? { label: FACT_LABEL.length, value: formatDuration(evidence.callFields.duration_ms) } : null,
+    Number.isFinite(evidence.callFields.duration_ms) && (evidence.callFields.duration_ms ?? -1) >= 0 ? { label: FACT_LABEL.length, value: formatDuration(evidence.callFields.duration_ms ?? 0) } : null,
     started ? { label: FACT_LABEL.started, value: started } : null,
     { label: FACT_LABEL.evidence, value: TIER_LABEL[evidence.tier] },
     { label: FACT_LABEL.rules, value: rulesSummary(report.results) },

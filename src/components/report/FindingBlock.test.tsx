@@ -106,10 +106,48 @@ describe("FindingBlock", () => {
     expect(screen.queryByText(/Nothing committed/)).not.toBeInTheDocument();
   });
 
-  it("marks every claim once when two detections share a turn", () => {
+  it("marks only the quote a finding cites when two claims share a turn", () => {
+    const detectionsTwo: Detection[] = [
+      { seq: 2, cls: "completion", quote: "You're booked", source: "code" },
+      { seq: 2, cls: "completion", quote: "with Dr. Lee on Tuesday", source: "code" },
+    ];
     render(
       <FindingBlock
-        finding={{ ...finding, fields: [] }}
+        finding={{ ...finding, fields: [], text: 'At 0:09 the agent said "with Dr. Lee on Tuesday". It was not.' }}
+        evidence={evidence}
+        detections={detectionsTwo}
+        contract="promise_backed"
+      />,
+    );
+    const said = screen.getByRole("group", { name: "Said" });
+    expect(Array.from(said.querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["with Dr. Lee on Tuesday"]);
+  });
+
+  it("leaves claims unmarked when two share a turn and the finding names neither", () => {
+    const detectionsTwo: Detection[] = [
+      { seq: 2, cls: "completion", quote: "You're booked", source: "code" },
+      { seq: 2, cls: "completion", quote: "with Dr. Lee on Tuesday", source: "code" },
+    ];
+    render(<FindingBlock finding={{ ...finding, fields: [], text: "The agent made a promise it did not keep." }} evidence={evidence} detections={detectionsTwo} contract="promise_backed" />);
+    expect(screen.getByRole("group", { name: "Said" }).querySelectorAll("mark")).toHaveLength(0);
+  });
+
+  it("marks the one claim on a turn even when the finding does not quote it", () => {
+    render(<FindingBlock finding={{ ...finding, fields: [], text: "The agent made a promise it did not keep." }} evidence={evidence} detections={detections} contract="promise_backed" />);
+    expect(Array.from(screen.getByRole("group", { name: "Said" }).querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["You're booked"]);
+  });
+
+  it("lets a long detail name wrap in the table", () => {
+    const long = "a_very_long_detail_name_".repeat(6);
+    render(<FindingBlock finding={{ ...finding, fields: [{ field: long, type: "string", from: "spoken", values: ["x"], committed: "y", status: "differs" }] }} evidence={evidence} detections={detections} contract="promise_backed" />);
+    const cell = screen.getByRole("rowheader");
+    expect(cell.className).toContain("[overflow-wrap:anywhere]");
+  });
+
+  it("marks every quote the finding cites once, merging quotes that overlap", () => {
+    render(
+      <FindingBlock
+        finding={{ ...finding, fields: [], text: `At 0:09 the agent said "You're booked" and "booked with Dr. Lee".` }}
         evidence={evidence}
         detections={[
           { seq: 2, cls: "completion", quote: "You're booked", source: "code" },

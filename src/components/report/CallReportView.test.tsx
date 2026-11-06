@@ -61,6 +61,16 @@ describe("CallReportView on the failed sample", () => {
     expect(within(table).getAllByText("Matches")).toHaveLength(3);
   });
 
+  it("leaves out the length of a call whose length is negative or not a number", () => {
+    for (const duration_ms of [-1000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const odd = { ...report, evidence: { ...report.evidence, callFields: { ...report.evidence.callFields, duration_ms } } };
+      const { unmount } = render(<CallReportView report={odd} />);
+      expect(screen.queryByText("Length")).not.toBeInTheDocument();
+      expect(screen.getByText("Platform")).toBeInTheDocument();
+      unmount();
+    }
+  });
+
   it("lists the other rules with what happened to each", () => {
     setup();
     const other = screen.getByRole("region", { name: "Other rules" });

@@ -1,18 +1,24 @@
 "use client";
 
 // Copies the call id. The only thing on this screen that needs the browser.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { COPIED_LABEL, COPY_ID_LABEL } from "@/report/labels";
 
 export function CopyId({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // No timer outlives the button.
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      // Each copy restarts the wait, so an earlier copy's timer cannot cut a later one short.
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 1800);
     } catch {
       // Clipboard blocked: the id is still on screen to select.
     }
