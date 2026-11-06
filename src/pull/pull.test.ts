@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Outcome } from "@/engine/types";
 import { SAMPLE_REPORTS } from "@/report/samples";
-import { cancelPull, getOutcome, getProgress, retryCall, startPull, whenSettled } from "./pull";
+import { activePullId, cancelPull, getOutcome, getProgress, MAX_PULLS, retryCall, startPull, whenSettled } from "./pull";
 
 const KEY = "key_PULLTEST0123456789abcdef";
 const TOKEN = "web_access_token_SECRET";
@@ -188,5 +188,100 @@ describe("startPull", () => {
     expect(f.seen.length).toBe(before + 1);
     expect(getOutcome("call_0")?.outcome.kind).toBe("report");
     expect(await retryCall("unknown", tune(f))).toBeNull();
+  });
+
+  it("one pull is active at a time: activePullId names the running pull and clears when it settles", async () => {
+    const f = fake(ids(3));
+    expect(activePullId()).toBeNull();
+    const id = startPull({ n: 3, analyze, ...tune(f) });
+    expect(activePullId()).toBe(id);
+    await whenSettled(id);
+    expect(activePullId()).toBeNull();
+  });
+
+  it("cancelPull shows the cancelled phase at once and frees the active slot", async () => {
+    const f = fake(ids(10));
+    const id = startPull({ n: 10, analyze, ...tune(f) });
+    expect(cancelPull(id)).toBe(true);
+    expect(getProgress(id)?.phase).toBe("cancelled");
+    expect(activePullId()).toBeNull();
+    await whenSettled(id);
+    expect(getProgress(id)?.phase).toBe("cancelled");
+  });
+
+  it("a cancel wakes workers waiting in a 429 pause and keeps finished results", async () => {
+    const f = fake(ids(6), { get: (id) => (id === "call_0" ? json(200, { call_id: id }) : json(429, {}, { "retry-after": "30" })) });
+    const id = startPull({ n: 6, analyze, ...tune(f), sleep: () => new Promise<void>(() => {}) });
+    for (let i = 0; i < 200 && getProgress(id)?.waitingUntil == null; i++) await new Promise((r) => setImmediate(r));
+    expect(getProgress(id)?.waitingUntil).not.toBeNull();
+    cancelPull(id);
+    await whenSettled(id);
+    const p = getProgress(id)!;
+    expect(p.phase).toBe("cancelled");
+    expect(p.waitingUntil).toBeNull();
+    expect(getOutcome("call_0")?.outcome.kind).toBe("report");
+  });
+
+  it("keeps only the last twenty pulls", async () => {
+    const f = fake(ids(1));
+    const first = startPull({ n: 1, analyze, ...tune(f) });
+    await whenSettled(first);
+    const later: string[] = [];
+    for (let i = 0; i < MAX_PULLS; i++) {
+      const id = startPull({ n: 1, analyze, ...tune(f) });
+      await whenSettled(id);
+      later.push(id);
+    }
+    expect(getProgress(first)).toBeNull();
+    expect(later.every((id) => getProgress(id) !== null)).toBe(true);
+  });
+
+  it("a refetch updates the pull's row and counts", async () => {
+    let broken = true;
+    const f = fake(ids(3), { get: (id) => (id === "call_1" && broken ? json(404, {}) : json(200, { call_id: id })) });
+    const { id, p } = await pull(f, 3);
+    expect(p.failed).toBe(1);
+    expect(p.done).toBe(2);
+    broken = false;
+    await retryCall("call_1", tune(f));
+    const after = getProgress(id)!;
+    expect(after.rows[1].state).toBe("report");
+    expect(after.failed).toBe(0);
+    expect(after.done).toBe(3);
+    broken = true;
+    await retryCall("call_1", tune(f));
+    const again = getProgress(id)!;
+    expect(again.rows[1].state).toBe("error");
+    expect(again.failed).toBe(1);
+    expect(again.done).toBe(2);
+  });
+
+  it("refetches share the five-request limit with a running pull", async () => {
+    const f = fake(ids(8));
+    const settled = await pull(f, 8);
+    expect(settled.p.done).toBe(8);
+    const id = startPull({ n: 8, analyze, ...tune(f) });
+    const retries = ids(8).map((c) => retryCall(c, tune(f)));
+    await Promise.all(retries);
+    await whenSettled(id);
+    expect(f.peak()).toBeLessThanOrEqual(5);
+  });
+
+  it("a refetch waits for a 429 pause that a pull started", async () => {
+    let hit = false;
+    const f = fake(ids(2), { get: (id) => (id === "call_0" && !hit ? ((hit = true), json(429, {}, { "retry-after": "5" })) : json(200, { call_id: id })) });
+    let release: () => void = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    const t = { ...tune(f), sleep: (ms: number) => (ms === 5000 ? hold : Promise.resolve()) };
+    const id = startPull({ n: 2, analyze, ...t });
+    for (let i = 0; i < 200 && getProgress(id)?.waitingUntil == null; i++) await new Promise((r) => setImmediate(r));
+    const before = f.seen.length;
+    const retry = retryCall("call_1", t);
+    for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+    expect(f.seen.length).toBe(before);
+    release();
+    await retry;
+    await whenSettled(id);
+    expect(f.seen.length).toBeGreaterThan(before);
   });
 });
