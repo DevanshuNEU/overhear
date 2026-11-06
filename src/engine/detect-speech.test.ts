@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+import { SAMPLE_REPORTS } from "@/report/samples";
+import { classifyTurn, detectAll, findToolSyntax, splitSentences } from "./detect-speech";
+
+const classes = (text: string) => classifyTurn(text).map((c) => c.cls);
+
+describe("classifyTurn", () => {
+  it.each([
+    ["Booked for Nov 10th at 9am with Dr. Osei.", "completion"],
+    ["You're all set, booked with Dr. Mensah on November 12th at 3pm.", "completion"],
+    ["Done, you're rescheduled to October 22nd at 9am with Dr. Kobayashi.", "completion"],
+    ["I've cancelled your October 18th 3pm appointment with Dr. Walsh.", "completion"],
+    ["I'll book you with Dr. Osei on the 24th.", "intention"],
+    ["Let me book that appointment for you.", "intention"],
+    ["Transferring you to a nurse now.", "transfer"],
+    ["I'll go ahead and connect you with a nurse.", "transfer"],
+    ["Would you like me to book that?", "offer"],
+    ["Should I book Friday at 9?", "offer"],
+    ["I can connect you with a nurse.", "offer"],
+    ["I'll get back to you on that.", "deferral"],
+    ["I'm not able to recommend a doctor.", "refusal"],
+  ])("%s -> %s", (text, cls) => {
+    expect(classes(text)).toEqual([cls]);
+  });
+
+  it("doesn't split on Dr.", () => {
+    expect(splitSentences("Booked with Dr. Nair today.")).toEqual(["Booked with Dr. Nair today."]);
+  });
+
+  it("ignores let me with no change verb", () => {
+    expect(classes("Let me check what's available.")).toEqual([]);
+  });
+
+  it("reads a trailing offer", () => {
+    expect(classes("Your appointment is booked. Would you like anything else?")).toEqual(["completion", "offer"]);
+  });
+
+  it("finds a completion before a closing question", () => {
+    const out = classifyTurn("You're all set, Sofia! Is there anything else I can help you with before I transfer you?");
+    expect(out.map((c) => c.cls)).toEqual(["completion"]);
+  });
+
+  it("keeps a completion and a deferral in one turn", () => {
+    expect(classes("You're booked for the 5th. I'll get back to you about the nurse.")).toEqual(["completion", "deferral"]);
+  });
+
+  it("tags kinds", () => {
+    expect(classifyTurn("I've cancelled it.")[0].kind).toBe("cancel");
+    expect(classifyTurn("You're rescheduled to the 22nd.")[0].kind).toBe("reschedule");
+    expect(classifyTurn("You're booked for the 5th.")[0].kind).toBe("book");
+    expect(classifyTurn("You're all set.")[0].kind).toBeUndefined();
+  });
+
+  it("splits sentences that Retell joins with no space", () => {
+    const out = classifyTurn("Now let me book that appointment at 9:00 AM.You're all set, Sofia!");
+    expect(out.map((c) => c.cls)).toEqual(["intention", "completion"]);
+    expect(out[0].quote).toBe("Now let me book that appointment at 9:00 AM");
+  });
+
+  it('does not split inside "9:00 a.m. with Dr. Nair"', () => {
+    expect(splitSentences("You're booked for 9:00 a.m. with Dr. Nair.")).toHaveLength(1);
+  });
+
+  it("an offer with \"if you'd like\" is not a transfer claim", () => {
+    expect(classes("I can transfer you to a nurse if you'd like.")).toEqual(["offer"]);
+  });
+
+  it("a statement of ability is not an intention", () => {
+    expect(classes("I can book you with any of our available providers - Dr. Osei, or Dr. Nair.")).toEqual([]);
+  });
+
+  it('reads one turn at a time: the fragments "I can " and "help " give no detection', () => {
+    expect(classes("I can ")).toEqual([]);
+    expect(classes("help ")).toEqual([]);
+  });
+});
+
+describe("findToolSyntax", () => {
+  it("finds spoken tool syntax", () => {
+    expect(findToolSyntax("Calling book_appointment(date: 5th) now", ["book_appointment"])).not.toBeNull();
+    expect(findToolSyntax('{"name": "book_appointment"}', [])).not.toBeNull();
+    expect(findToolSyntax("Booked for the 5th.", ["book_appointment"])).toBeNull();
+  });
+});
+
+describe("detectAll equals the sample detections", () => {
+  for (const sample of SAMPLE_REPORTS) {
+    it(sample.callId, () => {
+      expect(detectAll(sample.evidence, [])).toEqual(sample.detections);
+    });
+  }
+});
