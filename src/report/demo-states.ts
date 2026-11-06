@@ -11,6 +11,12 @@ function renamed<T extends CallReport>(report: T, callId: string): T {
   return { ...structuredClone(report), callId, evidence: { ...structuredClone(report.evidence), callId } };
 }
 
+const UNVERIFIED_TEXT: Partial<Record<string, string>> = {
+  promise_backed: "At 1:47 the agent said the booking was made.",
+  verified_before_change: "The booking at 1:47 came after an identity check.",
+  spoken_matches_committed: "The agent confirmed Friday, November 6 at 2:00 PM with Dr. Priya Nair.",
+};
+
 /** The passed sample, except the booking call returned no success field: three rules cannot be confirmed. */
 function buildUnverified(): CallReport {
   const base = renamed(passedSample, "call_demo_unverified");
@@ -22,7 +28,7 @@ function buildUnverified(): CallReport {
     return {
       ...c,
       result: "unverified" as const,
-      findings: c.findings.map((f) => ({ ...f, result: "unverified" as const, gaps: ["unknown_success" as const], text: `${f.text.split(". ")[0]}. ${detail}` })),
+      findings: c.findings.map((f) => ({ ...f, result: "unverified" as const, gaps: ["unknown_success" as const], text: `${UNVERIFIED_TEXT[c.contract] ?? ""} ${detail}`.trim() })),
     };
   });
   const reasons = results

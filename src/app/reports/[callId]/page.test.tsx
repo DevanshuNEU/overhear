@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import ReportPage, { generateMetadata } from "./page";
 import { failedSample } from "@/report/samples";
@@ -13,6 +13,14 @@ describe("/reports/[callId]", () => {
 
   it("falls through to the not found page for an unknown call", async () => {
     await expect(ReportPage(params("call_nope"))).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+  });
+
+  it("never renders a report that fails the schema, and says it cannot be read", async () => {
+    vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
+    render(await ReportPage(params("call_demo_unreadable")));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("This report can't be read.");
+    expect(screen.queryByText(/Failed|Passed|Violated/)).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
   });
 
   it("titles the tab with the call id", async () => {

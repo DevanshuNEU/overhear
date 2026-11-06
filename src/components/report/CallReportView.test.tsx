@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { CallReportView } from "./CallReportView";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
+import { unverifiedSample } from "@/report/demo-states";
 import { CONTRACT_TITLE, capitalize } from "@/report/labels";
 
 describe("CallReportView on the failed sample", () => {
@@ -115,5 +116,48 @@ describe("CallReportView on the passed sample", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(passedSample.headline);
     expect(screen.queryByText("Violated")).not.toBeInTheDocument();
     expect(Array.from(container.querySelectorAll("section > details[open]"))).toHaveLength(0);
+  });
+});
+
+describe("CallReportView on a call that needs review", () => {
+  it("states why, under the headline, before the rules", () => {
+    render(<CallReportView report={needsReviewSample} />);
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(needsReviewSample.headline);
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings.indexOf("Why it needs review")).toBeGreaterThanOrEqual(0);
+    expect(headings.indexOf("Why it needs review")).toBeLessThan(headings.indexOf("Other rules"));
+  });
+});
+
+describe("CallReportView on an unverified result", () => {
+  const setup = () => render(<CallReportView report={unverifiedSample} />);
+
+  it("opens each rule it could not check, in amber words, with the gap that stopped it", () => {
+    setup();
+    const section = screen.getByRole("region", { name: "Promises backed by the system" });
+    expect(within(section).getByText("Couldn't check")).toBeInTheDocument();
+    expect(within(section).getByText("A tool result gave no success signal")).toBeInTheDocument();
+    expect(within(section).getByText(/The booking call returned no success field/)).toBeInTheDocument();
+    expect(within(section).getByRole("group", { name: "Did" })).toHaveTextContent("book_appointment gave no success signal");
+  });
+
+  it("explains each gap once, with the engine's detail", () => {
+    setup();
+    const missing = screen.getByRole("region", { name: "What's missing" });
+    expect(within(missing).getByText(/The booking call returned no success field/)).toBeInTheDocument();
+  });
+
+  it("lists what is missing before the rules, and counts the gaps in the key facts", () => {
+    setup();
+    expect(screen.getByRole("region", { name: "What's missing" })).toBeInTheDocument();
+    const facts = screen.getByRole("list", { name: "Key facts" });
+    expect(within(facts).getByText("Call record only, 1 gap")).toBeInTheDocument();
+  });
+
+  it("does not pass anything it could not check", () => {
+    setup();
+    expect(screen.queryByText("Passed")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Couldn't check").length).toBeGreaterThanOrEqual(3);
   });
 });

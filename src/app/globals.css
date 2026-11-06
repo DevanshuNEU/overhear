@@ -201,3 +201,17 @@
 body:has(> .report) {
   background: #fbfbfd;
 }
+
+/* The loading screen waits a moment before it shows, so a fast load never flashes. Under reduced motion it
+   shows at once. */
+@keyframes report-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.report-delayed {
+  opacity: 0;
+  animation: report-reveal 150ms ease-out 250ms forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-delayed { opacity: 1; animation: none; }
+}

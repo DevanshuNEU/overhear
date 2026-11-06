@@ -6,7 +6,7 @@ import type { ContractResult, Detection, Evidence } from "@/report/schema";
 import { CONTRACT_TITLE, capitalize } from "@/report/labels";
 import { FindingBlock } from "./FindingBlock";
 import { ResultBadge } from "./StatusBadge";
-import { findingAnchor } from "./threads";
+import { contractAnchor, findingAnchor } from "./threads";
 
 export function ContractSection({ contract, evidence, detections }: { contract: ContractResult; evidence: Evidence; detections: Detection[] }) {
   const id = useId();
@@ -21,7 +21,7 @@ export function ContractSection({ contract, evidence, detections }: { contract: 
 
   if (contract.result === "passed") {
     return (
-      <section aria-labelledby={id} className="border-t border-report-line">
+      <section id={contractAnchor(contract.contract)} aria-labelledby={id} className="scroll-mt-6 border-t border-report-line">
         <details className="group">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent [&::-webkit-details-marker]:hidden">
             <ChevronRight aria-hidden className="size-4 shrink-0 text-report-muted transition-transform group-open:rotate-90 motion-reduce:transition-none" />
@@ -37,7 +37,7 @@ export function ContractSection({ contract, evidence, detections }: { contract: 
   }
 
   return (
-    <section aria-labelledby={id} className="border-t border-report-line pb-8 pt-6">
+    <section id={contractAnchor(contract.contract)} aria-labelledby={id} className="scroll-mt-6 border-t border-report-line pb-8 pt-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h3 id={id} className="text-xl font-semibold tracking-[-0.01em]">
           {title}

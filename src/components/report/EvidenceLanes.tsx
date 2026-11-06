@@ -80,11 +80,12 @@ export function SaidLane({
   );
 }
 
-export function DidLane({ evidence, seqs }: { evidence: Evidence; seqs: number[] }) {
+export function DidLane({ evidence, seqs, hideWhenEmpty = false }: { evidence: Evidence; seqs: number[]; hideWhenEmpty?: boolean }) {
   const lines = itemsAt(evidence, seqs).flatMap((it) => {
     const l = describeDid(it, evidence);
     return l ? [{ seq: it.seq, ...l }] : [];
   });
+  if (lines.length === 0 && hideWhenEmpty) return null;
   return (
     <Lane label={LANE_LABEL.did}>
       {lines.length === 0 ? (

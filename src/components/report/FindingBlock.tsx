@@ -3,7 +3,8 @@
 import { useId } from "react";
 import type { ContractId, Detection, Evidence, Finding } from "@/report/schema";
 import { FIELD_COLUMN_LABEL, FIELD_STATUS_LABEL, NOTHING_COMMITTED, SHOW_IN_CALL, capitalize, comparedLine } from "@/report/labels";
-import { AskedLane, DidLane, SaidLane } from "./EvidenceLanes";
+import { GapLines } from "./GapLines";
+import { LaneRows } from "./LaneRows";
 
 // The speech classes each contract's claim is made of, so the words marked are the words the verdict
 // rests on. This copies the schema's own mapping (claimClass in schema.ts), plus tool_syntax for
@@ -54,7 +55,6 @@ export function FindingBlock({
 }) {
   const id = useId();
   const claims = citedClaims(finding, contract, detections);
-  const hasSaid = finding.said.length > 0;
   const firstSeq = Math.min(...finding.asked, ...finding.said, ...finding.did);
   return (
     <article id={anchor} aria-labelledby={id} className="scroll-mt-6 py-5 first:pt-0 last:pb-0 target:rounded-md target:bg-report-accent-tint target:ring-8 target:ring-report-accent-tint">
@@ -70,15 +70,16 @@ export function FindingBlock({
           {SHOW_IN_CALL}
         </a>
       ) : null}
-      {finding.asked.length > 0 ? (
-        <div className="mt-4">
-          <AskedLane evidence={evidence} seqs={finding.asked} />
-        </div>
-      ) : null}
-      <div className={`mt-4 grid gap-6 ${hasSaid ? "md:grid-cols-2 md:gap-0 md:[&>*:first-child]:pr-8 md:[&>*:last-child]:border-l md:[&>*:last-child]:border-report-line md:[&>*:last-child]:pl-8" : ""}`}>
-        {hasSaid ? <SaidLane evidence={evidence} seqs={finding.said} detections={claims} markClass={MARK_CLASS[finding.result]} /> : null}
-        <DidLane evidence={evidence} seqs={finding.did} />
-      </div>
+      <GapLines finding={finding} evidence={evidence} />
+      <LaneRows
+        evidence={evidence}
+        asked={finding.asked}
+        said={finding.said}
+        did={finding.did}
+        detections={claims}
+        markClass={MARK_CLASS[finding.result]}
+        showEmptyDid
+      />
       {finding.fields.length > 0 ? (
         <table className="mt-5 w-full table-fixed border-collapse text-left text-sm">
           <thead>

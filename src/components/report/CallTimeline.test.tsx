@@ -67,10 +67,26 @@ describe("CallTimeline", () => {
     expect(container.querySelectorAll("[data-rail]")).toHaveLength(0);
   });
 
-  it("renders a call with no findings as a plain timeline", () => {
+  it("tags the items a review reason rests on and links to the reason", () => {
     render(<CallTimeline report={needsReviewSample} />);
-    expect(screen.queryAllByRole("link")).toHaveLength(0);
     expect(document.getElementById("item-9")).toHaveTextContent("check_availability failed");
+    const link = within(document.getElementById("item-9")!).getByRole("link");
+    expect(link).toHaveTextContent("Unanswered request");
+    expect(link).toHaveAttribute("href", "#reason-0");
+    expect(within(document.getElementById("item-2")!).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("tags an item with a gap and links to it", () => {
+    render(<CallTimeline report={unverifiedSample} />);
+    const links = within(document.getElementById("item-33")!).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]);
+    expect(links).toContainEqual(["A tool result gave no success signal, Couldn't check", "#gap-0"]);
+  });
+
+  it("runs one rail through each unverified rule, and a line between its items", () => {
+    const { container } = render(<CallTimeline report={unverifiedSample} />);
+    const railedAt = (seq: number) => document.getElementById(`item-${seq}`)!.querySelectorAll("[data-rail]").length;
+    expect(railedAt(21)).toBeGreaterThan(0); // between the identity check (20) and the booking call (31)
+    expect(container.querySelectorAll("[data-rail]").length).toBeGreaterThan(5);
   });
 
   it("marks a rail's first item with a dot, the items between with a line, and its last with a dot", () => {
