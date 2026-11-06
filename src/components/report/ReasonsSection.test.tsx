@@ -36,6 +36,22 @@ describe("ReasonsSection", () => {
     expect(within(section).getByText("Couldn't check:")).toBeInTheDocument();
   });
 
+  it("still names a reason that cites nothing, with no link and no lanes", () => {
+    const report = { ...needsReviewSample, reasons: [{ ...needsReviewSample.reasons[0], seqs: [] }] };
+    render(<ReasonsSection report={report} />);
+    const reason = screen.getByRole("article");
+    expect(reason).toHaveTextContent("At 0:11 the caller asked to book an appointment.");
+    expect(within(reason).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(reason).queryByRole("group")).not.toBeInTheDocument();
+  });
+
+  it("names a rule once even when two reasons point at it", () => {
+    const one = unverifiedSample.reasons[0];
+    const report = { ...unverifiedSample, reasons: [one, one] };
+    render(<ReasonsSection report={report} />);
+    expect(screen.getAllByRole("link", { name: "Promises backed by the system" })).toHaveLength(1);
+  });
+
   it("is absent when the call needs no review", () => {
     const { container } = render(<ReasonsSection report={passedSample} />);
     expect(container).toBeEmptyDOMElement();

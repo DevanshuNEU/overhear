@@ -9,7 +9,7 @@ export function GapLines({ finding, evidence }: { finding: Finding; evidence: Ev
   const cited = new Set([...finding.said, ...finding.did]);
   return (
     <ul className="mt-2 space-y-1">
-      {finding.gaps.map((code) => {
+      {[...new Set(finding.gaps)].map((code) => {
         // Prefer the gap that touches what this finding cites; else the first of that kind.
         const at = evidence.gaps.findIndex((g) => g.code === code && g.seqs.some((s) => cited.has(s)));
         const index = at >= 0 ? at : evidence.gaps.findIndex((g) => g.code === code);

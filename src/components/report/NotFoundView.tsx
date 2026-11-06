@@ -3,6 +3,7 @@
 // No report for the address. Next gives a not-found page no params, so the call id is read from the address.
 import { usePathname } from "next/navigation";
 import { NOT_FOUND } from "@/report/labels";
+import { echoableId } from "./format";
 
 function callIdIn(pathname: string): string | null {
   const match = /^\/reports\/([^/]+)/.exec(pathname);
@@ -15,7 +16,7 @@ function callIdIn(pathname: string): string | null {
 }
 
 export function NotFoundView() {
-  const callId = callIdIn(usePathname());
+  const callId = echoableId(callIdIn(usePathname()));
   return (
     <div>
       <h1 className="max-w-[34ch] text-2xl font-semibold leading-[1.2] tracking-[-0.01em] sm:text-[28px]">{NOT_FOUND.title}</h1>

@@ -188,6 +188,12 @@ describe("FindingBlock", () => {
     expect(gap).toHaveAttribute("href", "#gap-0");
   });
 
+  it("names a gap once when a finding lists it twice", () => {
+    const gapped: Evidence = { ...evidence, gaps: [{ code: "unknown_success", detail: "x", seqs: [4] }] };
+    render(<FindingBlock finding={{ ...finding, result: "unverified", gaps: ["unknown_success", "unknown_success"] }} evidence={gapped} detections={detections} contract="promise_backed" />);
+    expect(screen.getAllByText("A tool result gave no success signal")).toHaveLength(1);
+  });
+
   it("still names a gap the evidence list does not carry, as plain words", () => {
     render(<FindingBlock finding={{ ...finding, result: "unverified", gaps: ["llm_code_disagreement"] }} evidence={evidence} detections={detections} contract="promise_backed" />);
     expect(screen.getByText("The model and the rules disagree on a claim")).toBeInTheDocument();

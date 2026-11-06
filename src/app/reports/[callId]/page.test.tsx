@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import ReportPage, { generateMetadata } from "./page";
 import { failedSample } from "@/report/samples";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const params = (callId: string) => ({ params: Promise.resolve({ callId }) });
 
@@ -20,7 +22,9 @@ describe("/reports/[callId]", () => {
     render(await ReportPage(params("call_demo_unreadable")));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("This report can't be read.");
     expect(screen.queryByText(/Failed|Passed|Violated/)).not.toBeInTheDocument();
-    vi.unstubAllEnvs();
+    // None of the bad report's own words reach the screen: not its headline, its call text or its tool names.
+    expect(document.body).not.toHaveTextContent(failedSample.headline);
+    expect(document.body).not.toHaveTextContent("Transferring you to a nurse now");
   });
 
   it("titles the tab with the call id", async () => {

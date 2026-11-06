@@ -23,6 +23,13 @@ describe("the demo states", () => {
     expect((await getReport("call_sample_failed")).status).toBe("found");
   });
 
+  it("serves nothing in production, even with the flag on, so no slow request can be asked for", async () => {
+    vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await getReport("call_demo_slow")).toEqual({ status: "not_found", callId: "call_demo_slow" });
+    expect(await getReport("call_demo_unverified")).toEqual({ status: "not_found", callId: "call_demo_unverified" });
+  });
+
   it("holds a record that does not validate, and says which part", async () => {
     const record = await demoSource("call_demo_unreadable");
     const parsed = CallReportSchema.safeParse(record);

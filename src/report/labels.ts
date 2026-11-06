@@ -119,7 +119,8 @@ export const NOT_FOUND = {
 
 export const UNREADABLE = {
   title: "This report can't be read.",
-  detail: (callId: string) => `The report for ${callId} doesn't match the report format, so Overhear won't show it.`,
+  detail: (callId: string | null) =>
+    callId ? `The report for ${callId} doesn't match the report format, so Overhear won't show it.` : "This report doesn't match the report format, so Overhear won't show it.",
   next: "Regenerate the report, then reload this page.",
   problems: "What failed",
   count: (total: number, shown: number) => `${total} problems, first ${shown} shown`,

@@ -33,7 +33,7 @@ function ReasonBlock({ report, index }: { report: CallReport; index: number }) {
 export function ReasonsSection({ report }: { report: CallReport }) {
   if (report.verdict !== "needs_review" || report.reasons.length === 0) return null;
   const named = report.reasons.flatMap((r, i) => (r.kind === "unverified_result" ? [] : [i]));
-  const unchecked = report.reasons.flatMap((r) => (r.kind === "unverified_result" && r.contract ? [r.contract] : []));
+  const unchecked = [...new Set(report.reasons.flatMap((r) => (r.kind === "unverified_result" && r.contract ? [r.contract] : [])))];
   return (
     <section aria-labelledby="reasons-heading">
       <h2 id="reasons-heading" className="mb-4 text-base font-semibold">

@@ -13,6 +13,13 @@ describe("GapsSection", () => {
     expect(within(section).getByRole("link", { name: "Show in the call" })).toHaveAttribute("href", "#item-33");
   });
 
+  it("lists a gap that cites no items without a link", () => {
+    const report = { ...unverifiedSample, evidence: { ...unverifiedSample.evidence, gaps: [{ ...unverifiedSample.evidence.gaps[0], seqs: [] }] } };
+    render(<GapsSection report={report} />);
+    expect(screen.getByText("A tool result gave no success signal")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("is absent when the evidence has no gaps", () => {
     const { container } = render(<GapsSection report={failedSample} />);
     expect(container).toBeEmptyDOMElement();

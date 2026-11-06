@@ -1,11 +1,10 @@
 // Screens for the states the three samples do not reach: an unverified result with a gap, a report that
 // fails the schema, and a slow load. They are built from the samples and served only when
-// OVERHEAR_DEMO_STATES=1, so a person can look at those states running. They are never in a real run.
+// OVERHEAR_DEMO_STATES=1 outside production, so a person can look at those states running. They never
+// load in a real run: store.ts imports this file only when the flag is on.
 import { CallReportSchema, type CallReport } from "./schema";
 import { headlineFor } from "./labels";
 import { failedSample, passedSample } from "./samples";
-
-export const DEMO_STATES_FLAG = "OVERHEAR_DEMO_STATES";
 
 function renamed<T extends CallReport>(report: T, callId: string): T {
   return { ...structuredClone(report), callId, evidence: { ...structuredClone(report.evidence), callId } };
