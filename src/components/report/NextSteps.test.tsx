@@ -1,0 +1,60 @@
+import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { NextSteps } from "./NextSteps";
+import { CallReportView } from "./CallReportView";
+import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
+import { unverifiedSample } from "@/report/demo-states";
+import { NEXT_STEPS } from "@/report/labels";
+
+describe("NextSteps", () => {
+  it("lists the numbered steps for what broke, each with its lead and its sentence", () => {
+    render(<NextSteps report={failedSample} />);
+    const aside = screen.getByRole("complementary", { name: "What to do next" });
+    const items = within(aside).getAllByRole("listitem");
+    expect(items).toHaveLength(NEXT_STEPS.transfer_kept.length);
+    NEXT_STEPS.transfer_kept.forEach((step, i) => {
+      expect(items[i]).toHaveTextContent(step.lead);
+      expect(items[i]).toHaveTextContent(step.text);
+      expect(within(items[i]).getByText(String(i + 1))).toBeInTheDocument();
+    });
+  });
+
+  it("offers the actions that are true today: copy the call id, and nothing it cannot do", () => {
+    render(<NextSteps report={failedSample} />);
+    expect(screen.getByRole("button", { name: "Copy call ID for your logs" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Retell/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/regression/i)).not.toBeInTheDocument();
+  });
+
+  it("is absent when there is nothing to do", () => {
+    for (const report of [passedSample, needsReviewSample, unverifiedSample]) {
+      const { container, unmount } = render(<NextSteps report={report} />);
+      expect(container).toBeEmptyDOMElement();
+      unmount();
+    }
+  });
+});
+
+describe("CallReportView with next steps", () => {
+  it("puts the steps right after the answer, before the rules, so a narrow window reads answer then steps", () => {
+    render(<CallReportView report={failedSample} />);
+    const aside = screen.getByRole("complementary", { name: "What to do next" });
+    const header = screen.getByRole("heading", { level: 1 });
+    const rows = screen.getByRole("region", { name: "Said and did" });
+    expect(header.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(aside.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("goes to the right column at 1280 and wider, and under the answer below that", () => {
+    const { container } = render(<CallReportView report={failedSample} />);
+    const aside = screen.getByRole("complementary");
+    expect(aside.className).toContain("xl:order-2");
+    expect(container.innerHTML).toContain("xl:grid-cols-");
+  });
+
+  it("has no column, and no empty gutter, when there are no steps", () => {
+    const { container } = render(<CallReportView report={passedSample} />);
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(container.innerHTML).not.toContain("xl:grid-cols-");
+  });
+});

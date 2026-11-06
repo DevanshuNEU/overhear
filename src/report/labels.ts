@@ -312,3 +312,46 @@ export function backendActionLine(tool: string, ok: boolean): string {
 export function eventLine(type: string): string {
   return `Event: ${type}`;
 }
+
+// ---------- What to do next ----------
+
+export const NEXT_HEADING = "What to do next";
+
+/** One numbered step: a short lead in bold, then the sentence that says what to do. */
+export type NextStep = { lead: string; text: string };
+
+/**
+ * What to do about a rule that broke. Each step is a check the evidence supports, not a fix the evidence does
+ * not know. A rule that held, could not be checked or did not apply has no steps here.
+ */
+export const NEXT_STEPS: Record<ContractId, NextStep[]> = {
+  promise_backed: [
+    { lead: "Find the promise.", text: "Read the marked words under Said, then the tool calls under Did. The record shows no successful call before the promise." },
+    { lead: "Check the tool call.", text: "If a call was made, open its raw detail to see what was sent and what came back. If none was made, check that the agent's prompt tells it to call the tool before it speaks." },
+  ],
+  verified_before_change: [
+    { lead: "Check the order of the calls.", text: "Under Did, see whether the identity check came before the change. A change that came first is the break." },
+    { lead: "Make the agent wait.", text: "Check that the agent's prompt tells it to wait for the identity check to succeed before it calls a tool that changes a booking." },
+  ],
+  spoken_matches_committed: [
+    { lead: "Compare the two values.", text: "The table puts what the agent said next to what was committed. The row marked Differs is the one to chase." },
+    { lead: "Find where the agent got it.", text: "Check whether the agent spoke the caller's words or the availability result, then whether it passed that same value to the booking tool." },
+  ],
+  transfer_kept: [
+    { lead: "Check the agent can transfer.", text: "Look in the agent's setup for a transfer tool. The record shows none was called, so the agent said it without doing it." },
+    { lead: "Change when the agent says it.", text: "If transfers are not set up, the agent should not say it is transferring. If they are, check the prompt tells it to call the tool before it speaks." },
+  ],
+  committed_matches_request: [
+    { lead: "Compare with the request.", text: "The table puts what the caller asked for next to what was committed. The row marked Differs is the one to chase." },
+    { lead: "Check which request was final.", text: "If the caller changed their mind, check that the agent took the last request and not the first." },
+  ],
+};
+
+/**
+ * What to do about a gap, by its code. Empty for now: the engine's finding sentence may already end with what
+ * would make the result checkable, and a step here would say it twice. Adding a gap's steps is only a matter of
+ * adding its entry here; the column shows them after the steps for broken rules.
+ */
+export const GAP_NEXT_STEPS: Partial<Record<GapCode, NextStep[]>> = {};
+
+export const COPY_ID_FOR_LOGS = "Copy call ID for your logs";
