@@ -159,4 +159,25 @@ describe("FindingBlock", () => {
     const said = screen.getByRole("group", { name: "Said" });
     expect(Array.from(said.querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["You're booked with Dr. Lee"]);
   });
+
+  it("links to the first item it rests on in the call, and is the target of the timeline's tags", () => {
+    render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" anchor="finding-promise_backed-0" />);
+    expect(screen.getByRole("article")).toHaveAttribute("id", "finding-promise_backed-0");
+    expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAttribute("href", "#item-1");
+  });
+
+  it("has no link when it cites nothing", () => {
+    render(<FindingBlock finding={{ ...finding, asked: [], said: [], did: [] }} evidence={evidence} detections={detections} contract="promise_backed" anchor="finding-x" />);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("links to the earliest item it cites, wherever it sits in the lists", () => {
+    render(<FindingBlock finding={{ ...finding, asked: [6], said: [5], did: [4, 3] }} evidence={evidence} detections={detections} contract="promise_backed" anchor="f" />);
+    expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAttribute("href", "#item-3");
+  });
+
+  it("describes the link by the finding it belongs to, so a list of links is not N identical names", () => {
+    render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" anchor="f" />);
+    expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAccessibleDescription(finding.text);
+  });
 });

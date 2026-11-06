@@ -2,7 +2,7 @@
 // said | did rows, then the compared details. Every lane is built from the finding's own seqs.
 import { useId } from "react";
 import type { ContractId, Detection, Evidence, Finding } from "@/report/schema";
-import { FIELD_COLUMN_LABEL, FIELD_STATUS_LABEL, NOTHING_COMMITTED, capitalize, comparedLine } from "@/report/labels";
+import { FIELD_COLUMN_LABEL, FIELD_STATUS_LABEL, NOTHING_COMMITTED, SHOW_IN_CALL, capitalize, comparedLine } from "@/report/labels";
 import { AskedLane, DidLane, SaidLane } from "./EvidenceLanes";
 
 // The speech classes each contract's claim is made of, so the words marked are the words the verdict
@@ -43,20 +43,33 @@ export function FindingBlock({
   evidence,
   detections,
   contract,
+  anchor,
 }: {
   finding: Finding;
   evidence: Evidence;
   detections: Detection[];
   contract: ContractId;
+  /** The id other parts of the page link to: the timeline's tags point here. */
+  anchor?: string;
 }) {
   const id = useId();
   const claims = citedClaims(finding, contract, detections);
   const hasSaid = finding.said.length > 0;
+  const firstSeq = Math.min(...finding.asked, ...finding.said, ...finding.did);
   return (
-    <article aria-labelledby={id} className="py-5 first:pt-0 last:pb-0">
+    <article id={anchor} aria-labelledby={id} className="scroll-mt-6 py-5 first:pt-0 last:pb-0 target:rounded-md target:bg-report-accent-tint target:ring-8 target:ring-report-accent-tint">
       <p id={id} className="max-w-[62ch] break-words text-base font-medium leading-snug">
         {finding.text}
       </p>
+      {Number.isFinite(firstSeq) ? (
+        <a
+          href={`#item-${firstSeq}`}
+          aria-describedby={id}
+          className="mt-1 inline-block rounded py-1 text-[13px] text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
+        >
+          {SHOW_IN_CALL}
+        </a>
+      ) : null}
       {finding.asked.length > 0 ? (
         <div className="mt-4">
           <AskedLane evidence={evidence} seqs={finding.asked} />
