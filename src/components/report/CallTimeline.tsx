@@ -7,7 +7,7 @@ import { formatClock } from "./format";
 import { RawDetail } from "./RawDetail";
 import { RESULT_TONE } from "./StatusBadge";
 import { timelineRows, type TimelineRow } from "./rows";
-import { claimsFor } from "./claims";
+import { citedClaims } from "./claims";
 import { markQuotes } from "./highlight";
 import { railColumns, railMarks, threadsOf, type Thread } from "./threads";
 
@@ -73,7 +73,7 @@ function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind
         {row.turns.map((turn, i) => {
           const tags = threads.filter((t) => t.seqs.includes(turn.seq));
           // The claim words of any broken or unchecked finding that cites this turn, marked as in the Said lane.
-          const quotes = tags.flatMap((t) => (t.contract ? claimsFor(t.contract, detections).filter((d) => d.seq === turn.seq).map((d) => d.quote) : []));
+          const quotes = tags.flatMap((t) => (t.contract ? citedClaims({ text: t.text ?? "" }, t.contract, detections).filter((d) => d.seq === turn.seq).map((d) => d.quote) : []));
           const markClass = tags.some((t) => t.result === "violated") ? "bg-report-critical-mark" : "bg-report-warning-mark";
           return (
             <div key={turn.seq}>

@@ -144,4 +144,17 @@ describe("CallTimeline", () => {
     expect(rowOf(25).querySelector("[data-rail]")!.getAttribute("data-col")).toBe(rowOf(27).querySelector("[data-rail]")!.getAttribute("data-col"));
     expect(left(25)).toBeTruthy();
   });
+
+  it("marks only the quote a finding cites when two claims share a turn", () => {
+    const two = {
+      ...failedSample,
+      detections: [
+        ...failedSample.detections,
+        { seq: 27, cls: "transfer" as const, quote: "take care and feel better soon", source: "code" as const },
+      ],
+    };
+    render(<CallTimeline report={two} />);
+    // The 2:22 finding's sentence quotes neither claim and the turn now holds two, so neither is marked.
+    expect(Array.from(rowOf(27).querySelectorAll("mark"))).toHaveLength(0);
+  });
 });

@@ -28,11 +28,16 @@ export function describeAction(call: Call, result: Result | undefined): DidEntry
  * a second result for one call, or two calls that share an id, never pair with the wrong thing.
  */
 export function pairActions(evidence: Evidence): { resultFor: Map<number, Result>; callFor: Map<number, Call> } {
+  // A call id shared by more than one call answers none of them for sure, so nothing is paired by it.
+  const timesUsed = new Map<string, number>();
+  for (const it of evidence.items) if (it.kind === "tool_call") timesUsed.set(it.id, (timesUsed.get(it.id) ?? 0) + 1);
   const waiting = new Map<string, Call>();
   const resultFor = new Map<number, Result>();
   const callFor = new Map<number, Call>();
   for (const item of evidence.items) {
-    if (item.kind === "tool_call") waiting.set(item.id, item);
+    if (item.kind === "tool_call") {
+      if (timesUsed.get(item.id) === 1) waiting.set(item.id, item);
+    }
     else if (item.kind === "tool_result") {
       const call = waiting.get(item.id);
       if (!call) continue;
@@ -46,8 +51,10 @@ export function pairActions(evidence: Evidence): { resultFor: Map<number, Result
 
 /** A result with no call waiting for it: a repeat answer to one call. It keeps its own line, named by the call it repeats. */
 export function describeRepeatResult(evidence: Evidence, result: Result): DidEntry {
-  const call = [...evidence.items].reverse().find((x): x is Call => x.kind === "tool_call" && x.id === result.id && x.seq < result.seq);
-  return { seqs: [result.seq], line: toolResultLine(call?.name ?? result.id, result.ok), raw: { result: result.payload }, backend: false };
+  const calls = evidence.items.filter((x): x is Call => x.kind === "tool_call" && x.id === result.id && x.seq < result.seq);
+  // Named by the call only when there is exactly one it can be.
+  const name = calls.length === 1 && !evidence.items.some((x) => x.kind === "tool_call" && x.id === result.id && x !== calls[0]) ? calls[0].name : result.id;
+  return { seqs: [result.seq], line: toolResultLine(name, result.ok), raw: { result: result.payload }, backend: false };
 }
 
 /**

@@ -68,6 +68,11 @@ describe("describeActions", () => {
         { kind: "tool_result", seq: 3, id: "t", ok: true, platformOk: true, payload: {} },
       ],
     };
-    expect(describeActions(e, [1, 2, 3]).map((x) => x.line)).toEqual(["check_availability was called, no result came back", "check_availability succeeded"]);
+    // The result answers neither call for sure, so it is not named after either: it keeps the id.
+    expect(describeActions(e, [1, 2, 3]).map((x) => x.line)).toEqual([
+      "check_availability was called, no result came back",
+      "check_availability was called, no result came back",
+      "t succeeded",
+    ]);
   });
 });

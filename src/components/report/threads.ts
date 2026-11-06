@@ -10,6 +10,8 @@ export type Thread = {
   anchor: string;
   /** The contract a finding belongs to. Reasons and gaps have none. */
   contract?: ContractId;
+  /** A finding's own sentence, which is how its claim is told from others on the same turn. Reasons and gaps have none. */
+  text?: string;
   result: Result;
   label: string;
   /** Every seq the finding cites, once each, in call order. */
@@ -47,6 +49,7 @@ export function threadsOf(report: CallReport): Thread[] {
         id: anchor,
         anchor,
         contract: c.contract,
+        text: f.text,
         result: f.result,
         label: c.findings.length > 1 ? numberedLabel(title, i + 1, c.findings.length) : title,
         seqs,
