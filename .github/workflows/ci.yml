@@ -19,6 +19,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npx vitest run
+      # The engine eval runs end to end, and the committed report is what it writes now.
+      - run: npm run eval:engine && git diff --exit-code -- eval/engine-report.json eval/engine-report.md
       - run: npm run build
         env:
           DATABASE_URL: postgres://build:build@localhost:5432/build

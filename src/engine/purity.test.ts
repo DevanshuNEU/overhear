@@ -2,7 +2,8 @@
 // The engine is pure: the same call and options give the same report on any machine, in a browser, in the eval
 // harness and in a later CLI. This guard reads every engine source file and fails on anything that reaches
 // outside: Node APIs, the network, the clock, randomness, the machine's locale, or an import from elsewhere.
-// Test files and testing/ are exempt, since they run only under Vitest.
+// zod is the one outside import: it is pure, @/report/schema is built on it, and the eval case format
+// (eval/case.ts) validates with it. Test files and testing/ are exempt, since they run only under Vitest.
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -32,8 +33,8 @@ function specifiers(src: string): string[] {
 function impurities(src: string): string[] {
   const problems = BANNED.filter((b) => b.pattern.test(src)).map((b) => `uses ${b.what}: ${src.match(b.pattern)![0]}`);
   for (const spec of specifiers(src)) {
-    if (!spec.startsWith("./") && !spec.startsWith("../") && !spec.startsWith("@/report/")) {
-      problems.push(`imports ${spec}, but the engine imports only itself and @/report/`);
+    if (!spec.startsWith("./") && !spec.startsWith("../") && !spec.startsWith("@/report/") && spec !== "zod") {
+      problems.push(`imports ${spec}, but the engine imports only itself, @/report/ and zod`);
     }
   }
   return problems;
@@ -69,12 +70,13 @@ describe("the guard", () => {
   });
 
   it.each([
-    'import { z } from "zod";',
+    'import _ from "lodash";',
+    'import { z } from "zod/v4";',
     'export { x } from "@/lib/env";',
     'import "server-only";',
     'const m = await import("@/db/client");',
     'import { CONTRACT_TITLE } from "@/reporting/labels";',
-  ])("catches an import from outside the engine and @/report/: %s", (src) => {
+  ])("catches an import from outside the engine, @/report/ and zod: %s", (src) => {
     expect(impurities(src).join("\n")).toMatch(/imports .+, but the engine imports only itself/);
   });
 
@@ -82,6 +84,7 @@ describe("the guard", () => {
     'import type { Evidence } from "@/report/schema";',
     'import { CONTRACT_TITLE } from "@/report/labels";',
     'import { isPlaceholder } from "./placeholder";',
+    'import { z } from "zod";',
     'export * from "../types";',
     'new Intl.DateTimeFormat("en-US", { timeZone: tz });',
     "const ms = Date.UTC(2026, 10, 2);",
@@ -95,7 +98,7 @@ describe("src/engine is pure", () => {
     expect(sourceFiles().length).toBeGreaterThan(0);
   });
 
-  it.each(sourceFiles())("%s uses no Node API, network, clock, randomness or machine locale, and imports only itself and @/report/", (file) => {
+  it.each(sourceFiles())("%s uses no Node API, network, clock, randomness or machine locale, and imports only itself, @/report/ and zod", (file) => {
     expect(impurities(fs.readFileSync(path.join(ENGINE, file), "utf8"))).toEqual([]);
   });
 });

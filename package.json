@@ -20,6 +20,7 @@
     "provision:agent": "tsx scripts/provision-agent.ts",
     "eval": "tsx scripts/run-eval.ts",
     "eval:real": "bash scripts/run-real-eval.sh",
+    "eval:engine": "tsx scripts/run-engine-evals.ts",
     "rescore": "tsx scripts/rescore-unscored.ts"
   },
   "dependencies": {

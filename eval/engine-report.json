@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "engine": "stand-in (engine not built yet)",
+  "inputs": { "cases": 3, "fingerprint": "3630ee43319625394c3f4dd3beab156a7279d9c2aed3a676fa303e91f09cf4ed" },
+  "metrics": {
+    "independent": {
+      "n": 0,
+      "sources": { "real": 0, "mutation": 0, "external": 0 },
+      "outcomes": { "report": 0, "no_content": 0, "error": 0 },
+      "passing": { "k": 0, "n": 0, "value": null, "ci": null },
+      "overall": {
+        "confusion": { "failed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 } },
+        "verdictAccuracy": { "k": 0, "n": 0, "value": null, "ci": null },
+        "failedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+        "failedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+        "falseFailedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+      },
+      "contracts": {
+        "promise_backed": {
+          "n": 0,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "verified_before_change": {
+          "n": 0,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "spoken_matches_committed": {
+          "n": 0,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "transfer_kept": {
+          "n": 0,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "committed_matches_request": {
+          "n": 0,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        }
+      }
+    },
+    "constructed": {
+      "n": 3,
+      "sources": { "real": 3, "mutation": 0, "external": 0 },
+      "outcomes": { "report": 0, "no_content": 0, "error": 3 },
+      "passing": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
+      "overall": {
+        "confusion": { "failed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 1 }, "needs_review": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 2 } },
+        "verdictAccuracy": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
+        "failedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+        "failedRecall": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
+        "falseFailedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+      },
+      "contracts": {
+        "promise_backed": {
+          "n": 3,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 2 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 1 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "verified_before_change": {
+          "n": 0,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "spoken_matches_committed": {
+          "n": 3,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 2 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 1 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "transfer_kept": {
+          "n": 3,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 1 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 2 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        },
+        "committed_matches_request": {
+          "n": 3,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 3 } },
+          "agreement": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
+          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
+          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
+          "falseViolatedRate": { "k": 0, "n": 0, "value": null, "ci": null },
+          "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "sample-failed",
+      "source": "real",
+      "independent": false,
+      "locked": true,
+      "outcome": "error",
+      "message": "engine not built yet",
+      "expected": "failed",
+      "actual": "error",
+      "verdictMatch": false,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "no_report", "agree": false }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "no_report", "agree": false }, { "contract": "transfer_kept", "expected": "violated", "actual": "no_report", "agree": false }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "no_report", "agree": false }],
+      "results": {},
+      "mustCite": [
+        { "contract": "transfer_kept", "seqs": [25, 27], "missing": [25, 27], "ok": false }
+      ],
+      "pass": false
+    },
+    {
+      "id": "sample-needs-review",
+      "source": "real",
+      "independent": false,
+      "locked": true,
+      "outcome": "error",
+      "message": "engine not built yet",
+      "expected": "passed",
+      "actual": "error",
+      "verdictMatch": false,
+      "contracts": [{ "contract": "promise_backed", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "no_report", "agree": false }],
+      "results": {},
+      "mustCite": [],
+      "pass": false
+    },
+    {
+      "id": "sample-passed",
+      "source": "real",
+      "independent": false,
+      "locked": true,
+      "outcome": "error",
+      "message": "engine not built yet",
+      "expected": "passed",
+      "actual": "error",
+      "verdictMatch": false,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "no_report", "agree": false }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "no_report", "agree": false }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "no_report", "agree": false }],
+      "results": {},
+      "mustCite": [],
+      "pass": false
+    }
+  ]
+}
