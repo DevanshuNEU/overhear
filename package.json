@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "local": "OVERHEAR_LOCAL=1 next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

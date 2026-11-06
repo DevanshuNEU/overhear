@@ -13,6 +13,12 @@ command = "docker compose up -d db && npm run db:migrate && npm run dev -- --por
 default = true
 icon = "play"
 
+[scripts.run.product]
+# The product in local mode: it holds a pasted Retell key, so it binds 127.0.0.1 only. Never plain `npm run dev`
+# for this, which binds every interface.
+command = "npm run local -- --port $CONDUCTOR_PORT"
+icon = "play"
+
 [scripts.run.test]
 command = "npx vitest"
 icon = "test-tube"
