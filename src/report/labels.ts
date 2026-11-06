@@ -396,3 +396,22 @@ export const REASON_NEXT_STEPS: Partial<Record<Exclude<ReviewReasonKind, "unveri
 };
 
 export const COPY_ID_FOR_LOGS = "Copy call ID for your logs";
+
+// ---------- A call with no report ----------
+
+/** Why a call has no report: there is no transcript to check, and the reason says why. */
+export const NO_CONTENT_REASONS = ["storage_stripped", "never_connected", "no_transcript"] as const;
+export type NoContentReason = (typeof NO_CONTENT_REASONS)[number];
+
+/** The sentence a call shows in place of a verdict when it has no report. */
+export const NO_CONTENT_LINE: Record<NoContentReason, string> = {
+  storage_stripped: "Retell didn't keep this call's transcript, because the agent stores only basic call details.",
+  never_connected: "The call never connected, so there's no conversation to check.",
+  no_transcript: "Retell returned no transcript for this call.",
+};
+
+/** What the engine says about a record it cannot read as a Retell call, and what to pass instead. */
+export const NOT_A_RETELL_CALL = {
+  message: "This isn't a Retell call record: it has no call_id.",
+  fix: "Pass the body of Retell's get-call response, or a webhook body that holds it under call.",
+};
