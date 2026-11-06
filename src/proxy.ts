@@ -19,16 +19,29 @@
 //
 // Order of the checks, for every path the matcher lets in:
 // 1. Excluded paths pass untouched.
-// 2. The shared password, when one is set.
-// 3. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
+// 2. Local mode (`OVERHEAR_LOCAL=1`, see src/pull/local.ts): every request needs a loopback Host, and every request
+//    that can change something needs a same-origin Origin, or it gets a 403. This covers the server-rendered pages
+//    that show call transcripts too. On a hosted copy the product API routes (`/api/connect`, `/api/pulls`,
+//    `/api/calls/`) answer 404 instead; `/reports/` stays served, because there it shows only the samples. The
+//    route handlers repeat this check, so a path the matcher misses is still covered.
+// 3. The shared password, when one is set.
+// 4. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
 //    runs after the password, so a visitor without it gets a 401 here, as before the move.
 import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth, isExcludedPath } from "@/lib/auth-gate";
 import { movedDemoPath } from "@/lib/demo-paths";
+import { checkLocalRequest, hostedNotFound, isLocalMode, isProductApiPath } from "@/pull/local";
 
-export function proxy(request: NextRequest) {
+export function proxy(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
   if (isExcludedPath(pathname)) return NextResponse.next();
+
+  if (isLocalMode()) {
+    const refused = checkLocalRequest(request);
+    if (refused) return refused;
+  } else if (isProductApiPath(pathname)) {
+    return hostedNotFound();
+  }
 
   const denied = passwordGate(request);
   if (denied) return denied;

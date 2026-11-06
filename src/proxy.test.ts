@@ -1,10 +1,11 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "./proxy";
 
 const ORIGINAL_PASSWORD = process.env.DASHBOARD_PASSWORD;
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   if (ORIGINAL_PASSWORD === undefined) delete process.env.DASHBOARD_PASSWORD;
   else process.env.DASHBOARD_PASSWORD = ORIGINAL_PASSWORD;
 });
@@ -123,5 +124,125 @@ describe("proxy", () => {
         expect(res?.headers.get("location"), path).toBeNull();
       }
     });
+  });
+});
+
+describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
+  const LOOPBACK = { host: "localhost:3000" };
+  const PAGES = ["/", "/reports/call_sample_failed", "/demo", "/how-it-works"];
+
+  it("refuses a server-rendered page or a product route with a foreign Host", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const path of [...PAGES, "/api/connect", "/api/pulls", "/calls/abc"]) {
+      for (const host of ["evil.com", "evil.com:3000", "192.168.1.20:3000"]) {
+        const res = await proxy(reqOf(path, { host }));
+        expect(res?.status, `${path} ${host}`).toBe(403);
+      }
+    }
+  });
+
+  it("lets a loopback GET through to pages and product routes", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const path of [...PAGES, "/api/connect"]) {
+      for (const host of ["localhost:3000", "127.0.0.1:4100", "[::1]:3000"]) {
+        const res = await proxy(reqOf(path, { host }));
+        expect(res?.status, `${path} ${host}`).toBe(200);
+        expect(res?.headers.get("location"), path).toBeNull();
+      }
+    }
+  });
+
+  it("refuses a state-changing request with a foreign or missing Origin, on any path", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const path of ["/api/connect", "/", "/reports/call_sample_failed"]) {
+      for (const origin of ["http://evil.com", "http://localhost:3001", "null", undefined]) {
+        const headers: Record<string, string> = { ...LOOPBACK };
+        if (origin) headers.origin = origin;
+        for (const method of ["POST", "DELETE"]) {
+          const res = await proxy(reqOf(path, headers, method));
+          expect(res?.status, `${method} ${path} ${origin}`).toBe(403);
+        }
+      }
+    }
+  });
+
+  it("lets a same-origin POST through", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    delete process.env.DASHBOARD_PASSWORD;
+    const res = await proxy(reqOf("/api/connect", { ...LOOPBACK, origin: "http://localhost:3000" }, "POST"));
+    expect(res?.status).toBe(200);
+  });
+
+  it("checks the Host before the password, so a foreign Host never sees the password prompt", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    process.env.DASHBOARD_PASSWORD = "secret";
+    expect((await proxy(reqOf("/", { host: "evil.com" })))?.status).toBe(403);
+    expect((await proxy(reqOf("/", LOOPBACK)))?.status).toBe(401);
+    expect((await proxy(reqOf("/", { ...LOOPBACK, ...GOOD_AUTH })))?.status).toBe(200);
+  });
+
+  it("refuses every request when the server is not bound to 127.0.0.1", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://localhost:3000");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const path of ["/", "/api/connect", "/reports/call_sample_failed"]) {
+      expect((await proxy(reqOf(path, LOOPBACK)))?.status, path).toBe(403);
+    }
+    vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://127.0.0.1:3000");
+    expect((await proxy(reqOf("/", { host: "127.0.0.1:3000" })))?.status).toBe(200);
+  });
+
+  it("leaves the excluded machine-to-machine routes alone, whatever the Host", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    for (const path of EXCLUDED_PATHS) {
+      const res = await proxy(reqOf(path, { host: "retell-callback.example" }, "POST"));
+      expect(res?.status, path).toBe(200);
+    }
+  });
+
+  it("treats the report screen the same with and without OVERHEAR_DEMO_STATES, read independently", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const flag of ["1", ""]) {
+      vi.stubEnv("OVERHEAR_DEMO_STATES", flag);
+      for (const path of ["/reports/call_sample_failed", "/reports/call_demo_unverified"]) {
+        expect((await proxy(reqOf(path, LOOPBACK)))?.status, `${path} ${flag}`).toBe(200);
+        expect((await proxy(reqOf(path, { host: "evil.com" })))?.status, `${path} ${flag}`).toBe(403);
+      }
+    }
+    vi.stubEnv("OVERHEAR_LOCAL", "");
+    vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
+    expect((await proxy(reqOf("/api/connect", LOOPBACK)))?.status).toBe(404);
+  });
+});
+
+describe("proxy on a hosted copy (OVERHEAR_LOCAL unset)", () => {
+  it("answers 404 for the key, pull and call routes, on every method", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const path of ["/api/connect", "/api/connect/", "/api/pulls", "/api/pulls/p1", "/api/pulls/p1/cancel", "/api/calls/c1/refetch"]) {
+      for (const method of ["GET", "POST", "DELETE"]) {
+        const res = await proxy(reqOf(path, { host: "overhear.up.railway.app", origin: "https://overhear.up.railway.app" }, method));
+        expect(res?.status, `${method} ${path}`).toBe(404);
+      }
+    }
+  });
+
+  it("answers 404 for them before asking for the password", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "");
+    process.env.DASHBOARD_PASSWORD = "secret";
+    expect((await proxy(reqOf("/api/connect")))?.status).toBe(404);
+  });
+
+  it("keeps serving the report screen, the demo and the other pages, with any Host", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "");
+    delete process.env.DASHBOARD_PASSWORD;
+    for (const path of ["/reports/call_sample_failed", "/demo", "/", "/how-it-works", "/api/web-call"]) {
+      const res = await proxy(reqOf(path, { host: "overhear.up.railway.app" }));
+      expect(res?.status, path).toBe(200);
+    }
   });
 });
