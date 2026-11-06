@@ -9,7 +9,7 @@ import { ev, type ItemSpec } from "./testing/build";
 import { toRetell } from "./testing/retell";
 import preset from "./presets/northwind-clinic.json";
 import { inferPolicy, policyFor } from "./policy";
-import { unknownSuccessDetail } from "./wording";
+import { unknownSuccessConflictDetail, unknownSuccessDetail } from "./wording";
 import { resolveOk } from "./resolve-ok";
 
 const PRESET: Policy = PolicySchema.parse(preset);
@@ -101,6 +101,75 @@ describe("resolveOk: the platform's success field", () => {
   it("with successful missing, the payload path still settles it", () => {
     expect(settle("book_appointment", { ok: true }, null)).toEqual({ ok: true, gaps: [] });
     expect(settle("book_appointment", { ok: false }, null)).toEqual({ ok: false, gaps: [] });
+  });
+});
+
+// Retell's successful: true means only that the HTTP call came back. An API can answer 200 with an error in the body,
+// so a change or verify result that no success path settled, and whose body reads like an error, is unknown: not
+// true, and not false either, since a heuristic read must not make a false "failed".
+describe("resolveOk: a body that reads like an error", () => {
+  const inferredBook = only("book_slot", { role: "change", kind: "book" });
+  const inferredVerify = only("check_identity", { role: "verify" });
+
+  /** The ok and gap codes for one result under a policy. */
+  function read(name: string, payload: unknown, policy: Policy) {
+    const out = settle(name, payload, true, policy);
+    return { ok: out.ok, codes: out.gaps.map((g) => g.code) };
+  }
+  const UNKNOWN = { ok: null, codes: ["unknown_success"] };
+  const TRUE = { ok: true, codes: [] };
+
+  it("a 200 with an error string gives unknown", () => {
+    expect(read("book_slot", { error: "slot taken" }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("book_slot", "", inferredBook)).toEqual(TRUE);
+  });
+
+  it("an error that is null or empty does not count, so it stays true", () => {
+    expect(read("book_slot", { error: null, bookingId: "b-1" }, inferredBook)).toEqual(TRUE);
+    expect(read("book_slot", { error: "", errors: [] }, inferredBook)).toEqual(TRUE);
+  });
+
+  it("errors as a non-empty list or an object give unknown", () => {
+    expect(read("book_slot", { errors: ["slot taken"] }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("book_slot", { error: { code: 409 } }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("book_slot", { errors: {} }, inferredBook)).toEqual(UNKNOWN);
+  });
+
+  it("success: false or ok: false with no success path gives unknown", () => {
+    expect(read("book_slot", { success: false }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("book_slot", { ok: false }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("check_identity", { ok: false }, inferredVerify)).toEqual(UNKNOWN);
+  });
+
+  it("a status of error or failed gives unknown, in any case", () => {
+    expect(read("book_slot", { status: "Error" }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("book_slot", { status: "FAILED" }, inferredBook)).toEqual(UNKNOWN);
+    expect(read("book_slot", { status: "confirmed" }, inferredBook)).toEqual(TRUE);
+  });
+
+  it("names the tool and says Retell reported success", () => {
+    const out = settle("book_slot", { error: "slot taken" }, true, inferredBook);
+    expect(out.gaps).toEqual([{ code: "unknown_success", detail: unknownSuccessConflictDetail("book_slot"), seqs: [2], tool: "book_slot" }]);
+  });
+
+  it("applies to a preset change whose success path does not resolve", () => {
+    expect(read("book_appointment", { error: "not_verified" }, PRESET)).toEqual(UNKNOWN);
+  });
+
+  it("a preset tool whose success path resolves is unaffected", () => {
+    expect(read("verify_patient", { verified: true, error: "slow lookup" }, PRESET)).toEqual(TRUE);
+    expect(read("book_appointment", { ok: true, status: "failed" }, PRESET)).toEqual(TRUE);
+    expect(settle("book_appointment", { ok: false, error: "not_verified" }, true).ok).toBe(false);
+  });
+
+  it("leaves lookups, transfers and unknown tools to platformOk", () => {
+    expect(read("check_availability", { error: "busy" }, PRESET)).toEqual(TRUE);
+    expect(read("transfer_call", { error: "busy" }, only("transfer_call", { role: "transfer" }))).toEqual(TRUE);
+    expect(read("send_sms", { error: "busy" }, PRESET)).toEqual(TRUE);
+  });
+
+  it("platformOk false still wins and gives false", () => {
+    expect(settle("book_slot", { error: "slot taken" }, false, inferredBook)).toEqual({ ok: false, gaps: [] });
   });
 });
 

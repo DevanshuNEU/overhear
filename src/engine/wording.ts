@@ -10,3 +10,8 @@ export const GAP_TEXT = {
 export function unknownSuccessDetail(tool: string): string {
   return `Neither the ${tool} result nor Retell says whether it worked, so anything that rests on it can't be checked.`;
 }
+
+/** The detail of an unknown_success gap where Retell says the call went through but the result reads like an error. */
+export function unknownSuccessConflictDetail(tool: string): string {
+  return `Retell says the ${tool} call went through, but its result reads like an error, so whether it worked can't be checked.`;
+}

@@ -40,6 +40,9 @@ export function toolPolicy(policy: Policy, name: string): ToolPolicy | undefined
  * by more than its tool names, which are common: it has at least one tool call, every tool it calls is in the
  * preset, and every lookup result has the demo's shape (result.slots, each with a startsAt). A lookup result that
  * is an error says nothing about whose agent this is, so it does not count as the demo's shape either.
+ *
+ * Later work: key the preset by Retell agent id instead of by shape. The evidence carries no agent id today, so the
+ * shape is the best signal M1 has.
  */
 export function policyFor(ev: Evidence): { policy: Policy; source: "preset" | "inferred" } {
   if (isDemoAgent(ev)) return { policy: structuredClone(NORTHWIND), source: "preset" };
