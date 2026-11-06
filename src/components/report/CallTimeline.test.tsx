@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { CallTimeline } from "./CallTimeline";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
+import { unverifiedSample } from "@/report/demo-states";
 
 describe("CallTimeline", () => {
   it("lists every item of the call in order, under its own heading", () => {
@@ -33,10 +34,11 @@ describe("CallTimeline", () => {
     render(<CallTimeline report={failedSample} />);
     const turn25 = document.getElementById("item-25")!;
     const links = within(turn25).getAllByRole("link");
+    // The result is part of the link's name, so it is never colour alone.
     expect(links.map((a) => a.textContent)).toEqual([
-      "Promises backed by the system",
-      "Spoken details match the booking",
-      "Transfers kept",
+      "Promises backed by the system, Passed",
+      "Spoken details match the booking, Passed",
+      "Transfers kept, 1 of 2, Violated",
     ]);
     expect(links[2]).toHaveAttribute("href", "#finding-transfer_kept-0");
     // An item no finding cites carries no tag.
@@ -55,5 +57,32 @@ describe("CallTimeline", () => {
     render(<CallTimeline report={needsReviewSample} />);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
     expect(document.getElementById("item-9")).toHaveTextContent("check_availability failed");
+  });
+
+  it("marks a rail's first item with a dot, the items between with a line, and its last with a dot", () => {
+    render(<CallTimeline report={unverifiedSample} />);
+    const marks = (seq: number) => Array.from(document.getElementById(`item-${seq}`)!.querySelectorAll("[data-rail]")).map((r) => r.getAttribute("data-mark"));
+    expect(marks(20)).toEqual(["dot"]); // the identity check starts its rail
+    expect(marks(21)).toEqual(["line"]); // an agent turn it passes by
+    expect(marks(22)).toEqual(["dot"]); // and cites again
+  });
+
+  it("says so when the order of the items could not be established", () => {
+    const none = { ...failedSample, evidence: { ...failedSample.evidence, ordering: "none" as const } };
+    const { rerender } = render(<CallTimeline report={none} />);
+    expect(screen.getByText("The order of these items couldn't be established. They are listed as received.")).toBeInTheDocument();
+    rerender(<CallTimeline report={failedSample} />);
+    expect(screen.queryByText(/couldn't be established/)).not.toBeInTheDocument();
+  });
+
+  it("tags what the backend logged, as the said | did rows do", () => {
+    const backend = {
+      kind: "backend_action" as const, seq: 49, id: "ae_1", toolCallId: "tc_04", tool: "book_appointment", args: {}, result: { ok: true }, ok: true,
+      ts: "2026-11-05T10:00:00Z", link: { toolCallId: "tc_04", by: "tool_call_id" as const },
+    };
+    const report = { ...passedSample, evidence: { ...passedSample.evidence, tier: 2 as const, items: [...passedSample.evidence.items, backend] } };
+    render(<CallTimeline report={report} />);
+    expect(within(document.getElementById("item-49")!).getByText("Backend log")).toBeInTheDocument();
+    expect(within(document.getElementById("item-48")!).queryByText("Backend log")).not.toBeInTheDocument();
   });
 });

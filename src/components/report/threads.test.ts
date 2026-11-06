@@ -12,6 +12,12 @@ describe("threadsOf", () => {
     expect(spoken.seqs).toEqual([8, 22, 24, 25]);
   });
 
+  it("numbers the findings of a contract that has several, and leaves a lone one plain", () => {
+    const labels = threadsOf(failedSample).map((t) => t.label);
+    expect(labels.filter((l) => l.startsWith("Transfers kept"))).toEqual(["Transfers kept, 1 of 2", "Transfers kept, 2 of 2"]);
+    expect(labels).toContain("Promises backed by the system");
+  });
+
   it("gives every thread a unique anchor", () => {
     const anchors = threadsOf(failedSample).map((t) => t.anchor);
     expect(new Set(anchors).size).toBe(anchors.length);
@@ -42,5 +48,20 @@ describe("railsAt", () => {
 
   it("ignores threads that are not railed", () => {
     expect(railsAt([{ ...thread("a", [2, 5]), railed: false }], 2)).toEqual([]);
+  });
+
+  it("draws no rail for a thread that cites nothing", () => {
+    const t = { ...thread("a", []) };
+    expect(railsAt([t], 1)).toEqual([]);
+  });
+
+  it("puts overlapping threads in their own columns, whatever order they are given", () => {
+    const t = [thread("a", [1, 4]), thread("b", [3, 6])];
+    expect(railsAt(t, 3).map((r) => [r.id, r.mark])).toEqual([["a", "line"], ["b", "dot"]]);
+    expect(railsAt(t, 4).map((r) => [r.id, r.mark, r.last])).toEqual([["a", "dot", true], ["b", "line", false]]);
+  });
+
+  it("gives a thread of one item a dot that is both first and last", () => {
+    expect(railsAt([thread("a", [5])], 5)).toEqual([{ id: "a", mark: "dot", first: true, last: true }]);
   });
 });

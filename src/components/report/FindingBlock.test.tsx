@@ -170,4 +170,14 @@ describe("FindingBlock", () => {
     render(<FindingBlock finding={{ ...finding, asked: [], said: [], did: [] }} evidence={evidence} detections={detections} contract="promise_backed" anchor="finding-x" />);
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+
+  it("links to the earliest item it cites, wherever it sits in the lists", () => {
+    render(<FindingBlock finding={{ ...finding, asked: [6], said: [5], did: [4, 3] }} evidence={evidence} detections={detections} contract="promise_backed" anchor="f" />);
+    expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAttribute("href", "#item-3");
+  });
+
+  it("describes the link by the finding it belongs to, so a list of links is not N identical names", () => {
+    render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" anchor="f" />);
+    expect(screen.getByRole("link", { name: "Show in the call" })).toHaveAccessibleDescription(finding.text);
+  });
 });

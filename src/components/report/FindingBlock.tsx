@@ -64,6 +64,7 @@ export function FindingBlock({
       {Number.isFinite(firstSeq) ? (
         <a
           href={`#item-${firstSeq}`}
+          aria-describedby={id}
           className="mt-1 inline-block rounded py-1 text-[13px] text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
         >
           {SHOW_IN_CALL}

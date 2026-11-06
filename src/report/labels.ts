@@ -128,6 +128,22 @@ export const SPEAKER_LABEL = {
   caller: "Caller",
 };
 
+/** Tells findings of one contract apart: "Transfers kept, 1 of 2". */
+export function numberedLabel(label: string, n: number, total: number): string {
+  return `${label}, ${n} of ${total}`;
+}
+
+/** Said after a timeline tag's name, so the result never rests on colour alone. */
+export function tagResultSuffix(result: Result): string {
+  return `, ${RESULT_LABEL[result]}`;
+}
+
+/** Said above the timeline when the engine could not take the platform's own order for granted. */
+export const ORDER_NOTE: Record<"timestamps" | "none", string> = {
+  timestamps: "The platform gave no sequence, so these items are ordered by their timestamps.",
+  none: "The order of these items couldn't be established. They are listed as received.",
+};
+
 /** The link from a finding to the first item it cites in the call timeline. */
 export const SHOW_IN_CALL = "Show in the call";
 

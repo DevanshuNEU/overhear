@@ -51,4 +51,27 @@ describe("OpenTarget", () => {
     );
     expect(container.querySelector("details")!.open).toBe(false);
   });
+
+  it("does not break on an address with a malformed escape", () => {
+    window.location.hash = "#%";
+    expect(() => render(<OpenTarget />)).not.toThrow();
+  });
+
+  it("opens the row again when the same link is clicked after the row was closed", () => {
+    window.location.hash = "#again";
+    const { container } = render(
+      <>
+        <OpenTarget />
+        <a href="#again">go</a>
+        <details open>
+          <summary>one</summary>
+          <p id="again">here</p>
+        </details>
+      </>,
+    );
+    const details = container.querySelector("details")!;
+    details.open = false;
+    container.querySelector("a")!.click();
+    expect(details.open).toBe(true);
+  });
 });

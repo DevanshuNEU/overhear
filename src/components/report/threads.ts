@@ -2,7 +2,7 @@
 // draws a rail for the threads that need attention (violated or unverified) and tags every item with
 // the findings that cite it. Pure functions, so the rule is tested without a browser.
 import type { CallReport, ContractId, Result } from "@/report/schema";
-import { CONTRACT_TITLE, capitalize } from "@/report/labels";
+import { CONTRACT_TITLE, capitalize, numberedLabel } from "@/report/labels";
 
 export type Thread = {
   id: string;
@@ -28,14 +28,16 @@ export function threadsOf(report: CallReport): Thread[] {
   return report.results.flatMap((c) =>
     c.findings.map((f, i) => {
       const anchor = findingAnchor(c.contract, i);
+      const title = capitalize(CONTRACT_TITLE[c.contract]);
+      const seqs = [...new Set([...f.asked, ...f.said, ...f.did])].sort((a, b) => a - b);
       return {
         id: anchor,
         anchor,
         contract: c.contract,
         result: f.result,
-        label: capitalize(CONTRACT_TITLE[c.contract]),
-        seqs: [...new Set([...f.asked, ...f.said, ...f.did])].sort((a, b) => a - b),
-        railed: f.result === "violated" || f.result === "unverified",
+        label: c.findings.length > 1 ? numberedLabel(title, i + 1, c.findings.length) : title,
+        seqs,
+        railed: seqs.length > 0 && (f.result === "violated" || f.result === "unverified"),
       };
     }),
   );
