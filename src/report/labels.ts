@@ -147,15 +147,20 @@ const timesOf = (n: number) => (n === 2 ? "twice" : `${n} times`);
 
 /**
  * The lead sentence for a rule that broke more than once: a template per rule, filled only with the count and the
- * times of the findings. It states nothing the findings do not. `times` is empty when any time is unknown.
+ * times of the findings. It states nothing the findings do not, and holds for every kind of change (a booking, a
+ * cancel, a reschedule, an update) whether the change went through or only was tried. `times` is empty when any
+ * time is unknown. `proven` is true when the record proves the absence every finding rests on (absence.ts); when it
+ * does not, an absence is said as what Overhear found, never as what happened.
  * A rule with no template falls back to the first finding's sentence and a count (see answer.ts).
  */
-export const LEAD_TEMPLATES: Partial<Record<ContractId, (count: number, times: string[]) => string>> = {
+export const LEAD_TEMPLATES: Partial<Record<ContractId, (count: number, times: string[], proven: boolean) => string>> = {
   promise_backed: (n, times) => `The agent made ${n} promises the system had not backed${atTimes(times)}.`,
-  verified_before_change: (n) => `${n} changes were made before the caller's identity was checked.`,
-  spoken_matches_committed: (n, times) => `The agent confirmed details that differed from the booking ${n} times${atTimes(times)}.`,
-  transfer_kept: (n, times) => `The agent said ${timesOf(n)} that it was transferring the caller${atTimes(times)}. No transfer was attempted.`,
-  committed_matches_request: (n) => `${n} bookings differed from what the caller asked for.`,
+  verified_before_change: (n) => `A tool that changes a booking was called ${timesOf(n)} without a successful identity check first.`,
+  spoken_matches_committed: (n, times) => `The agent confirmed details that differed from what was committed ${timesOf(n)}${atTimes(times)}.`,
+  transfer_kept: (n, times, proven) =>
+    `The agent said ${timesOf(n)} that it was transferring the caller${atTimes(times)}. ` +
+    (proven ? "No transfer was attempted." : `Overhear found no transfer attempt after ${n === 2 ? "either" : "any"} of them.`),
+  committed_matches_request: (n) => `What was committed differed from the caller's request ${timesOf(n)}, as Overhear read that request.`,
 };
 
 export const LOADING_LABEL = "Loading the call";
@@ -269,6 +274,8 @@ export const RAW_UNAVAILABLE = "The raw record couldn't be shown.";
 export const BACKEND_LOG_TAG = "Backend log";
 export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";
+/** The tab's title in place of an address that does not look like a call ID, so a crafted address is never repeated. */
+export const REPORT_TITLE = "Call report";
 
 /** Starts a sentence or a heading with a capital. The wording tables keep titles lower case so they can sit inside a sentence. */
 export function capitalize(text: string): string {
@@ -312,3 +319,80 @@ export function backendActionLine(tool: string, ok: boolean): string {
 export function eventLine(type: string): string {
   return `Event: ${type}`;
 }
+
+// ---------- What to do next ----------
+
+export const NEXT_HEADING = "What to do next";
+
+/** One numbered step: a short lead in bold, then the sentence that says what to do. */
+export type NextStep = { lead: string; text: string };
+
+const FIND_THE_PROMISE = "Find the promise.";
+const READ_THE_PROMISE = "Read the marked words under Said, then the tool calls under Did.";
+const CHECK_THE_TOOL_CALL: NextStep = {
+  lead: "Check the tool call.",
+  text: "If a call was made, open its raw detail to see what was sent and what came back. If none was made, check that the agent's prompt tells it to call the tool before it speaks.",
+};
+const CAN_TRANSFER = "Check the agent can transfer.";
+const LOOK_FOR_TRANSFER = "Look in the agent's setup for a transfer tool.";
+const TRANSFER_PROMPT: NextStep = { lead: "Check the agent's prompt.", text: "It should call the transfer tool before it says it is transferring, or not offer transfers at all." };
+
+/**
+ * What to do about a rule that broke. Each step is a check the evidence supports, not a fix the evidence does
+ * not know. A rule that held, could not be checked or did not apply has no steps here. A step that names what the
+ * system did not do says it as what Overhear found: PROVEN_NEXT_STEPS says it as what the record shows, and is
+ * used only when the record proves it.
+ */
+export const NEXT_STEPS: Record<ContractId, NextStep[]> = {
+  promise_backed: [{ lead: FIND_THE_PROMISE, text: `${READ_THE_PROMISE} Overhear found no successful call that backs the promise.` }, CHECK_THE_TOOL_CALL],
+  verified_before_change: [
+    { lead: "Check the identity check.", text: "Under Did, see whether an identity check was made and succeeded before the change. A change with no successful check before it is the break." },
+    { lead: "Check the agent's prompt.", text: "Check that it tells the agent to wait for the identity check to succeed before it calls a tool that changes a booking." },
+  ],
+  spoken_matches_committed: [
+    { lead: "Compare the two values.", text: "Where there is a table, it puts what the agent said next to what was committed, and the row marked Differs is the one to chase." },
+    { lead: "Find where the agent got it.", text: "Check whether the agent spoke the caller's words or the tool result that held the value, then whether it passed that same value to the booking tool." },
+  ],
+  transfer_kept: [
+    {
+      lead: CAN_TRANSFER,
+      text: `${LOOK_FOR_TRANSFER} Overhear found no transfer after the claim, but the record can't prove there was none, so check what the call did after it.`,
+    },
+    TRANSFER_PROMPT,
+  ],
+  committed_matches_request: [
+    { lead: "Compare with the request.", text: "Where there is a table, it puts what the engine read as the caller's request next to what was committed, and the row marked Differs is the one to chase." },
+    { lead: "Check the engine's reading.", text: "Check the transcript for what the caller actually asked. If they changed their mind, check the agent took the last request and not the first." },
+  ],
+};
+
+/**
+ * The steps of a rule whose every broken finding the record proves (absence.ts): the same checks, with the
+ * absence said as what the record shows.
+ */
+export const PROVEN_NEXT_STEPS: Partial<Record<ContractId, NextStep[]>> = {
+  promise_backed: [{ lead: FIND_THE_PROMISE, text: `${READ_THE_PROMISE} The record shows no successful call that backs the promise.` }, CHECK_THE_TOOL_CALL],
+  transfer_kept: [{ lead: CAN_TRANSFER, text: `${LOOK_FOR_TRANSFER} The record shows no transfer tool was called after the claim.` }, TRANSFER_PROMPT],
+};
+
+/**
+ * What to do about a gap, by its code. Empty for now: the engine's finding sentence may already end with what
+ * would make the result checkable, and a step here would say it twice. Adding a gap's steps is only a matter of
+ * adding its entry here; the column shows them after the steps for broken rules.
+ */
+export const GAP_NEXT_STEPS: Partial<Record<GapCode, NextStep[]>> = {};
+
+/**
+ * What to do about a review reason, by its kind. Only reasons that name something of their own have steps: a rule
+ * that could not be checked is covered by its gap. A deferral has none yet.
+ */
+export const REASON_NEXT_STEPS: Partial<Record<Exclude<ReviewReasonKind, "unverified_result">, NextStep[]>> = {
+  unanswered_request: [
+    {
+      lead: "Check what happened after the request.",
+      text: "If a tool returned an error, open that tool's own logs for this call's time. The call record shows only that it returned an error.",
+    },
+  ],
+};
+
+export const COPY_ID_FOR_LOGS = "Copy call ID for your logs";

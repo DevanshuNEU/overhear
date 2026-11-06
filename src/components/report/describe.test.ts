@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { failedSample, needsReviewSample } from "@/report/samples";
 import type { Evidence } from "@/report/schema";
+import { resultBeforeCall } from "@/report/samples/variants.fixture";
 import { describeActions } from "./describe";
 
 describe("describeActions", () => {
@@ -57,6 +58,17 @@ describe("describeActions", () => {
       ],
     };
     expect(describeActions(e, [1, 2, 3]).map((x) => x.line)).toEqual(["book_appointment succeeded", "book_appointment failed"]);
+  });
+
+  it("pairs a result that arrived before its call, as timestamp order allows", () => {
+    const e = resultBeforeCall.evidence;
+    expect(e.items[21]).toMatchObject({ kind: "tool_result", seq: 22, id: "tc_03" });
+    expect(e.items[23]).toMatchObject({ kind: "tool_call", seq: 24, id: "tc_03" });
+    for (const seqs of [[22, 24], [22], [24]]) {
+      const entries = describeActions(e, seqs);
+      expect(entries.map((x) => x.line), String(seqs)).toEqual(["book_appointment succeeded"]);
+      expect([...entries[0].seqs].sort()).toEqual([22, 24]);
+    }
   });
 
   it("keeps two calls that share an id apart", () => {

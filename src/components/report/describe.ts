@@ -24,36 +24,30 @@ export function describeAction(call: Call, result: Result | undefined): DidEntry
 }
 
 /**
- * Which result answers which call. A result answers the latest earlier call with its id that is still waiting, so
- * a second result for one call, or two calls that share an id, never pair with the wrong thing.
+ * Which result answers which call. A result answers the call with its id wherever the two sit in the record: with
+ * timestamp order a result can come before its call. A call takes the first result for its id; a second result
+ * for one call, or a call id shared by two calls, never pairs with the wrong thing.
  */
 export function pairActions(evidence: Evidence): { resultFor: Map<number, Result>; callFor: Map<number, Call> } {
-  // A call id shared by more than one call answers none of them for sure, so nothing is paired by it.
-  const timesUsed = new Map<string, number>();
-  for (const it of evidence.items) if (it.kind === "tool_call") timesUsed.set(it.id, (timesUsed.get(it.id) ?? 0) + 1);
-  const waiting = new Map<string, Call>();
+  const callsById = new Map<string, Call[]>();
+  for (const it of evidence.items) if (it.kind === "tool_call") callsById.set(it.id, [...(callsById.get(it.id) ?? []), it]);
   const resultFor = new Map<number, Result>();
   const callFor = new Map<number, Call>();
   for (const item of evidence.items) {
-    if (item.kind === "tool_call") {
-      if (timesUsed.get(item.id) === 1) waiting.set(item.id, item);
-    }
-    else if (item.kind === "tool_result") {
-      const call = waiting.get(item.id);
-      if (!call) continue;
-      resultFor.set(call.seq, item);
-      callFor.set(item.seq, call);
-      waiting.delete(item.id);
-    }
+    if (item.kind !== "tool_result") continue;
+    // A call id shared by more than one call answers none of them for sure, so nothing is paired by it.
+    const calls = callsById.get(item.id);
+    if (calls?.length !== 1 || resultFor.has(calls[0].seq)) continue;
+    resultFor.set(calls[0].seq, item);
+    callFor.set(item.seq, calls[0]);
   }
   return { resultFor, callFor };
 }
 
-/** A result with no call waiting for it: a repeat answer to one call. It keeps its own line, named by the call it repeats. */
+/** A result no call takes: a repeat answer to one call. It keeps its own line, named by the call when there is exactly one it can be. */
 export function describeRepeatResult(evidence: Evidence, result: Result): DidEntry {
-  const calls = evidence.items.filter((x): x is Call => x.kind === "tool_call" && x.id === result.id && x.seq < result.seq);
-  // Named by the call only when there is exactly one it can be.
-  const name = calls.length === 1 && !evidence.items.some((x) => x.kind === "tool_call" && x.id === result.id && x !== calls[0]) ? calls[0].name : result.id;
+  const calls = evidence.items.filter((x): x is Call => x.kind === "tool_call" && x.id === result.id);
+  const name = calls.length === 1 ? calls[0].name : result.id;
   return { seqs: [result.seq], line: toolResultLine(name, result.ok), raw: { result: result.payload }, backend: false };
 }
 
@@ -74,7 +68,9 @@ export function describeActions(evidence: Evidence, seqs: number[]): DidEntry[] 
       if (call) {
         if (seen.has(call.seq)) continue;
         seen.add(call.seq);
-        entries.push({ at: call.seq, entry: describeAction(call, resultFor.get(call.seq)) });
+        // Placed by whichever of the two came first, so the lines stay in the order the call made them.
+        const result = resultFor.get(call.seq);
+        entries.push({ at: Math.min(call.seq, result?.seq ?? call.seq), entry: describeAction(call, result) });
       } else if (item.kind === "tool_result") entries.push({ at: item.seq, entry: describeRepeatResult(evidence, item) });
     } else if (item.kind === "backend_action") {
       entries.push({ at: item.seq, entry: { seqs: [item.seq], line: backendActionLine(item.tool, item.ok), raw: { args: item.args, result: item.result, ts: item.ts }, backend: true } });

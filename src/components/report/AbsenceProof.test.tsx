@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { AbsenceProof } from "./AbsenceProof";
 import { failedSample } from "@/report/samples";
 import type { Evidence, Policy } from "@/report/schema";
+import { ABSENCE_VARIANTS, untranscribedAction } from "@/report/samples/variants.fixture";
 
 const transferFinding = failedSample.results.find((c) => c.contract === "transfer_kept")!.findings[0];
 
@@ -69,6 +70,37 @@ describe("AbsenceProof", () => {
     const event: Evidence = { ...failedSample.evidence, items: [...failedSample.evidence.items, { kind: "event", seq: base + 1, type: "transfer_started", data: {} }] };
     render(<AbsenceProof evidence={event} policy={failedSample.policy} contract="transfer_kept" finding={transferFinding} />);
     expect(screen.queryByText(/No transfer tool was called/)).not.toBeInTheDocument();
+  });
+
+  it("does not list the tools as complete when the backend log holds an action the transcript does not", () => {
+    for (const report of [ABSENCE_VARIANTS.unlinkedTransferAction, untranscribedAction]) {
+      const finding = report.results.find((c) => c.contract === "transfer_kept")!.findings[0];
+      const { unmount } = render(<AbsenceProof evidence={report.evidence} policy={report.policy} contract="transfer_kept" finding={finding} />);
+      expect(screen.queryByText(/Tools called in this call/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/No transfer tool was called/)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("does not list the tools as complete when a gap says a backend action points outside the transcript", () => {
+    const e: Evidence = { ...failedSample.evidence, gaps: [{ code: "turn_index_out_of_range", detail: "A backend action points at turn 90.", seqs: [] }] };
+    render(<AbsenceProof evidence={e} policy={failedSample.policy} contract="transfer_kept" finding={transferFinding} />);
+    expect(screen.queryByText(/Tools called in this call/)).not.toBeInTheDocument();
+  });
+
+  it("says no tools were called only when the record proves it", () => {
+    const turns = failedSample.evidence.items.filter((i) => i.kind === "turn").map((it, i) => ({ ...it, seq: i + 1 }));
+    const finding = { ...transferFinding, said: [1] };
+    const unproven: Evidence[] = [
+      { ...failedSample.evidence, items: turns, gaps: [{ code: "unlinked_backend_action", detail: "An action matches no tool call.", seqs: [] }] },
+      { ...failedSample.evidence, items: turns, ordering: "timestamps" },
+    ];
+    for (const e of unproven) {
+      const { unmount } = render(<AbsenceProof evidence={e} policy={failedSample.policy} contract="transfer_kept" finding={finding} />);
+      expect(screen.queryByText("No tools were called in this call.")).not.toBeInTheDocument();
+      expect(screen.getByText("No matching action in the call record.")).toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("claims no absence when a tool of unknown role was called after the claim", () => {

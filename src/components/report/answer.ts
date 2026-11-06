@@ -1,8 +1,10 @@
 // The answer: the one sentence the screen leads with. It is built only from what the engine wrote and from
 // counts and times in its findings: one finding or reason gives its own sentence; a rule that broke more than
-// once gives a template from labels.ts, filled with the count and the times. It never states a claim of ours.
+// once gives a template from labels.ts, filled with the count and the times. It never states a claim of ours:
+// a template says what the system did not do as fact only when the record proves it (absence.ts).
 import type { CallReport, ContractId } from "@/report/schema";
 import { LEAD_TEMPLATES, repeatedLine, uncheckedCountLine } from "@/report/labels";
+import { everyAbsenceIsProven } from "./absence";
 import { formatClock } from "./format";
 
 /** Where the answer's words came from, so the section below can leave out a sentence the lead has already said. */
@@ -22,7 +24,8 @@ export function answerOf(report: CallReport, templates: typeof LEAD_TEMPLATES = 
         const turn = report.evidence.items.find((it) => it.kind === "turn" && f.said.includes(it.seq));
         return turn && turn.kind === "turn" && turn.startSec !== null ? formatClock(turn.startSec) : null;
       });
-      return { text: template(broken.length, times.every((t): t is string => t !== null) ? times : []), source: { kind: "template" } };
+      const proven = everyAbsenceIsProven(report.evidence, report.policy, contract.contract, contract.findings);
+      return { text: template(broken.length, times.every((t): t is string => t !== null) ? times : [], proven), source: { kind: "template" } };
     }
     return { text: [broken[0].f.text, repeatedLine(broken.length)].filter(Boolean).join(" "), source: { kind: "template" } };
   }

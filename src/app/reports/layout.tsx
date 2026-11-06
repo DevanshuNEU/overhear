@@ -11,7 +11,7 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
       >
         {SKIP_TO_CONTENT_LABEL}
       </a>
-      <div className="mx-auto max-w-[1040px] px-4 pb-24 pt-6 sm:px-6">
+      <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
         <p className="mb-10 text-sm font-semibold tracking-[-0.01em] text-report-ink-2 sm:mb-14">{PAGE_NAME}</p>
         <main id="call" tabIndex={-1} className="outline-none">
           {children}

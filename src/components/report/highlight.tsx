@@ -2,28 +2,35 @@
 import { Fragment } from "react";
 import type { ReactNode } from "react";
 
+/** A quote with a mark of its own, for a turn whose claims belong to findings with different results. */
+export type MarkedQuote = { quote: string; markClass: string };
+
 /**
- * Splits a turn's text so each quoted span is marked and the rest stays plain. Quotes that share words or
- * overlap are merged into one mark, and a quote that is not in the text is ignored. The first occurrence
- * of a quote is the one marked.
+ * Splits a turn's text so each quoted span is marked and the rest stays plain. A quote is a string, marked with
+ * `markClass`, or a MarkedQuote with its own class. Quotes that share words or overlap are merged into one mark,
+ * which takes the class of the quote listed first, so a caller lists the most severe first. A quote that is not in
+ * the text is ignored. The first occurrence of a quote is the one marked.
  */
-export function markQuotes(text: string, quotes: string[], markClass: string): ReactNode {
+export function markQuotes(text: string, quotes: (string | MarkedQuote)[], markClass: string): ReactNode {
   const found = quotes
-    .map((q) => ({ start: text.indexOf(q), end: text.indexOf(q) + q.length }))
+    .map((q, order) => (typeof q === "string" ? { quote: q, markClass, order } : { ...q, order }))
+    .map((q) => ({ start: text.indexOf(q.quote), end: text.indexOf(q.quote) + q.quote.length, markClass: q.markClass, order: q.order }))
     .filter((s) => s.start >= 0 && s.end > s.start)
     .sort((a, b) => a.start - b.start);
-  const merged: { start: number; end: number }[] = [];
+  const merged: { start: number; end: number; markClass: string; order: number }[] = [];
   for (const s of found) {
     const last = merged[merged.length - 1];
-    if (last && s.start <= last.end) last.end = Math.max(last.end, s.end);
-    else merged.push({ ...s });
+    if (last && s.start <= last.end) {
+      last.end = Math.max(last.end, s.end);
+      if (s.order < last.order) Object.assign(last, { markClass: s.markClass, order: s.order });
+    } else merged.push({ ...s });
   }
   const parts: ReactNode[] = [];
   let at = 0;
   for (const s of merged) {
     if (s.start > at) parts.push(text.slice(at, s.start));
     parts.push(
-      <mark key={s.start} className={`rounded-sm px-0.5 text-report-ink ${markClass}`}>
+      <mark key={s.start} className={`rounded-sm px-0.5 text-report-ink ${s.markClass}`}>
         {text.slice(s.start, s.end)}
       </mark>,
     );
