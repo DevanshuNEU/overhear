@@ -1,0 +1,52 @@
+{
+  "packs": [
+    "scheduling"
+  ],
+  "timezone": "UTC",
+  "success": "result.ok",
+  "tools": {
+    "verify_patient": {
+      "role": "verify",
+      "success": "result.verified",
+      "patientId": "result.patientId"
+    },
+    "check_availability": {
+      "role": "lookup",
+      "items": "result.slots",
+      "id": "item.id"
+    },
+    "book_appointment": {
+      "role": "change",
+      "kind": "book",
+      "id": "args.slotId",
+      "patientId": "args.patientId"
+    },
+    "cancel_appointment": {
+      "role": "change",
+      "kind": "cancel",
+      "id": "args.appointmentId",
+      "required": []
+    },
+    "reschedule_appointment": {
+      "role": "change",
+      "kind": "reschedule",
+      "id": "args.newSlotId"
+    }
+  },
+  "fields": {
+    "date": {
+      "path": "item.startsAt",
+      "type": "date",
+      "required": true
+    },
+    "time": {
+      "path": "item.startsAt",
+      "type": "time",
+      "required": true
+    },
+    "provider": {
+      "path": "item.providerName",
+      "type": "name"
+    }
+  }
+}
