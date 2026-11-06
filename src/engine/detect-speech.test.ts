@@ -62,6 +62,20 @@ describe("classifyTurn", () => {
     expect(splitSentences("You're booked for 9:00 a.m. with Dr. Nair.")).toHaveLength(1);
   });
 
+  it("keeps capital A.M. and P.M. in one piece", () => {
+    expect(splitSentences("See you at 10 A.M. Thanks!")).toEqual(["See you at 10 A.M.", " Thanks!"]);
+    expect(splitSentences("You're booked for 9:00 A.M. with Dr. Nair.")).toHaveLength(1);
+    expect(splitSentences("Booked for 2 P.M.You're all set.")).toEqual(["Booked for 2 P.M.", "You're all set."]);
+  });
+
+  it("does not split after e.g. or Prof.", () => {
+    expect(splitSentences("Anything minor, e.g. a cold, can wait. You're booked.")).toEqual([
+      "Anything minor, e.g. a cold, can wait.",
+      " You're booked.",
+    ]);
+    expect(splitSentences("Prof. Osei is in. You're booked.")).toEqual(["Prof. Osei is in.", " You're booked."]);
+  });
+
   it("an offer with \"if you'd like\" is not a transfer claim", () => {
     expect(classes("I can transfer you to a nurse if you'd like.")).toEqual(["offer"]);
   });
@@ -94,6 +108,7 @@ describe("detectAll equals the sample detections", () => {
 
 // Every agent line in the gold cases and every agent turn of the samples, labeled by hand.
 // A failing line gets a pattern in the detector, never a special case here.
+// "classes" lists one entry per detection in order, so a sentence that carries two classes appears twice.
 describe("classifies every labeled phrasing", () => {
   it("has a label for each phrasing", () => {
     expect(phrasings.length).toBeGreaterThan(100);
@@ -102,5 +117,7 @@ describe("classifies every labeled phrasing", () => {
     const out = classifyTurn(text);
     expect(out.map((c) => c.cls)).toEqual(p.classes);
     if ("kind" in p) expect(out.find((c) => c.kind)?.kind).toBe(p.kind);
+    // "kinds" lines list one kind per class, null where the class carries none.
+    if ("kinds" in p) expect(out.map((c) => c.kind ?? null)).toEqual(p.kinds);
   });
 });

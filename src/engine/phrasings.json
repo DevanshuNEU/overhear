@@ -57,9 +57,7 @@
   },
   {
     "text": "I can help with that. Can I verify your name and date of birth first?",
-    "classes": [
-      "offer"
-    ],
+    "classes": [],
     "source": "gold:gold-clean-4"
   },
   {
@@ -385,7 +383,8 @@
     "classes": [
       "completion"
     ],
-    "source": "gold:gold-hard-4"
+    "source": "gold:gold-hard-4",
+    "kind": "book"
   },
   {
     "text": "That's a good thing to mention to Dr. Walsh directly at the visit. Let me get you booked. Name and date of birth please.",
@@ -450,7 +449,8 @@
     "classes": [
       "completion"
     ],
-    "source": "gold:gold-subtle-wrong-date"
+    "source": "gold:gold-subtle-wrong-date",
+    "kind": "book"
   },
   {
     "text": "Let me verify you, name and date of birth?",
@@ -696,7 +696,7 @@
   {
     "text": "It looks like the scheduling system returned a temporary error. Please try again shortly, or I can help once it’s back online.",
     "classes": [
-      "offer"
+      "deferral"
     ],
     "source": "sample:call_sample_needs_review"
   },
@@ -818,5 +818,199 @@
     "text": "Thank you - goodbye!",
     "classes": [],
     "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "That slot is booked, but I have 3pm open.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Dr. Osei is booked on Monday.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "We're booked solid on Monday.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Once you're booked, you'll get a text.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "If you're booked by noon, we can send forms.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Before you're booked, I need your date of birth.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Your previous doctor booked you for a follow-up.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Nothing has been scheduled yet.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "You're not booked yet.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Are you booked already?",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Is that confirmed?",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Booked solid on Monday, unfortunately.",
+    "classes": [],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Great, you're booked for 9am, anything else I can help with?",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "That's booked.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Your appointment is set.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Got you booked.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "I went ahead and booked it.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "I've put you down for Thursday.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "It's confirmed.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "I've changed it to 3pm.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "update",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Your appointment's been moved to Friday.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "I've transferred you.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Please hold while I transfer you.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "You're booked for Tuesday, would you like a reminder text?",
+    "classes": [
+      "completion",
+      "offer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "I can't get Dr. Osei, but you're booked with Dr. Nair.",
+    "classes": [
+      "refusal",
+      "completion"
+    ],
+    "kinds": [
+      null,
+      "book"
+    ],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "I've cancelled your 3pm, and booked you for 4pm.",
+    "classes": [
+      "completion",
+      "completion"
+    ],
+    "kinds": [
+      "cancel",
+      "book"
+    ],
+    "source": "review:detector-probe"
+  },
+  {
+    "text": "Booked for 9am, you're all set and I'll transfer you now.",
+    "classes": [
+      "completion",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:detector-probe"
   }
 ]
