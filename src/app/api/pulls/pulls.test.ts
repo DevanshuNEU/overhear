@@ -100,4 +100,41 @@ describe("pull routes", () => {
     expect(await res.json()).toEqual({ callId: "c1", state: "error" });
     expect((await refetch(post("/api/calls/zzz/refetch"), ctx("zzz"))).status).toBe(404);
   });
+
+  it("answers 409 with the running pull's id when a pull is already active", async () => {
+    await writeKey(KEY);
+    let open: () => void = () => {};
+    const gate = new Promise<void>((r) => (open = r));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        await gate;
+        const body = url.pathname === "/v3/list-calls" ? { items: [], has_more: false } : {};
+        return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+      }),
+    );
+    const first = await start(post("/api/pulls", { n: 5 }));
+    expect(first.status).toBe(202);
+    const { id } = (await first.json()) as { id: string };
+    const second = await start(post("/api/pulls", { n: 5 }));
+    expect(second.status).toBe(409);
+    expect(await second.json()).toEqual({ error: "pull_running", id });
+    open();
+    await whenSettled(id);
+    expect((await start(post("/api/pulls", { n: 5 }))).status).toBe(202);
+  });
+
+  it("refetch answers the same safe error as a pull when the key store fails", async () => {
+    await writeKey(KEY);
+    const { id } = (await (await start(post("/api/pulls", { n: 5 }))).json()) as { id: string };
+    await whenSettled(id);
+    fs.chmodSync(path.join(home, "config.json"), 0o644);
+    const res = await refetch(post("/api/calls/c1/refetch"), ctx("c1"));
+    const text = await res.text();
+    expect(res.status).toBe(500);
+    expect(JSON.parse(text)).toEqual({ error: "failed" });
+    expect(text).not.toContain("PULLROUTE");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
 });

@@ -4,7 +4,7 @@
 import { analyzeCall } from "@/pull/analyzer";
 import { hasKey } from "@/pull/key-store";
 import { assertLocalRequest, FRAME_HEADERS } from "@/pull/local";
-import { startPull } from "@/pull/pull";
+import { activePullId, startPull } from "@/pull/pull";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +36,14 @@ export async function POST(request: Request): Promise<Response> {
   const refused = assertLocalRequest(request);
   if (refused) return refused;
   try {
+    // One pull at a time. The check and startPull run with no await between them.
+    const running = activePullId();
+    if (running) return json({ error: "pull_running", id: running }, 409);
     if (!(await hasKey())) return json({ error: "not_connected" }, 409);
     const n = await requestedCount(request);
     if (n === null) return json({ error: "bad_request" }, 400);
+    const raced = activePullId();
+    if (raced) return json({ error: "pull_running", id: raced }, 409);
     return json({ id: startPull({ n, analyze: analyzeCall }) }, 202);
   } catch {
     return json({ error: "failed" }, 500);
