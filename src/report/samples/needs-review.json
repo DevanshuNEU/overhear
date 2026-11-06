@@ -45,9 +45,21 @@
   ],
   "detections": [
     {
+      "seq": 10,
+      "cls": "refusal",
+      "quote": "I’m sorry, but I can’t access the appointment calendar right now",
+      "source": "code"
+    },
+    {
       "seq": 12,
       "cls": "offer",
-      "quote": "I can help once it’s back online",
+      "quote": "Please try again shortly, or I can help once it’s back online",
+      "source": "code"
+    },
+    {
+      "seq": 14,
+      "cls": "refusal",
+      "quote": "I can’t place callbacks, but you’re welcome to call us again shortly and I’ll check availability then",
       "source": "code"
     }
   ],
