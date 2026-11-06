@@ -10,5 +10,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 20000,
     hookTimeout: 20000,
+    // The geist package imports next/font/local. Inlining it lets a test mock that import (src/app/fonts.test.ts).
+    server: { deps: { inline: ["geist"] } },
   },
 });
