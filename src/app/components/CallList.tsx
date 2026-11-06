@@ -2,6 +2,7 @@
 // happened; the raw call id is demoted to a small mono line so the feed reads
 // like a product, not a log. Presentational only.
 import Link from "next/link";
+import { demoCallHref } from "@/lib/demo-paths";
 import type { CallSummary } from "@/qa/queries";
 import { Badge } from "@/components/ui/badge";
 import { FAILURE_LABELS } from "./labels";
@@ -28,7 +29,7 @@ export function CallList({ calls }: { calls: CallSummary[] }) {
       {calls.map((call) => (
         <li key={call.id}>
           <Link
-            href={`/calls/${call.id}`}
+            href={demoCallHref(call.id)}
             className="group flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-accent"
           >
             {call.status === "processing" || call.composite === null ? (

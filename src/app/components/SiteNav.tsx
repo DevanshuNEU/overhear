@@ -1,13 +1,14 @@
 // Shared header nav across all pages. The GitHub link is external, so it opens
 // in a new tab with rel="noreferrer".
 import Link from "next/link";
+import { DEMO_HOME } from "@/lib/demo-paths";
 
 export function SiteNav() {
   return (
     <nav className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
         <Link
-          href="/"
+          href={DEMO_HOME}
           className="bg-gradient-to-r from-alarm-amber to-alarm-red bg-clip-text text-lg font-semibold tracking-tight text-transparent"
         >
           Overhear
