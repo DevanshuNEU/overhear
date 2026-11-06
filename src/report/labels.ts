@@ -339,7 +339,7 @@ export const NEXT_STEPS: Record<ContractId, NextStep[]> = {
   ],
   transfer_kept: [
     { lead: "Check the agent can transfer.", text: "Look in the agent's setup for a transfer tool. The record shows no transfer tool was called after the claim." },
-    { lead: "Check the agent's prompt.", text: "If transfers are not set up, check the prompt does not let the agent say it is transferring. If they are, check it tells the agent to call the tool before it speaks." },
+    { lead: "Check the agent's prompt.", text: "It should call the transfer tool before it says it is transferring, or not offer transfers at all." },
   ],
   committed_matches_request: [
     { lead: "Compare with the request.", text: "Where there is a table, it puts what the engine read as the caller's request next to what was committed, and the row marked Differs is the one to chase." },
@@ -353,5 +353,18 @@ export const NEXT_STEPS: Record<ContractId, NextStep[]> = {
  * adding its entry here; the column shows them after the steps for broken rules.
  */
 export const GAP_NEXT_STEPS: Partial<Record<GapCode, NextStep[]>> = {};
+
+/**
+ * What to do about a review reason, by its kind. Only reasons that name something of their own have steps: a rule
+ * that could not be checked is covered by its gap. A deferral has none yet.
+ */
+export const REASON_NEXT_STEPS: Partial<Record<Exclude<ReviewReasonKind, "unverified_result">, NextStep[]>> = {
+  unanswered_request: [
+    {
+      lead: "Check what happened after the request.",
+      text: "If a tool returned an error, open that tool's own logs for this call's time. The call record shows only that it returned an error.",
+    },
+  ],
+};
 
 export const COPY_ID_FOR_LOGS = "Copy call ID for your logs";

@@ -8,7 +8,6 @@ import { ContractSection } from "./ContractSection";
 import { GapsSection } from "./GapsSection";
 import { NextSteps } from "./NextSteps";
 import { OpenTarget } from "./OpenTarget";
-import { nextStepsOf } from "./stepsOf";
 import { answerOf } from "./answer";
 import { ReasonsSection } from "./ReasonsSection";
 import { ReportHeader } from "./ReportHeader";
@@ -26,13 +25,12 @@ export function CallReportView({ report }: { report: CallReport }) {
   const answer = answerOf(report);
   const src = answer?.source;
   const leadReason = src?.kind === "reason" ? src.index : undefined;
-  const hasSteps = nextStepsOf(report).length > 0;
   return (
     <div className="space-y-12">
       <OpenTarget />
       <ReportHeader report={report} />
-      {/* With steps to show: under the answer in a narrow window, and in a right column at 1280 and wider. */}
-      <div className={hasSteps ? "space-y-12 max-w-[1040px] xl:max-w-none xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0" : "max-w-[1040px]"}>
+      {/* One layout for every call: at 1280 and wider two columns, with the right one empty when there are no steps, so the main column never changes width between calls. Steps go under the answer in a narrow window. */}
+      <div className="space-y-12 max-w-[1040px] xl:max-w-none xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0">
         <NextSteps report={report} className="xl:order-2 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto" />
         <div className="min-w-0 space-y-12">
           <ReasonsSection report={report} leadReason={leadReason} />

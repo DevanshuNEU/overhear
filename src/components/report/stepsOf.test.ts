@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
 import { CONTRACT_IDS, GAP_CODES, type CallReport } from "@/report/schema";
-import { GAP_NEXT_STEPS, NEXT_STEPS } from "@/report/labels";
+import { GAP_NEXT_STEPS, NEXT_STEPS, REASON_NEXT_STEPS } from "@/report/labels";
 import { nextStepsOf } from "./stepsOf";
 
 describe("nextStepsOf", () => {
@@ -34,9 +34,29 @@ describe("nextStepsOf", () => {
     expect(nextStepsOf(mixed)).toEqual(NEXT_STEPS.transfer_kept);
   });
 
-  it("gives nothing for a call with nothing broken", () => {
+  it("gives nothing for a passed call", () => {
     expect(nextStepsOf(passedSample)).toEqual([]);
-    expect(nextStepsOf(needsReviewSample)).toEqual([]);
+  });
+
+  it("gives a review reason its step: the check for a request that went unanswered", () => {
+    expect(needsReviewSample.reasons[0].kind).toBe("unanswered_request");
+    expect(nextStepsOf(needsReviewSample)).toEqual(REASON_NEXT_STEPS.unanswered_request);
+    expect(REASON_NEXT_STEPS.unanswered_request!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("gives a reason kind once however many reasons of that kind there are, and nothing for a deferral yet", () => {
+    const twice: CallReport = { ...needsReviewSample, reasons: [needsReviewSample.reasons[0], needsReviewSample.reasons[0]] };
+    expect(nextStepsOf(twice)).toEqual(REASON_NEXT_STEPS.unanswered_request);
+    const deferral: CallReport = { ...needsReviewSample, reasons: [{ ...needsReviewSample.reasons[0], kind: "deferral" }] };
+    expect(nextStepsOf(deferral)).toEqual([]);
+    expect(REASON_NEXT_STEPS.deferral).toBeUndefined();
+  });
+
+  it("has a slot for a reason kind's steps, shown after the steps for broken rules and before gaps", () => {
+    const gap = { lead: "G", text: "g" };
+    const reason = { lead: "R", text: "r" };
+    const report: CallReport = { ...needsReviewSample, evidence: { ...needsReviewSample.evidence, gaps: unverifiedSample.evidence.gaps } };
+    expect(nextStepsOf(report, { unknown_success: [gap] }, { unanswered_request: [reason] })).toEqual([reason, gap]);
   });
 
   it("gives nothing for gaps until a step is written for their code, and has a slot for it", () => {
@@ -69,6 +89,10 @@ describe("the step words", () => {
     }
   });
 
+  it("holds reason steps only for reasons that name something, never for an unchecked rule", () => {
+    for (const kind of Object.keys(REASON_NEXT_STEPS)) expect(["deferral", "unanswered_request"]).toContain(kind);
+  });
+
   it("holds gap steps only for real gap codes, and none yet", () => {
     for (const code of Object.keys(GAP_NEXT_STEPS)) expect(GAP_CODES).toContain(code);
     expect(Object.keys(GAP_NEXT_STEPS)).toEqual([]);
@@ -79,6 +103,8 @@ describe("the step words", () => {
     // A broken transfer can rest on a tool call read aloud, so it cannot say what the agent claimed or that "none" was called.
     expect(text("transfer_kept")).not.toMatch(/said it without|none was called/);
     expect(text("transfer_kept")).toContain("after the claim");
+    // The prompt step reads as one check: call the tool before saying it, or do not offer transfers.
+    expect(text("transfer_kept")).toContain("It should call the transfer tool before it says it is transferring, or not offer transfers at all.");
     // A kept promise needs a call that backs it, not any successful call.
     expect(text("promise_backed")).toContain("backs the promise");
     // An identity check can be missing or can fail.
@@ -92,7 +118,7 @@ describe("the step words", () => {
   });
 
   it("has no dashes, and does not promise a regression test", () => {
-    const all = [...Object.values(NEXT_STEPS).flat()].map((s) => `${s.lead} ${s.text}`).join(" ");
+    const all = [...Object.values(NEXT_STEPS).flat(), ...Object.values(REASON_NEXT_STEPS).flat()].map((s) => `${s.lead} ${s.text}`).join(" ");
     expect(all).not.toMatch(/[\u2013\u2014]/);
     expect(all.toLowerCase()).not.toContain("regression");
   });

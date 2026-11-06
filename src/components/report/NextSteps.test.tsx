@@ -5,7 +5,7 @@ import { NextSteps } from "./NextSteps";
 import { CallReportView } from "./CallReportView";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
-import { NEXT_STEPS } from "@/report/labels";
+import { NEXT_STEPS, REASON_NEXT_STEPS } from "@/report/labels";
 
 describe("NextSteps", () => {
   it("lists the numbered steps for what broke, each with its lead and its sentence", () => {
@@ -36,13 +36,21 @@ describe("NextSteps", () => {
     expect(await screen.findByText("Copied")).toBeInTheDocument();
   });
 
+  it("shows the step for a review reason, as a check that does not assume the cause", () => {
+    render(<NextSteps report={needsReviewSample} />);
+    const items = within(screen.getByRole("complementary", { name: "What to do next" })).getAllByRole("listitem");
+    expect(items).toHaveLength(REASON_NEXT_STEPS.unanswered_request!.length);
+    expect(items[0]).toHaveTextContent("Check what happened after the request.");
+    expect(items[0]).toHaveTextContent("If a tool returned an error");
+  });
+
   it("is a list a screen reader reads as one, even where the browser drops list styling", () => {
     render(<NextSteps report={failedSample} />);
     expect(within(screen.getByRole("complementary")).getByRole("list")).toHaveAttribute("role", "list");
   });
 
   it("is absent when there is nothing to do", () => {
-    for (const report of [passedSample, needsReviewSample, unverifiedSample]) {
+    for (const report of [passedSample, unverifiedSample]) {
       const { container, unmount } = render(<NextSteps report={report} />);
       expect(container).toBeEmptyDOMElement();
       unmount();
@@ -72,9 +80,20 @@ describe("CallReportView with next steps", () => {
     expect(aside.className).toContain("xl:overflow-y-auto");
   });
 
-  it("has no column, and no empty gutter, when there are no steps", () => {
-    const { container } = render(<CallReportView report={passedSample} />);
-    expect(screen.queryByRole("complementary")).toBeNull();
-    expect(container.innerHTML).not.toContain("xl:grid-cols-");
+  it("keeps the main column the same width with or without steps, so the layout does not jump between calls", () => {
+    const wrapper = (report: typeof failedSample) => {
+      const { container, unmount } = render(<CallReportView report={report} />);
+      const el = container.querySelector("[class*='xl:grid-cols-']")!;
+      const cls = el.className;
+      const hasColumn = screen.queryByRole("complementary") !== null;
+      unmount();
+      return { cls, hasColumn };
+    };
+    const withSteps = wrapper(failedSample);
+    const without = wrapper(passedSample);
+    expect(withSteps.hasColumn).toBe(true);
+    expect(without.hasColumn).toBe(false);
+    // The same grid either way: with no steps the right column is simply empty.
+    expect(without.cls).toBe(withSteps.cls);
   });
 });
