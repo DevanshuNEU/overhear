@@ -39,3 +39,13 @@ export function rawText(raw: unknown): string {
     return RAW_UNAVAILABLE;
   }
 }
+
+/** An id safe to repeat back on a trusted page: it looks like an id, not like a message. Anything else gives null. */
+export function echoableId(id: string | null): string | null {
+  return id !== null && /^[\w.-]{1,64}$/.test(id) ? id : null;
+}
+
+/** Cuts text to a length, and marks the cut. */
+export function shortened(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max)}...`;
+}

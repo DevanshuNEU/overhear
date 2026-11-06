@@ -1,7 +1,7 @@
 // The only mapping from code values to words people read (spec section 5 and 6.8).
 // The engine writes `headline` with headlineFor, and the dashboard shows the stored
 // string, so both sides say the same thing. Pure data and functions, no Node APIs.
-import type { ContractId, FieldCheck, Note, Platform, ReviewReasonKind, Result, Verdict } from "./schema";
+import type { ContractId, FieldCheck, GapCode, Note, Platform, ReviewReasonKind, Result, Verdict } from "./schema";
 
 export const RESULT_LABEL: Record<Result, string> = {
   violated: "Violated",
@@ -73,11 +73,58 @@ export const FACT_LABEL = {
 
 export const HEADING = {
   rows: "Said and did",
+  reasons: "Why it needs review",
+  gaps: "What's missing",
   otherRules: "Other rules",
   timeline: "The call",
 };
 
 export const KEY_FACTS_LABEL = "Key facts";
+
+/** What a gap in the evidence is called. The engine's own detail says which call and which field. */
+export const GAP_LABEL: Record<GapCode, string> = {
+  missing_tool_transcript: "Tool calls are missing from the transcript",
+  unlinked_backend_action: "A backend action matches no tool call",
+  ambiguous_link: "A backend action matches more than one tool call",
+  turn_index_out_of_range: "A backend action points outside the transcript",
+  unknown_success: "A tool result gave no success signal",
+  evidence_conflict: "The records disagree",
+  unresolved_committed_detail: "A committed detail couldn't be resolved",
+  llm_code_disagreement: "The model and the rules disagree on a claim",
+};
+
+/** The name a review reason gets as a tag on the timeline. */
+export const REASON_TAG: Record<ReviewReasonKind, string> = {
+  unverified_result: "Couldn't check",
+  deferral: "Deferral",
+  unanswered_request: "Unanswered request",
+};
+
+/** Leads the line that names the rules a call could not check. */
+export const COULDNT_CHECK_LEAD = "Couldn't check:";
+
+/** The Evidence fact: the source, and how many gaps it has when it has any. */
+export function evidenceFact(tier: 1 | 2, gapCount: number): string {
+  if (gapCount === 0) return TIER_LABEL[tier];
+  return `${TIER_LABEL[tier]}, ${gapCount} ${gapCount === 1 ? "gap" : "gaps"}`;
+}
+
+export const LOADING_LABEL = "Loading the call";
+
+export const NOT_FOUND = {
+  title: "No report for this call.",
+  detail: (callId: string | null) => (callId ? `Overhear holds no report with the ID ${callId}.` : "Overhear holds no report with this ID."),
+  next: "Check the ID in the link, then open the call again.",
+};
+
+export const UNREADABLE = {
+  title: "This report can't be read.",
+  detail: (callId: string | null) =>
+    callId ? `The report for ${callId} doesn't match the report format, so Overhear won't show it.` : "This report doesn't match the report format, so Overhear won't show it.",
+  next: "Regenerate the report, then reload this page.",
+  problems: "What failed",
+  count: (total: number, shown: number) => `${total} problems, first ${shown} shown`,
+};
 
 /** The three lanes of a finding: the caller's request, the agent's words, what the system did. */
 export const LANE_LABEL = {

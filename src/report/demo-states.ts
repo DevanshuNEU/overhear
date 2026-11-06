@@ -1,15 +1,20 @@
 // Screens for the states the three samples do not reach: an unverified result with a gap, a report that
 // fails the schema, and a slow load. They are built from the samples and served only when
-// OVERHEAR_DEMO_STATES=1, so a person can look at those states running. They are never in a real run.
+// OVERHEAR_DEMO_STATES=1 outside production, so a person can look at those states running. They never
+// load in a real run: store.ts imports this file only when the flag is on.
 import { CallReportSchema, type CallReport } from "./schema";
 import { headlineFor } from "./labels";
 import { failedSample, passedSample } from "./samples";
 
-export const DEMO_STATES_FLAG = "OVERHEAR_DEMO_STATES";
-
 function renamed<T extends CallReport>(report: T, callId: string): T {
   return { ...structuredClone(report), callId, evidence: { ...structuredClone(report.evidence), callId } };
 }
+
+const UNVERIFIED_TEXT: Partial<Record<string, string>> = {
+  promise_backed: "At 1:47 the agent said the booking was made.",
+  verified_before_change: "The booking at 1:47 came after an identity check.",
+  spoken_matches_committed: "The agent confirmed Friday, November 6 at 2:00 PM with Dr. Priya Nair.",
+};
 
 /** The passed sample, except the booking call returned no success field: three rules cannot be confirmed. */
 function buildUnverified(): CallReport {
@@ -22,7 +27,7 @@ function buildUnverified(): CallReport {
     return {
       ...c,
       result: "unverified" as const,
-      findings: c.findings.map((f) => ({ ...f, result: "unverified" as const, gaps: ["unknown_success" as const], text: `${f.text.split(". ")[0]}. ${detail}` })),
+      findings: c.findings.map((f) => ({ ...f, result: "unverified" as const, gaps: ["unknown_success" as const], text: `${UNVERIFIED_TEXT[c.contract] ?? ""} ${detail}`.trim() })),
     };
   });
   const reasons = results

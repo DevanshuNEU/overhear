@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
+import { unverifiedSample } from "@/report/demo-states";
 import { railsAt, threadsOf } from "./threads";
 
 describe("threadsOf", () => {
@@ -23,8 +24,15 @@ describe("threadsOf", () => {
     expect(new Set(anchors).size).toBe(anchors.length);
   });
 
-  it("has no threads for a report with no findings", () => {
-    expect(threadsOf(needsReviewSample)).toEqual([]);
+  it("makes a thread of a review reason, and of each gap", () => {
+    const reason = threadsOf(needsReviewSample);
+    expect(reason).toHaveLength(1);
+    expect(reason[0]).toMatchObject({ anchor: "reason-0", seqs: [4, 7, 9], railed: true, result: "unverified", label: "Unanswered request" });
+    // An unverified-result reason repeats its rule's finding, so it makes no thread of its own.
+    expect(threadsOf(unverifiedSample).filter((t) => t.anchor.startsWith("reason-"))).toEqual([]);
+    const gaps = threadsOf(unverifiedSample).filter((t) => t.anchor.startsWith("gap-"));
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toMatchObject({ anchor: "gap-0", seqs: [33], railed: false, label: "A tool result gave no success signal" });
   });
 
   it("draws rails only for threads that need attention", () => {
@@ -35,7 +43,7 @@ describe("threadsOf", () => {
 });
 
 describe("railsAt", () => {
-  const thread = (id: string, seqs: number[]) => ({ id, anchor: id, contract: "promise_backed" as const, result: "violated" as const, seqs, railed: true, label: id });
+  const thread = (id: string, seqs: number[]) => ({ id, anchor: id, result: "violated" as const, seqs, railed: true, label: id });
 
   it("puts a dot on each member and a line on the items between", () => {
     const t = [thread("a", [2, 5])];

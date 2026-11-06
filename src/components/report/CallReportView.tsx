@@ -4,7 +4,9 @@ import type { CallReport, ContractResult, Result } from "@/report/schema";
 import { CONTRACT_TITLE, HEADING, RESULT_LABEL, capitalize } from "@/report/labels";
 import { CallTimeline } from "./CallTimeline";
 import { ContractSection } from "./ContractSection";
+import { GapsSection } from "./GapsSection";
 import { OpenTarget } from "./OpenTarget";
+import { ReasonsSection } from "./ReasonsSection";
 import { ReportHeader } from "./ReportHeader";
 
 const SHOWN: Result[] = ["violated", "unverified", "passed"];
@@ -21,6 +23,8 @@ export function CallReportView({ report }: { report: CallReport }) {
     <div className="space-y-12">
       <OpenTarget />
       <ReportHeader report={report} />
+      <ReasonsSection report={report} />
+      <GapsSection report={report} />
       {shown.length > 0 ? (
         <section aria-labelledby="rows-heading">
           <h2 id="rows-heading" className="mb-4 text-base font-semibold">

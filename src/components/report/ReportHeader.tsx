@@ -1,6 +1,6 @@
 // The answer: the verdict, the one sentence, and the facts that say how far to trust it.
 import type { CallReport } from "@/report/schema";
-import { FACT_LABEL, KEY_FACTS_LABEL, PLATFORM_LABEL, TIER_LABEL, formatDuration, rulesSummary } from "@/report/labels";
+import { FACT_LABEL, KEY_FACTS_LABEL, PLATFORM_LABEL, evidenceFact, formatDuration, rulesSummary } from "@/report/labels";
 import { CopyId } from "./CopyId";
 import { VerdictBadge } from "./StatusBadge";
 import { formatStarted } from "./format";
@@ -12,7 +12,7 @@ function facts(report: CallReport): { label: string; value: string }[] {
     { label: FACT_LABEL.platform, value: PLATFORM_LABEL[report.platform] },
     Number.isFinite(evidence.callFields.duration_ms) && (evidence.callFields.duration_ms ?? -1) >= 0 ? { label: FACT_LABEL.length, value: formatDuration(evidence.callFields.duration_ms ?? 0) } : null,
     started ? { label: FACT_LABEL.started, value: started } : null,
-    { label: FACT_LABEL.evidence, value: TIER_LABEL[evidence.tier] },
+    { label: FACT_LABEL.evidence, value: evidenceFact(evidence.tier, evidence.gaps.length) },
     { label: FACT_LABEL.rules, value: rulesSummary(report.results) },
   ];
   return list.filter((f): f is { label: string; value: string } => f !== null);
