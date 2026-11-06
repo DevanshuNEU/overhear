@@ -43,6 +43,15 @@ export type Verdict = (typeof VERDICTS)[number];
 export type Note = (typeof NOTES)[number];
 export type ContractId = (typeof CONTRACT_IDS)[number];
 export type ReviewReasonKind = (typeof REVIEW_REASON_KINDS)[number];
+export type SpeechClass = (typeof SPEECH_CLASSES)[number];
+
+// The speech class a contract's claim is made of. A finding's provenance (code, llm or both) is judged on the
+// detections of this class at its cited turns. The screen reads it too, to mark the words a verdict rests on.
+export const claimClass: Readonly<Partial<Record<ContractId, readonly SpeechClass[]>>> = {
+  promise_backed: ["completion"],
+  spoken_matches_committed: ["completion"],
+  transfer_kept: ["transfer"],
+};
 
 // Gaps about the evidence itself. One that touches a finding's seqs makes the finding unverified. The other two
 // (unresolved_committed_detail, llm_code_disagreement) belong to one contract and are cited through Finding.gaps.
@@ -56,6 +65,18 @@ const EVIDENCE_GAPS = new Set<string>([
 ]);
 
 const Seq = z.number().int().positive();
+
+/** True for a time zone Intl knows by name. Offsets such as "+05:00" are not IANA zones, and some runtimes accept them. */
+function isTimeZone(zone: string): boolean {
+  if (zone === "" || /^[+-]/.test(zone)) return false;
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const TimeZone = z.string().refine(isTimeZone, { message: "must be an IANA time zone, such as UTC or America/New_York" });
 const Args = z.record(z.string(), z.unknown());
 
 /** Equal by content: object key order is ignored, array order is not. */
@@ -146,7 +167,7 @@ export const EvidenceSchema = z.strictObject({
   // Call-level fields worth showing. A short list on purpose: recording and log links, tokens and network
   // details never belong in a report. Fields for other platforms are added here when their adapters land.
   callFields: CallFieldsSchema,
-  callStartMs: z.number().nullable(),
+  callStartMs: z.number().int().nonnegative().nullable(), // epoch milliseconds
   items: z.array(ItemSchema),
   gaps: z.array(GapSchema),
 });
@@ -171,7 +192,7 @@ export const FieldPolicySchema = z.strictObject({
 
 export const PolicySchema = z.strictObject({
   packs: z.array(z.enum(["scheduling", "healthcare"])),
-  timezone: z.string().optional(),
+  timezone: TimeZone.optional(),
   success: z.string().optional(),
   tools: z.record(z.string(), ToolPolicySchema),
   fields: z.record(z.string(), FieldPolicySchema),
@@ -254,7 +275,7 @@ export const CallReportSchema = z
     llmUsed: z.boolean(),
     request: CallerRequestSchema.nullable(),
     requestSource: z.enum(["post_call", "llm"]).nullable(),
-    timezone: z.string(),
+    timezone: TimeZone,
     policy: PolicySchema,
     evidence: EvidenceSchema,
   })
@@ -338,11 +359,6 @@ export const CallReportSchema = z
     }
 
     const rank: Record<string, number> = { violated: 3, unverified: 2, passed: 1, not_applicable: 0 };
-    const claimClass: Partial<Record<ContractId, string[]>> = {
-      promise_backed: ["completion"],
-      spoken_matches_committed: ["completion"],
-      transfer_kept: ["transfer"],
-    };
 
     r.results.forEach((c, ci) => {
       const at = ["results", ci] as (string | number)[];

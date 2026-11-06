@@ -1,12 +1,11 @@
 // The speech classes each contract's claim is made of, so the words marked are the words the verdict rests on.
-// This copies the schema's own mapping (claimClass in schema.ts), plus tool_syntax for transfers, which the
-// schema accepts as a transfer claim in its violated check. Keep the two in step.
-import type { ContractId, Detection } from "@/report/schema";
+// The schema's own mapping (claimClass in schema.ts), plus tool_syntax for transfers, which the schema accepts
+// as a transfer claim in its violated check.
+import { claimClass, type ContractId, type Detection, type SpeechClass } from "@/report/schema";
 
-export const CLAIM_CLASSES: Partial<Record<ContractId, Detection["cls"][]>> = {
-  promise_backed: ["completion"],
-  spoken_matches_committed: ["completion"],
-  transfer_kept: ["transfer", "tool_syntax"],
+export const CLAIM_CLASSES: Readonly<Partial<Record<ContractId, readonly SpeechClass[]>>> = {
+  ...claimClass,
+  transfer_kept: [...(claimClass.transfer_kept ?? []), "tool_syntax"],
 };
 
 /** The detections that are the claim a contract rests on. */

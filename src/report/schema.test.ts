@@ -9,6 +9,7 @@ import {
   NOTES,
   RESULTS,
   VERDICTS,
+  claimClass,
   type CallReport,
 } from "./schema";
 import { CONTRACT_TITLE, NOTE_LINE, RESULT_LABEL, VERDICT_LABEL, headlineFor } from "./labels";
@@ -200,6 +201,57 @@ describe("the contract the dashboard can rely on", () => {
     const res = r.evidence.items.find((i) => i.kind === "tool_result")!;
     (res as { id: string }).id = "nope";
     expect(issues(r).join("\n")).toMatch(/tool call/);
+  });
+});
+
+describe("claimClass", () => {
+  it("is exported and maps promise_backed and spoken_matches_committed to completion and transfer_kept to transfer", () => {
+    expect(claimClass).toEqual({
+      promise_backed: ["completion"],
+      spoken_matches_committed: ["completion"],
+      transfer_kept: ["transfer"],
+    });
+  });
+});
+
+describe("timezone must be a valid IANA zone", () => {
+  it.each(["UTC", "America/New_York"])("accepts %s on the report and on the policy", (zone) => {
+    const r = clone(passedSample);
+    r.timezone = zone;
+    r.policy.timezone = zone;
+    expect(issues(r)).toEqual([]);
+  });
+
+  it.each(["Mars/Base", "", "+05:00"])("rejects %j on the report", (zone) => {
+    const r = clone(passedSample);
+    r.timezone = zone;
+    expect(issues(r).join("\n")).toMatch(/^timezone: .*IANA/m);
+  });
+
+  it.each(["Mars/Base", "", "+05:00"])("rejects %j on the policy", (zone) => {
+    const r = clone(passedSample);
+    r.policy.timezone = zone;
+    expect(issues(r).join("\n")).toMatch(/^policy\.timezone: .*IANA/m);
+  });
+
+  it("still lets the policy leave its timezone out", () => {
+    const r = clone(passedSample);
+    delete r.policy.timezone;
+    expect(issues(r)).toEqual([]);
+  });
+});
+
+describe("callStartMs must be a non-negative integer or null", () => {
+  it.each([0, 1790205241776, null])("accepts %j", (ms) => {
+    const r = clone(passedSample);
+    r.evidence.callStartMs = ms;
+    expect(issues(r)).toEqual([]);
+  });
+
+  it.each([-1, 1.5])("rejects %j", (ms) => {
+    const r = clone(passedSample);
+    r.evidence.callStartMs = ms;
+    expect(issues(r).join("\n")).toMatch(/^evidence\.callStartMs: /m);
   });
 });
 
