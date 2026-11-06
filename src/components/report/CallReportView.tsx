@@ -32,8 +32,8 @@ export function CallReportView({ report }: { report: CallReport }) {
       <OpenTarget />
       <ReportHeader report={report} />
       {/* With steps to show: under the answer in a narrow window, and in a right column at 1280 and wider. */}
-      <div className={hasSteps ? "space-y-12 xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0" : "max-w-[1040px]"}>
-        <NextSteps report={report} className="xl:order-2 xl:sticky xl:top-6" />
+      <div className={hasSteps ? "space-y-12 max-w-[1040px] xl:max-w-none xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0" : "max-w-[1040px]"}>
+        <NextSteps report={report} className="xl:order-2 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto" />
         <div className="min-w-0 space-y-12">
           <ReasonsSection report={report} leadReason={leadReason} />
           <GapsSection report={report} saidInLead={leadReason === undefined ? undefined : report.reasons[leadReason].text} />

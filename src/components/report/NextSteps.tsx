@@ -13,7 +13,7 @@ export function NextSteps({ report, className = "" }: { report: CallReport; clas
       <h2 id="next-heading" className="mb-4 text-base font-semibold">
         {NEXT_HEADING}
       </h2>
-      <ol className="space-y-5">
+      <ol role="list" className="space-y-5">
         {steps.map((step, i) => (
           <li key={i} className="flex gap-3">
             <span aria-hidden className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-report-line-strong text-[12px] tabular-nums text-report-ink-2">

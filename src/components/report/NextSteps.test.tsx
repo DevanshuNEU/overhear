@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { vi } from "vitest";
 import { NextSteps } from "./NextSteps";
 import { CallReportView } from "./CallReportView";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
@@ -26,6 +27,20 @@ describe("NextSteps", () => {
     expect(screen.queryByText(/regression/i)).not.toBeInTheDocument();
   });
 
+  it("copies the call ID and says so", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<NextSteps report={failedSample} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy call ID for your logs" }));
+    expect(writeText).toHaveBeenCalledWith(failedSample.callId);
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
+  });
+
+  it("is a list a screen reader reads as one, even where the browser drops list styling", () => {
+    render(<NextSteps report={failedSample} />);
+    expect(within(screen.getByRole("complementary")).getByRole("list")).toHaveAttribute("role", "list");
+  });
+
   it("is absent when there is nothing to do", () => {
     for (const report of [passedSample, needsReviewSample, unverifiedSample]) {
       const { container, unmount } = render(<NextSteps report={report} />);
@@ -50,6 +65,11 @@ describe("CallReportView with next steps", () => {
     const aside = screen.getByRole("complementary");
     expect(aside.className).toContain("xl:order-2");
     expect(container.innerHTML).toContain("xl:grid-cols-");
+    // Narrow windows keep the page's reading width; the column only widens it at xl.
+    expect(container.innerHTML).toContain("max-w-[1040px] xl:max-w-none");
+    // The sticky column never grows taller than the window, so its last step and button stay reachable.
+    expect(aside.className).toContain("xl:max-h-[calc(100vh-3rem)]");
+    expect(aside.className).toContain("xl:overflow-y-auto");
   });
 
   it("has no column, and no empty gutter, when there are no steps", () => {

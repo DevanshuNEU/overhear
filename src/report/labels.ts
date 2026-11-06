@@ -326,24 +326,24 @@ export type NextStep = { lead: string; text: string };
  */
 export const NEXT_STEPS: Record<ContractId, NextStep[]> = {
   promise_backed: [
-    { lead: "Find the promise.", text: "Read the marked words under Said, then the tool calls under Did. The record shows no successful call before the promise." },
+    { lead: "Find the promise.", text: "Read the marked words under Said, then the tool calls under Did. The record shows no successful call that backs the promise." },
     { lead: "Check the tool call.", text: "If a call was made, open its raw detail to see what was sent and what came back. If none was made, check that the agent's prompt tells it to call the tool before it speaks." },
   ],
   verified_before_change: [
-    { lead: "Check the order of the calls.", text: "Under Did, see whether the identity check came before the change. A change that came first is the break." },
-    { lead: "Make the agent wait.", text: "Check that the agent's prompt tells it to wait for the identity check to succeed before it calls a tool that changes a booking." },
+    { lead: "Check the identity check.", text: "Under Did, see whether an identity check was made and succeeded before the change. A change with no successful check before it is the break." },
+    { lead: "Check the agent's prompt.", text: "Check that it tells the agent to wait for the identity check to succeed before it calls a tool that changes a booking." },
   ],
   spoken_matches_committed: [
-    { lead: "Compare the two values.", text: "The table puts what the agent said next to what was committed. The row marked Differs is the one to chase." },
-    { lead: "Find where the agent got it.", text: "Check whether the agent spoke the caller's words or the availability result, then whether it passed that same value to the booking tool." },
+    { lead: "Compare the two values.", text: "Where there is a table, it puts what the agent said next to what was committed, and the row marked Differs is the one to chase." },
+    { lead: "Find where the agent got it.", text: "Check whether the agent spoke the caller's words or the tool result that held the value, then whether it passed that same value to the booking tool." },
   ],
   transfer_kept: [
-    { lead: "Check the agent can transfer.", text: "Look in the agent's setup for a transfer tool. The record shows none was called, so the agent said it without doing it." },
-    { lead: "Change when the agent says it.", text: "If transfers are not set up, the agent should not say it is transferring. If they are, check the prompt tells it to call the tool before it speaks." },
+    { lead: "Check the agent can transfer.", text: "Look in the agent's setup for a transfer tool. The record shows no transfer tool was called after the claim." },
+    { lead: "Check the agent's prompt.", text: "If transfers are not set up, check the prompt does not let the agent say it is transferring. If they are, check it tells the agent to call the tool before it speaks." },
   ],
   committed_matches_request: [
-    { lead: "Compare with the request.", text: "The table puts what the caller asked for next to what was committed. The row marked Differs is the one to chase." },
-    { lead: "Check which request was final.", text: "If the caller changed their mind, check that the agent took the last request and not the first." },
+    { lead: "Compare with the request.", text: "Where there is a table, it puts what the engine read as the caller's request next to what was committed, and the row marked Differs is the one to chase." },
+    { lead: "Check the engine's reading.", text: "Check the transcript for what the caller actually asked. If they changed their mind, check the agent took the last request and not the first." },
   ],
 };
 

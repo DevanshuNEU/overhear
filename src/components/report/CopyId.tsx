@@ -31,7 +31,7 @@ export function CopyId({ value, label }: { value: string; label?: string }) {
       <button
         type="button"
         onClick={copy}
-        aria-label={label ?? COPY_ID_LABEL}
+        aria-label={label ? undefined : COPY_ID_LABEL}
         className={
           label
             ? "inline-flex min-h-11 items-center gap-2 rounded-md border border-report-line-strong px-3 text-sm hover:bg-report-accent-tint hover:text-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent sm:min-h-9"

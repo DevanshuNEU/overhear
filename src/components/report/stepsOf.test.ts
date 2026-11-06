@@ -17,6 +17,23 @@ describe("nextStepsOf", () => {
     expect(nextStepsOf(failedSample)).toHaveLength(NEXT_STEPS.transfer_kept.length);
   });
 
+  it("lists the steps of two broken rules in the order the report holds them", () => {
+    const broken = (c: (typeof failedSample.results)[number]) => ({ ...c, result: "violated" as const });
+    const two: CallReport = {
+      ...failedSample,
+      results: failedSample.results.map((c) => (c.contract === "promise_backed" ? broken(c) : c)),
+    };
+    expect(nextStepsOf(two)).toEqual([...NEXT_STEPS.promise_backed, ...NEXT_STEPS.transfer_kept]);
+  });
+
+  it("gives steps for the broken rule and none for a rule that could not be checked beside it", () => {
+    const mixed: CallReport = {
+      ...failedSample,
+      results: failedSample.results.map((c) => (c.contract === "promise_backed" ? { ...c, result: "unverified" as const } : c)),
+    };
+    expect(nextStepsOf(mixed)).toEqual(NEXT_STEPS.transfer_kept);
+  });
+
   it("gives nothing for a call with nothing broken", () => {
     expect(nextStepsOf(passedSample)).toEqual([]);
     expect(nextStepsOf(needsReviewSample)).toEqual([]);
@@ -57,9 +74,26 @@ describe("the step words", () => {
     expect(Object.keys(GAP_NEXT_STEPS)).toEqual([]);
   });
 
+  it("states checks, not the engine's reading as fact, and does not tell the reader to change what it cannot know about", () => {
+    const text = (c: keyof typeof NEXT_STEPS) => NEXT_STEPS[c].map((s) => `${s.lead} ${s.text}`).join(" ");
+    // A broken transfer can rest on a tool call read aloud, so it cannot say what the agent claimed or that "none" was called.
+    expect(text("transfer_kept")).not.toMatch(/said it without|none was called/);
+    expect(text("transfer_kept")).toContain("after the claim");
+    // A kept promise needs a call that backs it, not any successful call.
+    expect(text("promise_backed")).toContain("backs the promise");
+    // An identity check can be missing or can fail.
+    expect(text("verified_before_change")).toContain("made and succeeded");
+    // The request is the engine's reading, and may be wrong.
+    expect(text("committed_matches_request")).toContain("engine read");
+    // Not every finding has a table.
+    expect(text("spoken_matches_committed")).toContain("Where there is a table");
+    // Leads ask for a check; they do not order a remedy.
+    for (const c of CONTRACT_IDS) for (const s of NEXT_STEPS[c]) expect(s.lead).not.toMatch(/^(Change|Make) /);
+  });
+
   it("has no dashes, and does not promise a regression test", () => {
     const all = [...Object.values(NEXT_STEPS).flat()].map((s) => `${s.lead} ${s.text}`).join(" ");
-    expect(all).not.toMatch(/[–—]/);
+    expect(all).not.toMatch(/[\u2013\u2014]/);
     expect(all.toLowerCase()).not.toContain("regression");
   });
 });
