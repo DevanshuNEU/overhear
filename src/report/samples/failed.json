@@ -153,6 +153,12 @@
       "source": "code"
     },
     {
+      "seq": 11,
+      "cls": "offer",
+      "quote": "Would you like me to book one of those, and then connect you with a nurse for the ear concern",
+      "source": "code"
+    },
+    {
       "seq": 14,
       "cls": "intention",
       "kind": "book",
