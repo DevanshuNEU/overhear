@@ -1,6 +1,6 @@
 // The lanes of a finding: what was asked, what the agent said, what the system did. Each lane is a
 // list of seqs into the evidence, turned into plain lines. Raw payloads stay behind a disclosure.
-import { Fragment, useId } from "react";
+import { useId } from "react";
 import type { ReactNode } from "react";
 import type { Detection, Evidence, Item } from "@/report/schema";
 import {
@@ -14,34 +14,13 @@ import {
   toolResultLine,
 } from "@/report/labels";
 import { formatClock } from "./format";
+import { markQuotes } from "./highlight";
 
 type Turn = Extract<Item, { kind: "turn" }>;
 
 function itemsAt(evidence: Evidence, seqs: number[]): Item[] {
   const bySeq = new Map(evidence.items.map((it) => [it.seq, it]));
   return seqs.flatMap((s) => bySeq.get(s) ?? []);
-}
-
-/** Splits a turn's text so the words that made the claim are marked and the rest is plain. */
-function marked(text: string, quotes: string[], markClass: string): ReactNode {
-  const spans = quotes
-    .map((q) => ({ start: text.indexOf(q), len: q.length }))
-    .filter((s) => s.start >= 0)
-    .sort((a, b) => a.start - b.start);
-  const parts: ReactNode[] = [];
-  let at = 0;
-  for (const s of spans) {
-    if (s.start < at) continue; // overlaps a span already marked
-    if (s.start > at) parts.push(text.slice(at, s.start));
-    parts.push(
-      <mark key={s.start} className={`rounded-sm px-0.5 text-report-ink ${markClass}`}>
-        {text.slice(s.start, s.start + s.len)}
-      </mark>,
-    );
-    at = s.start + s.len;
-  }
-  if (at < text.length) parts.push(text.slice(at));
-  return parts.map((p, i) => <Fragment key={i}>{p}</Fragment>);
 }
 
 function Lane({ label, children }: { label: string; children: ReactNode }) {
@@ -64,10 +43,10 @@ function Time({ sec }: { sec: number | null }) {
 function Turns({ turns, quotes, markClass }: { turns: Turn[]; quotes?: Map<number, string[]>; markClass: string }) {
   return (
     <div className="space-y-3">
-      {turns.map((t) => (
-        <p key={t.seq} className="text-[15px] leading-relaxed">
+      {turns.map((t, i) => (
+        <p key={i} className="break-words text-[15px] leading-relaxed">
           <Time sec={t.startSec} />
-          {marked(t.text, quotes?.get(t.seq) ?? [], markClass)}
+          {markQuotes(t.text, quotes?.get(t.seq) ?? [], markClass)}
         </p>
       ))}
     </div>
@@ -139,10 +118,10 @@ export function DidLane({ evidence, seqs }: { evidence: Evidence; seqs: number[]
         <p className="text-[15px] text-report-ink-2">{NOTHING_DID}</p>
       ) : (
         <ol className="space-y-3">
-          {lines.map((l) => (
-            <li key={l.seq}>
+          {lines.map((l, i) => (
+            <li key={i}>
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span data-line className="text-[15px] leading-relaxed">
+                <span data-line className="break-words text-[15px] leading-relaxed">
                   {l.line}
                 </span>
                 {l.backend ? <span className="rounded bg-report-accent-tint px-1.5 text-[12px] text-report-accent">{BACKEND_LOG_TAG}</span> : null}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { CallReportView } from "./CallReportView";
-import { failedSample, passedSample } from "@/report/samples";
+import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { CONTRACT_TITLE, capitalize } from "@/report/labels";
 
 describe("CallReportView on the failed sample", () => {
@@ -61,11 +61,24 @@ describe("CallReportView on the failed sample", () => {
     expect(within(table).getAllByText("Matches")).toHaveLength(3);
   });
 
-  it("lists the rules it did not check and says so", () => {
+  it("lists the other rules with what happened to each", () => {
     setup();
-    const notChecked = screen.getByRole("region", { name: "Rules not checked" });
-    expect(within(notChecked).getByText("Booking matches the request")).toBeInTheDocument();
-    expect(within(notChecked).getByText("Not checked")).toBeInTheDocument();
+    const other = screen.getByRole("region", { name: "Other rules" });
+    expect(within(other).getByText("Booking matches the request")).toBeInTheDocument();
+    expect(within(other).getByText("Not checked")).toBeInTheDocument();
+  });
+
+  it("gives every contract a heading, open or collapsed", () => {
+    setup();
+    for (const title of ["Transfers kept", "Promises backed by the system", "Identity checked before changes", "Spoken details match the booking"]) {
+      expect(screen.getByRole("heading", { level: 3, name: title })).toBeInTheDocument();
+    }
+  });
+
+  it("still renders when the report's timezone cannot be read, leaving out the start time", () => {
+    render(<CallReportView report={{ ...report, timezone: "Mars/Base" }} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(report.headline);
+    expect(screen.queryByText("Started")).not.toBeInTheDocument();
   });
 
   it("keeps raw payloads behind a disclosure", () => {
@@ -73,6 +86,15 @@ describe("CallReportView on the failed sample", () => {
     const raw = container.querySelectorAll("details[data-raw]");
     expect(raw.length).toBeGreaterThan(0);
     for (const d of raw) expect((d as HTMLDetailsElement).open).toBe(false);
+  });
+});
+
+describe("CallReportView on a call where no rule applied", () => {
+  it("does not call the rules that did not apply unchecked", () => {
+    render(<CallReportView report={needsReviewSample} />);
+    const other = screen.getByRole("region", { name: "Other rules" });
+    expect(within(other).getAllByText("Doesn't apply")).toHaveLength(5);
+    expect(within(other).queryByText("Not checked")).not.toBeInTheDocument();
   });
 });
 

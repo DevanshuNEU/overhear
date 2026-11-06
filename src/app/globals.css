@@ -156,8 +156,8 @@
 
 /* The call report screen (/reports). A light tool surface with one accent, scoped to .report so the
    dark demo pages are untouched. Status colours carry equal weight: red for a broken rule, amber for
-   a result that could not be checked, and a calm ink for a pass. Contrast ratios are in the note on
-   the pull request. */
+   a result that could not be checked, and a calm ink for a pass. Contrast on the #fbfbfd canvas:
+   ink 17.3, ink-2 9.3, muted 6.4, accent 7.7; critical text on its tint 6.4, warning text on its tint 7.3. */
 .report {
   color-scheme: light;
   --report-canvas: #fbfbfd;
@@ -197,6 +197,7 @@
   --color-report-calm-mark: var(--report-calm-mark);
 }
 
+/* The page background behind .report: the variable lives on .report, so it is written out here. */
 body:has(> .report) {
   background: #fbfbfd;
 }

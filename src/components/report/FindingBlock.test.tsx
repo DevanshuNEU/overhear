@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { FindingBlock } from "./FindingBlock";
 import type { Detection, Evidence, Finding } from "@/report/schema";
@@ -78,5 +78,47 @@ describe("FindingBlock", () => {
     expect(screen.queryByRole("group", { name: "Asked" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Said" })).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("shows a spoken and a requested check of the same detail, and a detail that was never spoken", () => {
+    const errors: unknown[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...a) => void errors.push(a));
+    setup({
+      ...finding,
+      fields: [
+        { field: "date", type: "date", from: "spoken", values: ["Tuesday"], committed: "Wednesday", status: "differs" },
+        { field: "date", type: "date", from: "requested", values: ["Tuesday"], committed: "Wednesday", status: "differs" },
+        { field: "time", type: "time", from: "spoken", values: [], committed: "9:00 AM", status: "not_spoken" },
+      ],
+    });
+    spy.mockRestore();
+    expect(errors).toEqual([]);
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Spoken: Tuesday")).toBeInTheDocument();
+    expect(within(table).getByText("Requested: Tuesday")).toBeInTheDocument();
+    expect(within(table).getByText("Nothing spoken")).toBeInTheDocument();
+    expect(within(table).getByText("Not spoken")).toBeInTheDocument();
+  });
+
+  it("says the value could not be found, not that nothing was committed", () => {
+    setup();
+    expect(screen.getByText("Couldn't find")).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing committed/)).not.toBeInTheDocument();
+  });
+
+  it("marks every claim once when two detections share a turn", () => {
+    render(
+      <FindingBlock
+        finding={{ ...finding, fields: [] }}
+        evidence={evidence}
+        detections={[
+          { seq: 2, cls: "completion", quote: "You're booked", source: "code" },
+          { seq: 2, cls: "completion", quote: "booked with Dr. Lee", source: "code" },
+        ]}
+        contract="promise_backed"
+      />,
+    );
+    const said = screen.getByRole("group", { name: "Said" });
+    expect(Array.from(said.querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["You're booked with Dr. Lee"]);
   });
 });

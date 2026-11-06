@@ -73,7 +73,7 @@ export const FACT_LABEL = {
 
 export const HEADING = {
   rows: "Said and did",
-  notChecked: "Rules not checked",
+  otherRules: "Other rules",
 };
 
 export const KEY_FACTS_LABEL = "Key facts";
@@ -108,10 +108,17 @@ export const FIELD_FROM_LABEL: Record<FieldCheck["from"], string> = {
 };
 
 /** Shown in the Committed column when the engine could not find the value the system committed. */
-export const NOTHING_COMMITTED = "Nothing committed";
+export const NOTHING_COMMITTED = "Couldn't find";
+
+/** Shown in the Compared column when a check holds no values. */
+export const FIELD_NONE_LABEL: Record<FieldCheck["from"], string> = {
+  spoken: "Nothing spoken",
+  requested: "Nothing requested",
+};
 
 /** One compared value as a line: "Spoken: Dr. Nair". */
 export function comparedLine(from: FieldCheck["from"], values: string[]): string {
+  if (values.length === 0) return FIELD_NONE_LABEL[from];
   return `${FIELD_FROM_LABEL[from]}: ${values.join(", ")}`;
 }
 

@@ -24,7 +24,11 @@ describe("words live in labels.ts", () => {
   for (const file of files) {
     it(`${path.relative(process.cwd(), file)} types no words into JSX`, () => {
       const code = fs.readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-      const jsxText = [...code.matchAll(/>([^<>{}=;()]*[A-Za-z]{2,}[^<>{}=;()]*)</g)].map((m) => m[1].trim()).filter(Boolean);
+      // Text between tags, and text next to an expression such as `{count} broken`.
+      const jsxText = [
+        ...code.matchAll(/>([^<>{}=;()]*[A-Za-z]{2,}[^<>{}=;()]*)(?=[<{])/g),
+        ...code.matchAll(/}([^<>{}=;()]*[A-Za-z]{2,}[^<>{}=;()]*)</g),
+      ].map((m) => m[1].trim()).filter(Boolean);
       const attrs = [...code.matchAll(/\b(?:aria-label|title|alt|placeholder)="([^"]*[A-Za-z][^"]*)"/g)].map((m) => m[1]);
       expect([...jsxText, ...attrs]).toEqual([]);
     });

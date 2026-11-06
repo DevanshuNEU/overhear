@@ -24,9 +24,9 @@ export function ContractSection({ contract, evidence, detections }: { contract: 
         <details className="group">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent [&::-webkit-details-marker]:hidden">
             <ChevronRight aria-hidden className="size-4 shrink-0 text-report-muted transition-transform group-open:rotate-90 motion-reduce:transition-none" />
-            <span id={id} className="min-w-0 flex-1 text-base font-medium">
+            <h3 id={id} className="min-w-0 flex-1 text-base font-medium">
               {title}
-            </span>
+            </h3>
             <ResultBadge result={contract.result} />
           </summary>
           <div className="pb-6 pl-7">{findings}</div>

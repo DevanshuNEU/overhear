@@ -31,9 +31,9 @@ export function CallReportView({ report }: { report: CallReport }) {
         </section>
       ) : null}
       {skipped.length > 0 ? (
-        <section aria-labelledby="skipped-heading">
-          <h2 id="skipped-heading" className="mb-3 text-base font-semibold">
-            {HEADING.notChecked}
+        <section aria-labelledby="other-heading">
+          <h2 id="other-heading" className="mb-3 text-base font-semibold">
+            {HEADING.otherRules}
           </h2>
           <ul className="divide-y divide-report-line border-y border-report-line">
             {skipped.map((c) => (
