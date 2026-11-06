@@ -8,7 +8,7 @@ export function answerOf(report: CallReport): string | null {
     const contract = report.results.find((c) => c.findings.some((f) => f.result === "violated"));
     if (!contract) return null;
     const broken = contract.findings.filter((f) => f.result === "violated");
-    return broken.length > 1 ? `${broken[0].text} ${repeatedLine(broken.length)}` : broken[0].text;
+    return broken.length > 1 ? [broken[0].text, repeatedLine(broken.length)].filter(Boolean).join(" ") : broken[0].text;
   }
   if (report.verdict === "needs_review") {
     const first = report.reasons[0];

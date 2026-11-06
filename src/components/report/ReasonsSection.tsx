@@ -32,8 +32,10 @@ function ReasonBlock({ report, index }: { report: CallReport; index: number }) {
 
 export function ReasonsSection({ report }: { report: CallReport }) {
   if (report.verdict !== "needs_review") return null;
-  // Reasons that name something of their own. A rule that could not be checked is said once, under "What we couldn't check".
-  const named = report.reasons.flatMap((r, i) => (r.kind === "unverified_result" ? [] : [i]));
+  // Reasons that name something of their own. A rule that could not be checked is said once, under "What we couldn't
+  // check", so its reason is left out only when a gap there already says the same words. Any other wording is kept.
+  const saidByGap = (text: string) => report.evidence.gaps.some((g) => g.detail === text);
+  const named = report.reasons.flatMap((r, i) => (r.kind === "unverified_result" && saidByGap(r.text) ? [] : [i]));
   if (named.length === 0) return null;
   return (
     <section aria-labelledby="reasons-heading">

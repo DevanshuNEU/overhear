@@ -46,4 +46,36 @@ describe("AbsenceProof", () => {
     render(<AbsenceProof evidence={e} policy={failedSample.policy} contract="promise_backed" finding={finding} />);
     expect(screen.getByText("No tool that changes a booking was called before 2:01.")).toBeInTheDocument();
   });
+
+  it("claims no absence when the finding is not a broken one, and says nothing it cannot back", () => {
+    const finding = { ...transferFinding, result: "unverified" as const, did: [] };
+    const gapped: Evidence = { ...failedSample.evidence, gaps: [{ code: "missing_tool_transcript", detail: "The platform sent no tool calls.", seqs: [25] }] };
+    render(<AbsenceProof evidence={gapped} policy={failedSample.policy} contract="transfer_kept" finding={finding} />);
+    expect(screen.queryByText(/No transfer tool was called/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tools called in this call/)).not.toBeInTheDocument();
+    expect(screen.getByText("No matching action in the call record.")).toBeInTheDocument();
+  });
+
+  it("claims no absence when the order of the items is not known", () => {
+    for (const ordering of ["none", "timestamps"] as const) {
+      const { unmount } = render(<AbsenceProof evidence={{ ...failedSample.evidence, ordering }} policy={failedSample.policy} contract="transfer_kept" finding={transferFinding} />);
+      expect(screen.queryByText(/No transfer tool was called/)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("claims no absence when something that looks like a transfer is in the record", () => {
+    const base = failedSample.evidence.items.length;
+    const event: Evidence = { ...failedSample.evidence, items: [...failedSample.evidence.items, { kind: "event", seq: base + 1, type: "transfer_started", data: {} }] };
+    render(<AbsenceProof evidence={event} policy={failedSample.policy} contract="transfer_kept" finding={transferFinding} />);
+    expect(screen.queryByText(/No transfer tool was called/)).not.toBeInTheDocument();
+  });
+
+  it("claims no absence when a tool of unknown role was called after the claim", () => {
+    const base = failedSample.evidence.items.length;
+    const e: Evidence = { ...failedSample.evidence, items: [...failedSample.evidence.items, { kind: "tool_call", seq: base + 1, id: "tc_x", name: "mystery_tool", args: {} }] };
+    render(<AbsenceProof evidence={e} policy={failedSample.policy} contract="transfer_kept" finding={transferFinding} />);
+    expect(screen.queryByText(/No transfer tool was called/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Tools called in this call: .*mystery_tool/)).toBeInTheDocument();
+  });
 });

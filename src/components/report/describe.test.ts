@@ -46,4 +46,28 @@ describe("describeActions", () => {
       ["Event: transfer_started", false],
     ]);
   });
+
+  it("pairs a result with the call it answers, and shows a second result for one call as its own line", () => {
+    const e: Evidence = {
+      ...failedSample.evidence,
+      items: [
+        { kind: "tool_call", seq: 1, id: "t", name: "book_appointment", args: {} },
+        { kind: "tool_result", seq: 2, id: "t", ok: true, platformOk: true, payload: "first" },
+        { kind: "tool_result", seq: 3, id: "t", ok: false, platformOk: false, payload: "retry" },
+      ],
+    };
+    expect(describeActions(e, [1, 2, 3]).map((x) => x.line)).toEqual(["book_appointment succeeded", "book_appointment failed"]);
+  });
+
+  it("keeps two calls that share an id apart", () => {
+    const e: Evidence = {
+      ...failedSample.evidence,
+      items: [
+        { kind: "tool_call", seq: 1, id: "t", name: "check_availability", args: {} },
+        { kind: "tool_call", seq: 2, id: "t", name: "check_availability", args: {} },
+        { kind: "tool_result", seq: 3, id: "t", ok: true, platformOk: true, payload: {} },
+      ],
+    };
+    expect(describeActions(e, [1, 2, 3]).map((x) => x.line)).toEqual(["check_availability was called, no result came back", "check_availability succeeded"]);
+  });
 });

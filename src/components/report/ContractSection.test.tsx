@@ -17,6 +17,11 @@ describe("ContractSection", () => {
     expect(within(section).queryByText("A tool result gave no success signal")).not.toBeInTheDocument();
   });
 
+  it("does not point at a gaps section that is not there", () => {
+    render(<ContractSection contract={unchecked} evidence={{ ...unverifiedSample.evidence, gaps: [] }} detections={unverifiedSample.detections} policy={unverifiedSample.policy} />);
+    expect(screen.queryByRole("link", { name: "See what we couldn't check." })).not.toBeInTheDocument();
+  });
+
   it("does not point a rule that broke or held at the gaps section", () => {
     const broken = failedSample.results.find((c) => c.contract === "transfer_kept")!;
     render(<ContractSection contract={broken} evidence={failedSample.evidence} detections={failedSample.detections} policy={failedSample.policy} />);

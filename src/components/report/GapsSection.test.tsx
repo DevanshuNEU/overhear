@@ -30,6 +30,12 @@ describe("GapsSection", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
+  it("names a rule a gap stopped when the gap touches what the rule cites, even if the finding did not name the gap", () => {
+    const results = unverifiedSample.results.map((c) => ({ ...c, findings: c.findings.map((f) => ({ ...f, gaps: [] })) }));
+    render(<GapsSection report={{ ...unverifiedSample, results }} />);
+    expect(screen.getByText(/^Stopped: Promises backed by the system/)).toBeInTheDocument();
+  });
+
   it("is absent when the evidence has no gaps", () => {
     const { container } = render(<GapsSection report={failedSample} />);
     expect(container).toBeEmptyDOMElement();

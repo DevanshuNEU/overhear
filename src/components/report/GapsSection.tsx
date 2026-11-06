@@ -1,13 +1,19 @@
 // What we could not check, said once: each gap in plain words, the engine's own detail, the rules it stopped
 // and where it is in the call. The rules below point here in one line and do not repeat it.
 import { TriangleAlert } from "lucide-react";
-import type { CallReport, GapCode } from "@/report/schema";
+import type { CallReport, Gap } from "@/report/schema";
 import { CONTRACT_TITLE, GAP_LABEL, HEADING, SHOW_IN_CALL, blockedLine, capitalize } from "@/report/labels";
 import { gapAnchor } from "./threads";
 
-/** The rules that could not be checked because of a gap of this kind. */
-function stoppedBy(report: CallReport, code: GapCode): string[] {
-  return report.results.filter((c) => c.result === "unverified" && c.findings.some((f) => f.gaps.includes(code))).map((c) => capitalize(CONTRACT_TITLE[c.contract]));
+/**
+ * The rules this gap stopped: those whose findings name its kind of gap, and those whose findings cite an item
+ * the gap touches (a gap on an item makes a finding that rests on it unverified, named or not).
+ */
+function stoppedBy(report: CallReport, gap: Gap): string[] {
+  const touches = (seqs: number[]) => seqs.some((s) => gap.seqs.includes(s));
+  return report.results
+    .filter((c) => c.result === "unverified" && c.findings.some((f) => f.gaps.includes(gap.code) || touches([...f.said, ...f.did])))
+    .map((c) => capitalize(CONTRACT_TITLE[c.contract]));
 }
 
 export function GapsSection({ report }: { report: CallReport }) {
@@ -21,7 +27,7 @@ export function GapsSection({ report }: { report: CallReport }) {
       <ul className="divide-y divide-report-line border-y border-report-line">
         {gaps.map((g, i) => {
           const first = Math.min(...g.seqs);
-          const stopped = stoppedBy(report, g.code);
+          const stopped = stoppedBy(report, g);
           return (
             <li key={i} id={gapAnchor(i)} className="scroll-mt-6 py-4 target:bg-report-accent-tint">
               <p className="flex items-start gap-2 text-base font-medium text-report-warning">

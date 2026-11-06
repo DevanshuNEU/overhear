@@ -21,17 +21,25 @@ describe("timelineRows", () => {
     expect(rows.filter((r) => r.seqs.includes(9))).toHaveLength(1);
   });
 
-  it("does not group turns across something the system did", () => {
+  it("shows the outcome where the result arrived, so what was said before it stays above it", () => {
+    // 5 (agent) / call 6 / 7 (agent) / result 8 / 9 (agent): the two spoken fragments read together, then the outcome.
     const rows = timelineRows(failedSample.evidence);
-    // 5 (agent) / call 6 / 7 (agent): two speech rows, not one.
-    const five = rows.find((r) => r.seqs.includes(5))!;
-    const seven = rows.find((r) => r.seqs.includes(7))!;
-    expect(five).not.toBe(seven);
+    const spoken = rows.find((r) => r.seqs.includes(5))!;
+    expect(spoken.kind === "speech" && spoken.turns.map((t) => t.seq)).toEqual([5, 7]);
+    const outcome = rows.find((r) => r.seqs.includes(6))!;
+    expect(outcome.seqs).toEqual([6, 8]);
+    expect(rows.indexOf(outcome)).toBeGreaterThan(rows.indexOf(spoken));
+    expect(rows.indexOf(outcome)).toBeLessThan(rows.findIndex((r) => r.seqs.includes(9)));
   });
 
-  it("keeps rows in the order the call made them", () => {
+  it("does not group turns across an outcome", () => {
     const rows = timelineRows(failedSample.evidence);
-    const firsts = rows.map((r) => r.seqs[0]);
-    expect(firsts).toEqual([...firsts].sort((a, b) => a - b));
+    expect(rows.find((r) => r.seqs.includes(7))).not.toBe(rows.find((r) => r.seqs.includes(9)));
+  });
+
+  it("shows every item once, and rows are never out of order by their last seq", () => {
+    const rows = timelineRows(failedSample.evidence);
+    const lasts = rows.map((r) => Math.max(...r.seqs));
+    expect(lasts).toEqual([...lasts].sort((a, b) => a - b));
   });
 });

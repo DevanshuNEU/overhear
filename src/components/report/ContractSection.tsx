@@ -44,7 +44,7 @@ export function ContractSection({ contract, evidence, detections, policy }: { co
         </h3>
         <ResultBadge result={contract.result} />
       </div>
-      {contract.result === "unverified" ? (
+      {contract.result === "unverified" && evidence.gaps.length > 0 ? (
         <p className="-mt-2 mb-5 text-sm">
           <a href="#gaps" className="text-report-warning underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent">
             {SEE_GAPS}

@@ -27,9 +27,16 @@ describe("CallTimeline", () => {
     expect(within(rowOf(27)).getByText("Agent")).toBeInTheDocument();
   });
 
-  it("does not group turns across something the system did", () => {
+  it("does not group turns across an outcome", () => {
     render(<CallTimeline report={failedSample} />);
-    expect(rowOf(5)).not.toBe(rowOf(7));
+    expect(rowOf(7)).not.toBe(rowOf(9));
+  });
+
+  it("gives every item a unique anchor", () => {
+    render(<CallTimeline report={failedSample} />);
+    const ids = Array.from(document.querySelectorAll("[id^='item-']")).map((e) => e.id);
+    expect(ids).toHaveLength(failedSample.evidence.items.length);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("shows a tool call and its result as one line, with raw detail on that line and closed", () => {
@@ -92,8 +99,9 @@ describe("CallTimeline", () => {
   it("marks a rail's first row with a dot, the rows between with a line, and its last row with a dot", () => {
     render(<CallTimeline report={unverifiedSample} />);
     const marks = (seq: number) => Array.from(rowOf(seq).querySelectorAll("[data-rail]")).map((r) => r.getAttribute("data-mark"));
-    expect(marks(20)).toEqual(["dot"]); // the identity check starts its rail
-    expect(marks(21)).toEqual(["line"]); // the agent's words it passes by
+    expect(marks(20)).toEqual(["dot"]); // the identity check (its outcome row) starts its rail
+    expect(marks(21)).toEqual([]); // words spoken before the outcome arrived are above the rail
+    expect(marks(23)).toEqual(["line"]); // the agent's words after it, which the rail passes by
     expect(marks(31).length).toBeGreaterThan(1); // the booking call is where several rails meet
   });
 

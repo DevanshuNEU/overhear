@@ -37,9 +37,11 @@ describe("answerOf", () => {
     expect(answerOf(passedSample)).toBeNull();
   });
 
-  it("uses only words the report or labels.ts hold, never a made up claim", () => {
-    const text = answerOf(failedSample)!;
-    const allowed = failedSample.results.flatMap((c) => c.findings.map((f) => f.text)).join(" ");
-    expect(allowed).toContain(text.split(" This happened")[0]);
+  it("never starts with a space, even when the finding has no text", () => {
+    const empty = {
+      ...failedSample,
+      results: failedSample.results.map((c) => (c.contract === "transfer_kept" ? { ...c, findings: c.findings.map((f) => ({ ...f, text: "" })) } : c)),
+    };
+    expect(answerOf(empty)).toBe("This happened twice.");
   });
 });

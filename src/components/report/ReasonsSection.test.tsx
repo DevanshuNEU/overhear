@@ -29,6 +29,12 @@ describe("ReasonsSection", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("keeps a could-not-check reason whose words say more than the gap does", () => {
+    const reasons = unverifiedSample.reasons.map((r, i) => (i === 0 ? { ...r, text: "The booking result had no success field, and the agent spoke before it came back." } : r));
+    render(<ReasonsSection report={{ ...unverifiedSample, reasons }} />);
+    expect(screen.getByText("The booking result had no success field, and the agent spoke before it came back.")).toBeInTheDocument();
+  });
+
   it("still names a reason that cites nothing, with no link and no lanes", () => {
     const report = { ...needsReviewSample, reasons: [{ ...needsReviewSample.reasons[0], seqs: [] }] };
     render(<ReasonsSection report={report} />);
