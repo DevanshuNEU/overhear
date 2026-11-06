@@ -55,4 +55,20 @@ describe("ReasonsSection", () => {
     expect(within(reason).getByText(needsReviewSample.reasons[0].text)).toHaveClass("sr-only");
     expect(within(reason).getByRole("group", { name: "Asked" })).toBeInTheDocument();
   });
+
+  it("puts the link to the call after the evidence when the sentence above it is hidden, not alone under the heading", () => {
+    render(<ReasonsSection report={needsReviewSample} leadReason={0} />);
+    const reason = screen.getByRole("article");
+    const link = within(reason).getByRole("link", { name: "Show in the call" });
+    const did = within(reason).getByRole("group", { name: "Did" });
+    expect(did.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the link under the sentence when the sentence is shown", () => {
+    render(<ReasonsSection report={needsReviewSample} />);
+    const reason = screen.getByRole("article");
+    const link = within(reason).getByRole("link", { name: "Show in the call" });
+    const asked = within(reason).getByRole("group", { name: "Asked" });
+    expect(link.compareDocumentPosition(asked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

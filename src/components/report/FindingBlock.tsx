@@ -36,20 +36,22 @@ export function FindingBlock({
   const id = useId();
   const claims = citedClaims(finding, contract, detections);
   const firstSeq = Math.min(...finding.asked, ...finding.said, ...finding.did);
+  // Under the sentence; or, when the sentence is hidden, after the evidence rather than alone under the heading.
+  const link = Number.isFinite(firstSeq) ? (
+    <a
+      href={`#item-${firstSeq}`}
+      aria-describedby={id}
+      className="mt-2 inline-block rounded py-1 text-[13px] text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
+    >
+      {SHOW_IN_CALL}
+    </a>
+  ) : null;
   return (
     <article id={anchor} aria-labelledby={id} className="scroll-mt-6 py-5 first:pt-0 last:pb-0 target:rounded-md target:bg-report-accent-tint target:ring-8 target:ring-report-accent-tint">
       <p id={id} className={hideText ? "sr-only" : "max-w-[62ch] break-words text-base font-medium leading-snug"}>
         {finding.text}
       </p>
-      {Number.isFinite(firstSeq) ? (
-        <a
-          href={`#item-${firstSeq}`}
-          aria-describedby={id}
-          className="mt-1 inline-block rounded py-1 text-[13px] text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
-        >
-          {SHOW_IN_CALL}
-        </a>
-      ) : null}
+      {hideText ? null : link}
       <LaneRows
         evidence={evidence}
         asked={finding.asked}
@@ -60,6 +62,7 @@ export function FindingBlock({
         showEmptyDid
         absence={<AbsenceProof evidence={evidence} policy={policy} contract={contract} finding={finding} />}
       />
+      {hideText ? link : null}
       {finding.fields.length > 0 ? (
         <table className="mt-5 w-full table-fixed border-collapse text-left text-sm">
           <thead>

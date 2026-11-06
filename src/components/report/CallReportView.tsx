@@ -1,7 +1,8 @@
 // The call detail screen for one report. It reads only the report it is given: the stored headline,
 // the contract results, and the evidence the findings point into.
 import type { CallReport, ContractResult, Result } from "@/report/schema";
-import { CONTRACT_TITLE, HEADING, RESULT_LABEL, capitalize } from "@/report/labels";
+import { ChevronRight } from "lucide-react";
+import { CONTRACT_TITLE, HEADING, capitalize, ruleCountLine } from "@/report/labels";
 import { CallTimeline } from "./CallTimeline";
 import { ContractSection } from "./ContractSection";
 import { GapsSection } from "./GapsSection";
@@ -46,14 +47,28 @@ export function CallReportView({ report }: { report: CallReport }) {
           <h2 id="other-heading" className="mb-3 text-base font-semibold">
             {HEADING.otherRules}
           </h2>
-          <ul className="divide-y divide-report-line border-y border-report-line">
-            {skipped.map((c) => (
-              <li key={c.contract} className="flex flex-wrap items-baseline justify-between gap-x-4 py-3 text-sm">
-                <span>{capitalize(CONTRACT_TITLE[c.contract])}</span>
-                <span className="text-report-muted">{RESULT_LABEL[c.result]}</span>
-              </li>
-            ))}
-          </ul>
+          {/* One result, one line: a count that opens to the rules. */}
+          <div className="divide-y divide-report-line border-y border-report-line">
+            {(["not_run", "not_applicable"] as const).map((result) => {
+              const group = skipped.filter((c) => c.result === result);
+              if (group.length === 0) return null;
+              return (
+                <details key={result} className="group">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md py-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent [&::-webkit-details-marker]:hidden">
+                    <ChevronRight aria-hidden className="size-4 shrink-0 text-report-muted transition-transform group-open:rotate-90 motion-reduce:transition-none" />
+                    {ruleCountLine(result, group.length)}
+                  </summary>
+                  <ul className="pb-3 pl-7 text-sm text-report-ink-2">
+                    {group.map((c) => (
+                      <li key={c.contract} className="py-1">
+                        {capitalize(CONTRACT_TITLE[c.contract])}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              );
+            })}
+          </div>
         </section>
       ) : null}
       <CallTimeline report={report} />

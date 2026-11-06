@@ -186,4 +186,11 @@ describe("FindingBlock", () => {
     expect(screen.getByText(finding.text)).toHaveClass("sr-only");
     expect(screen.getByRole("article", { name: finding.text })).toBeInTheDocument();
   });
+
+  it("puts the link to the call after the evidence when its sentence is hidden", () => {
+    render(<FindingBlock finding={finding} evidence={evidence} detections={detections} contract="promise_backed" hideText anchor="f" />);
+    const link = screen.getByRole("link", { name: "Show in the call" });
+    const did = screen.getByRole("group", { name: "Did" });
+    expect(did.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

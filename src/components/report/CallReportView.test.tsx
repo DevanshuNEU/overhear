@@ -119,11 +119,15 @@ describe("CallReportView on the failed sample", () => {
     }
   });
 
-  it("lists the other rules with what happened to each", () => {
-    setup();
+  it("counts the other rules by what happened to them, one line each, that opens on request", () => {
+    const { container } = setup();
     const other = screen.getByRole("region", { name: "Other rules" });
-    expect(within(other).getByText("Booking matches the request")).toBeInTheDocument();
-    expect(within(other).getByText("Not checked")).toBeInTheDocument();
+    const details = other.querySelectorAll("details");
+    expect(details).toHaveLength(1);
+    expect(details[0].open).toBe(false);
+    expect(within(other).getByText("1 rule not checked")).toBeInTheDocument();
+    expect(within(details[0]).getByText("Booking matches the request")).toBeInTheDocument();
+    expect(container).toBeTruthy();
   });
 
   it("gives every contract a heading, open or collapsed", () => {
@@ -148,11 +152,14 @@ describe("CallReportView on the failed sample", () => {
 });
 
 describe("CallReportView on a call where no rule applied", () => {
-  it("does not call the rules that did not apply unchecked", () => {
+  it("does not call the rules that did not apply unchecked, and does not list them one by one", () => {
     render(<CallReportView report={needsReviewSample} />);
     const other = screen.getByRole("region", { name: "Other rules" });
-    expect(within(other).getAllByText("Doesn't apply")).toHaveLength(5);
-    expect(within(other).queryByText("Not checked")).not.toBeInTheDocument();
+    // One result, one line: a count that opens to the five rules.
+    expect(within(other).getByText("5 rules didn't apply")).toBeInTheDocument();
+    expect(other.querySelectorAll("details")).toHaveLength(1);
+    expect(within(other).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(other).queryByText(/not checked/)).not.toBeInTheDocument();
   });
 });
 

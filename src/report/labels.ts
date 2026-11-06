@@ -124,6 +124,12 @@ export function blockedLine(titles: string[]): string {
   return `Rules it blocks: ${titles.join(", ")}.`;
 }
 
+/** One line for the rules that share a result: "5 rules didn't apply", "1 rule not checked". */
+export function ruleCountLine(result: "not_applicable" | "not_run", count: number): string {
+  const rules = count === 1 ? "1 rule" : `${count} rules`;
+  return result === "not_applicable" ? `${rules} didn't apply` : `${rules} not checked`;
+}
+
 /** Opens the whole of a turn when the Said lane shows only the claim and the sentences beside it. */
 export const WHOLE_TURN = "Whole turn";
 

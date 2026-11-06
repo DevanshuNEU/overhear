@@ -36,7 +36,7 @@ describe("the first engine release's report shape (scheduling only)", () => {
     expect(within(screen.getByRole("list", { name: "Key facts" })).getByText("1 broken, 2 kept")).toBeInTheDocument();
     const other = screen.getByRole("region", { name: "Other rules" });
     expect(within(other).getByText("Booking matches the request")).toBeInTheDocument();
-    expect(within(other).getByText("Not checked")).toBeInTheDocument();
+    expect(within(other).getByText("1 rule not checked")).toBeInTheDocument();
   });
 
   it("shows the passed call calmly, with its note, and every rule that ran collapsed", () => {
