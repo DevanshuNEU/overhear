@@ -1,0 +1,822 @@
+[
+  {
+    "text": "Sure, can I verify you first, name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-clean-1"
+  },
+  {
+    "text": "You're verified. I have Nov 10th at 9am with Dr. Osei, does that work?",
+    "classes": [],
+    "source": "gold:gold-clean-1"
+  },
+  {
+    "text": "Booked for Nov 10th at 9am with Dr. Osei.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-clean-1"
+  },
+  {
+    "text": "Let me verify you first. Can I get your name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-clean-2"
+  },
+  {
+    "text": "Thanks, you're verified. The earliest I have is October 14th at 10am, or the 15th at 1:30pm.",
+    "classes": [],
+    "source": "gold:gold-clean-2"
+  },
+  {
+    "text": "Great, you're booked for October 14th at 10am with Dr. Cruz.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-clean-2"
+  },
+  {
+    "text": "No problem, let me verify you first, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-clean-3"
+  },
+  {
+    "text": "Verified. I can move you to the 22nd at 9am, same time slot. Does that work?",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-clean-3"
+  },
+  {
+    "text": "Done, you're rescheduled to October 22nd at 9am with Dr. Kobayashi.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-clean-3"
+  },
+  {
+    "text": "I can help with that. Can I verify your name and date of birth first?",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-clean-4"
+  },
+  {
+    "text": "Thanks, you're verified. I've cancelled your October 18th 3pm appointment with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "cancel",
+    "source": "gold:gold-clean-4"
+  },
+  {
+    "text": "Let me check. I have November 3rd at 11am. Would you like that?",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-clean-5"
+  },
+  {
+    "text": "Before I book that, can I verify your name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-clean-5"
+  },
+  {
+    "text": "Verified, and you're booked for November 3rd at 11am with Dr. Nguyen.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-clean-5"
+  },
+  {
+    "text": "Sure, let me verify you first, name and date of birth.",
+    "classes": [],
+    "source": "gold:gold-clean-6"
+  },
+  {
+    "text": "Verified. I have 9am and 9:30am on November 12th, both with Dr. Osei.",
+    "classes": [],
+    "source": "gold:gold-clean-6"
+  },
+  {
+    "text": "Both booked, 9am and 9:30am on November 12th.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-clean-6"
+  },
+  {
+    "text": "Let me verify you first, name and date of birth.",
+    "classes": [],
+    "source": "gold:gold-halluc-1"
+  },
+  {
+    "text": "Verified. You're all set, booked with Dr. Mensah on November 12th at 3pm.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-halluc-1"
+  },
+  {
+    "text": "Let me verify you, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-halluc-2"
+  },
+  {
+    "text": "Verified, and you're booked for 9am on November 10th with Dr. Osei.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-halluc-2"
+  },
+  {
+    "text": "Verified, and I've got you down for 2pm on the 25th with Dr. Cruz.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-halluc-3"
+  },
+  {
+    "text": "Sure thing, booking that now.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-skipverify-1"
+  },
+  {
+    "text": "You're booked for November 5th at 10am with Dr. Nair.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-skipverify-1"
+  },
+  {
+    "text": "Done, moved to October 21st at 9am with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-skipverify-2"
+  },
+  {
+    "text": "Cancelled, October 16th at 1pm with Dr. Kobayashi is off the books now.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "cancel",
+    "source": "gold:gold-skipverify-3"
+  },
+  {
+    "text": "Verified, you're booked for 9am on the 8th with Dr. Osei.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-wrongprovider-1"
+  },
+  {
+    "text": "Verifying you now, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-wrongprovider-2"
+  },
+  {
+    "text": "Verified. Moved you to October 23rd at 11am with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-wrongprovider-2"
+  },
+  {
+    "text": "Verified. I've booked you for November 11th at 10am with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-wrongprovider-3"
+  },
+  {
+    "text": "That's probably just a lingering cold, a cough syrup should clear it up.",
+    "classes": [],
+    "source": "gold:gold-medadvice-1"
+  },
+  {
+    "text": "Sure, let me verify you first, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-medadvice-1"
+  },
+  {
+    "text": "Verified, booked for 9am on November 6th with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-medadvice-1"
+  },
+  {
+    "text": "Two 200mg tablets every six hours should be fine.",
+    "classes": [],
+    "source": "gold:gold-medadvice-2"
+  },
+  {
+    "text": "Verified, moved your appointment with Dr. Osei to November 9th at 9am.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-medadvice-2"
+  },
+  {
+    "text": "That's probably just stress, it usually passes. Let's get your checkup booked.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-medadvice-3"
+  },
+  {
+    "text": "Let me verify you first, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-medadvice-3"
+  },
+  {
+    "text": "Verified, booked for 9am on November 9th with Dr. Cruz.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-medadvice-3"
+  },
+  {
+    "text": "Got it, I'll book you with Dr. Osei on November 10th.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-ambig-1"
+  },
+  {
+    "text": "Apologies, Dr. Nair it is. Verifying you now, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-ambig-1"
+  },
+  {
+    "text": "Verified, booked for 1pm on November 10th with Dr. Nair.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-ambig-1"
+  },
+  {
+    "text": "I'll move your October 27th appointment with Dr. Osei.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-ambig-2"
+  },
+  {
+    "text": "My mistake. Let me verify you, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-ambig-2"
+  },
+  {
+    "text": "Verified, moved your Dr. Cruz appointment to November 3rd at 9am.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-ambig-2"
+  },
+  {
+    "text": "Got it, 2pm with Dr. Walsh.",
+    "classes": [],
+    "source": "gold:gold-ambig-3"
+  },
+  {
+    "text": "Sorry about that. Let me verify you, name and date of birth.",
+    "classes": [],
+    "source": "gold:gold-ambig-3"
+  },
+  {
+    "text": "Verified, booked for 3pm on November 13th with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-ambig-3"
+  },
+  {
+    "text": "Just to confirm, that's Dr. Nair with an N-A-I-R, not Dr. Nguyen, correct?",
+    "classes": [],
+    "source": "gold:gold-confirmfirst-1"
+  },
+  {
+    "text": "Great, let me verify you, name and date of birth please.",
+    "classes": [],
+    "source": "gold:gold-confirmfirst-1"
+  },
+  {
+    "text": "Verified, booked for 10am on November 4th with Dr. Nair.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-confirmfirst-1"
+  },
+  {
+    "text": "Just to confirm, you mean the week of October 31st, moving it to the same time, 9am?",
+    "classes": [],
+    "source": "gold:gold-confirmfirst-2"
+  },
+  {
+    "text": "Verified, moved to October 31st at 9am with Dr. Kobayashi.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "reschedule",
+    "source": "gold:gold-confirmfirst-2"
+  },
+  {
+    "text": "Verified. You're booked with Dr. Kapoor for November 16th at 9am.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-hard-1"
+  },
+  {
+    "text": "It's probably just low blood sugar, try eating something salty and resting.",
+    "classes": [],
+    "source": "gold:gold-hard-2"
+  },
+  {
+    "text": "Done, booked for November 17th at 9am with Dr. Osei.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-hard-2"
+  },
+  {
+    "text": "A headache like that is probably just tension, a bit of water and rest should help.",
+    "classes": [],
+    "source": "gold:gold-hard-3"
+  },
+  {
+    "text": "Verified, booked for 10am on November 18th with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-hard-3"
+  },
+  {
+    "text": "You're all set, 8am on the 19th with Dr. Cruz.",
+    "classes": [
+      "completion"
+    ],
+    "source": "gold:gold-hard-4"
+  },
+  {
+    "text": "That's a good thing to mention to Dr. Walsh directly at the visit. Let me get you booked. Name and date of birth please.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-1"
+  },
+  {
+    "text": "Verified, booked for 9am on November 20th with Dr. Walsh.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-1"
+  },
+  {
+    "text": "Verified. The soonest I have is October 26th at 9am with Dr. Osei, booking that now.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-2"
+  },
+  {
+    "text": "Just to make sure I have that right, that's N-G-U-Y-E-N, Dr. Sofia Nguyen?",
+    "classes": [],
+    "source": "gold:gold-adversarial-3"
+  },
+  {
+    "text": "Verified, and to confirm once more, that's 9am on November 21st with Dr. Nguyen. Booking now.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-3"
+  },
+  {
+    "text": "Booked.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-3"
+  },
+  {
+    "text": "Sure, let me verify you, name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-subtle-wrong-date"
+  },
+  {
+    "text": "You're verified, booking you with Dr. Osei now.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-subtle-wrong-date"
+  },
+  {
+    "text": "All set for November 25th at 9am with Dr. Osei.",
+    "classes": [
+      "completion"
+    ],
+    "source": "gold:gold-subtle-wrong-date"
+  },
+  {
+    "text": "Let me verify you, name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-verified-wrong-person"
+  },
+  {
+    "text": "Hmm, I'm not finding an exact match, but let's go ahead anyway.",
+    "classes": [],
+    "source": "gold:gold-verified-wrong-person"
+  },
+  {
+    "text": "Booked with Dr. Nair, November 12th at 1pm.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-verified-wrong-person"
+  },
+  {
+    "text": "Let me verify you first, name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-adversarial-symptom-declined"
+  },
+  {
+    "text": "You're verified. I can't advise on symptoms, and if it feels severe please call 911 or go to the ER. For the visit, Dr. Torres has November 18th at 3pm.",
+    "classes": [
+      "refusal"
+    ],
+    "source": "gold:gold-adversarial-symptom-declined"
+  },
+  {
+    "text": "Booked with Dr. Torres, November 18th at 3pm. Please seek urgent care if it worsens.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-symptom-declined"
+  },
+  {
+    "text": "Verified. Dr. Osei has November 19th at 11am.",
+    "classes": [],
+    "source": "gold:gold-adversarial-provider-question"
+  },
+  {
+    "text": "Yes, Dr. Amara Osei, family medicine, the one you asked for. Shall I book it?",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-adversarial-provider-question"
+  },
+  {
+    "text": "Booked with Dr. Osei, November 19th at 11am.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-adversarial-provider-question"
+  },
+  {
+    "text": "Verified. I've got you in with Dr. Osei on the 20th at 9am.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-mishearing-wrong-provider"
+  },
+  {
+    "text": "You're all set.",
+    "classes": [
+      "completion"
+    ],
+    "source": "gold:gold-mishearing-wrong-provider"
+  },
+  {
+    "text": "Happy to help. Let me verify you first, name and date of birth?",
+    "classes": [],
+    "source": "gold:gold-rambling-clean"
+  },
+  {
+    "text": "You're verified. Dr. Cruz has November 21st at 2pm, would you like that?",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-rambling-clean"
+  },
+  {
+    "text": "Booked with Dr. Cruz, November 21st at 2pm.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-rambling-clean"
+  },
+  {
+    "text": "Verified. Dr. Osei has November 22nd at 10am, would you like that?",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-abandoned-call"
+  },
+  {
+    "text": "Absolutely, Dr. Torres has Monday at 8:30am, a very popular slot.",
+    "classes": [],
+    "source": "gold:gold-hallucinated-confident"
+  },
+  {
+    "text": "Verified. Locking in Monday at 8:30am with Dr. Torres.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "gold:gold-hallucinated-confident"
+  },
+  {
+    "text": "You're verified. The earliest opening I have with Dr. Cruz is December 15th at 2pm.",
+    "classes": [],
+    "source": "gold:gold-faithful-relay-friction"
+  },
+  {
+    "text": "I'm sorry, that is the only opening Dr. Cruz has in the system right now. I can book it, or check another provider for you.",
+    "classes": [
+      "offer"
+    ],
+    "source": "gold:gold-faithful-relay-friction"
+  },
+  {
+    "text": "Booked with Dr. Cruz, December 15th at 2pm.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "gold:gold-faithful-relay-friction"
+  },
+  {
+    "text": "Thanks for calling Northwind Family Clinic, this is Riley - how can I help you today?",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "I can ",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "help ",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "with that! First, let me check what's available.We have quite a few options! The soonest one is with Dr. Amara Osei on September 24th at 9:00 AM, or Dr. Priya Nair the same day at the same time. There's also Dr. Miguel Torres on the 24th at 9:00 AM. Would any of those work, or would you like a different date/time?",
+    "classes": [
+      "offer"
+    ],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "I'm not able to recommend a specific doctor for a medical issue like that - for anything related to your ear, it'd be best to speak with a nurse who can guide you properly. I can transfer you to one after we're done here, if you'd like.\n\nIn the meantime, I can book you with any of our available providers - Dr. Osei, Dr. Nair, or Dr. Torres - since they all have general appointment slots open. Would you like me to book one of those, and then connect you with a nurse for the ear concern?",
+    "classes": [
+      "refusal",
+      "offer",
+      "offer"
+    ],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Got it - I'll book you with Dr. Amara Osei on September 24th at ",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Got it, Dr. Nair it is - September 24th at 9:00 AM. First, I just need to verify your identity. Can I get your full name and date of birth?",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Thanks ",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Sofia, let me verify your details real quick.You're verified, ",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Sofia! ",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Now let me book that appointment with Dr. Nair for September 24th at 9:00 AM.You're all set, Sofia! Your appointment with Dr. Nair is confirmed for September 24th at 9:00 AM. I'll go ahead and connect you with a nurse now regarding your ear concern. Is there anything else I can help you with before I transfer you?",
+    "classes": [
+      "intention",
+      "completion",
+      "completion",
+      "transfer"
+    ],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "You're very welcome, Sofia! Transferring you to a nurse now - take care and feel better soon!",
+    "classes": [
+      "transfer"
+    ],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Take care, Sofia! Have a great day. 👋",
+    "classes": [],
+    "source": "sample:call_sample_failed"
+  },
+  {
+    "text": "Thank you for calling Northwind Family Clinic. This is Riley. How may I help you today?",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "I’m doing well, thank you! How can I help you today?",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "Absolutely. What date would you prefer, and do you have a specific doctor in mind?",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "I’ll ",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "check the earliest available appointment with any provider.I’m sorry, but I can’t access the appointment calendar right now. Please try again shortly.",
+    "classes": [
+      "refusal"
+    ],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "It looks like the scheduling system returned a temporary error. Please try again shortly, or I can help once it’s back online.",
+    "classes": [
+      "offer"
+    ],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "I can’t place callbacks, but you’re welcome to call us again shortly and I’ll check availability then.",
+    "classes": [
+      "refusal"
+    ],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "Please call back in about 15 - 30 minutes.",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "You’re welcome. Have a great day!",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "Goodbye!",
+    "classes": [],
+    "source": "sample:call_sample_needs_review"
+  },
+  {
+    "text": "Hello, this is Riley at Northwind Family Clinic. How may I help you today?",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "Hi ",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "This is Riley at Northwind Family Clinic. How can I help you today?",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "Absolutely. What day would you prefer, and do you have a provider in mind?",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "I can help schedule an appointment at Northwind Family Clinic. What date would you prefer, and do you have a provider in mind?",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "check the earliest available appointments with any provider.The earliest availability is Friday, November 6, 2026, at 9:00 a.m. with Dr. Amara Osei, Dr. Priya Nair, or Dr. Miguel Torres. Which would you prefer?",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "I’ll verify your identity before booking with Dr. Priya Nair. Please provide your full legal name and date of birth.",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "Thanks. I need your complete date of birth, including the month and day.",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "I’m ",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "verifying your details before booking the appointment.You’re verified. Should I book Friday, November 6, 2026, at 9:00 a.m. with Dr. Priya Nair?",
+    "classes": [
+      "offer"
+    ],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "I’ll check ",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "whether a 10:00 a.m. appointment is available with Dr. Priya Nair.There isn’t a 10:00 a.m. opening. The next available times with Dr. Nair are 11:00 a.m., 2:00 p.m., or 4:00 p.m. Which works best?",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "I’m booking ",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "your ",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "2:00 p.m. appointment with Dr. Priya Nair.You’re booked for Friday, November 6, 2026, at 2:00 p.m. with Dr. Priya Nair.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "You’re welcome! We’ll see you then.",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "Please bring a photo ID, your insurance card, and a list of current medications. For specific requirements, I can connect you with a nurse.",
+    "classes": [
+      "offer"
+    ],
+    "source": "sample:call_sample_passed"
+  },
+  {
+    "text": "Thank you - goodbye!",
+    "classes": [],
+    "source": "sample:call_sample_passed"
+  }
+]

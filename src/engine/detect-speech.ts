@@ -74,7 +74,14 @@ const OFFER_CAN = new RegExp(
 const TRANSFER =
   /(?:\b(?:i(?:'ll| will)|i(?:'m| am) going to|let me|i(?:'m| am)) (?:go ahead and )?(?:now )?(?:transfer|connect|put you through|pass you|hand you)\b|\btransferring you\b|\bconnecting you (?:to|with)\b|\bi(?:'m| am) (?:transferring|connecting)\b)/i;
 const INTENTION = new RegExp(
-  `\\b(?:i(?:'ll| will)|i(?:'m| am) going to|i(?:'m| am) gonna|let me|let's|i(?:'m| am) about to) (?:go ahead and |just |now )*${CHANGE_VERB}\\b`,
+  [
+    `\\b(?:i(?:'ll| will)|i(?:'m| am) going to|i(?:'m| am) gonna|let me|let's|i(?:'m| am) about to) (?:go ahead and |just |now )*${CHANGE_VERB}\\b`,
+    // "Let me get you booked", "Let's get your checkup booked"
+    "\\b(?:i(?:'ll| will)|let me|let's) get (?:you|your \\w+) (?:booked|scheduled|rescheduled|cancel+ed|set up)\\b",
+    // Said as it happens: "booking that now", "Booking now", "Locking in Monday at 9"
+    "(?<!\\b(?:before|after|for|about|by) )\\b(?:booking|rescheduling|cancell?ing|moving)\\b[^!?]*\\bnow\\b",
+    "^\\s*locking in\\b",
+  ].join("|"),
   "i",
 );
 const COMPLETION = new RegExp(
@@ -85,7 +92,8 @@ const COMPLETION = new RegExp(
     "^\\s*(?:(?:ok(?:ay)?|great|perfect|done|verified|all set)[,.!]?\\s+)*(?:both |all )?(?:booked|cancel+ed|rescheduled|moved|done|updated|scheduled)\\b",
     "(?:^|[,.]\\s*)(?:and )?(?:you(?:'re| are) )?(?:booked|rescheduled)\\b",
     "\\b(?:moved|booked|cancel+ed|rescheduled) you\\b",
-    "\\bi(?:'ve| have) got you down\\b",
+    "\\bi(?:'ve| have) got you (?:down|in)\\b",
+    "^\\s*all set for\\b",
   ].join("|"),
   "i",
 );
@@ -94,7 +102,7 @@ function kindOf(s: string): ChangeKind | undefined {
   if (/\breschedul|\bmoved?\b|\bmoving\b/i.test(s)) return "reschedule";
   if (/\bcancel/i.test(s)) return "cancel";
   if (/\bupdat|\bchanged?\b/i.test(s)) return "update";
-  if (/\bbook|\bscheduled?\b|\bset you up\b|\bgot you down\b|\bappointment\b.*\bconfirmed\b|\bconfirmed\b/i.test(s)) return "book";
+  if (/\bbook|\bscheduled?\b|\bset you up\b|\bgot you (?:down|in)\b|\blocking in\b|\bappointment\b.*\bconfirmed\b|\bconfirmed\b/i.test(s)) return "book";
   return undefined;
 }
 

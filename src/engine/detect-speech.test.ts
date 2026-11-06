@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SAMPLE_REPORTS } from "@/report/samples";
+import phrasings from "./phrasings.json";
 import { classifyTurn, detectAll, findToolSyntax, splitSentences } from "./detect-speech";
 
 const classes = (text: string) => classifyTurn(text).map((c) => c.cls);
@@ -89,4 +90,17 @@ describe("detectAll equals the sample detections", () => {
       expect(detectAll(sample.evidence, [])).toEqual(sample.detections);
     });
   }
+});
+
+// Every agent line in the gold cases and every agent turn of the samples, labeled by hand.
+// A failing line gets a pattern in the detector, never a special case here.
+describe("classifies every labeled phrasing", () => {
+  it("has a label for each phrasing", () => {
+    expect(phrasings.length).toBeGreaterThan(100);
+  });
+  it.each(phrasings.map((p) => [p.source, p.text, p] as const))("%s: %s", (_source, text, p) => {
+    const out = classifyTurn(text);
+    expect(out.map((c) => c.cls)).toEqual(p.classes);
+    if ("kind" in p) expect(out.find((c) => c.kind)?.kind).toBe(p.kind);
+  });
 });
