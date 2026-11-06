@@ -1,4 +1,5 @@
-// Shared-password access gate for the deployed demo.
+// Runs before every request the matcher lets in: the shared-password access gate for the deployed demo, and the
+// redirect for old demo links.
 //
 // Note for future readers: this project is on Next.js 16, where the
 // `middleware.ts` file convention is deprecated in favor of `proxy.ts` (see
@@ -15,25 +16,42 @@
 // already verified by `verifyRetellSignature` and must keep working for
 // Retell's servers even when a password is set, so they are excluded both
 // by the matcher below and by an in-handler allowlist check.
+//
+// Order of the checks, for every path the matcher lets in:
+// 1. Excluded paths pass untouched.
+// 2. The shared password, when one is set.
+// 3. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
+//    runs after the password, so a visitor without it gets a 401 here, as before the move.
 import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth, isExcludedPath } from "@/lib/auth-gate";
+import { movedDemoPath } from "@/lib/demo-paths";
 
 export function proxy(request: NextRequest) {
-  const password = process.env.DASHBOARD_PASSWORD;
-  if (!password) return NextResponse.next();
-
   const { pathname } = request.nextUrl;
   if (isExcludedPath(pathname)) return NextResponse.next();
 
-  const authHeader = request.headers.get("authorization");
-  if (!checkBasicAuth(authHeader, password)) {
-    return new NextResponse("Authentication required", {
-      status: 401,
-      headers: { "WWW-Authenticate": 'Basic realm="Overhear"' },
-    });
+  const denied = passwordGate(request);
+  if (denied) return denied;
+
+  const moved = movedDemoPath(pathname);
+  if (moved) {
+    const url = request.nextUrl.clone();
+    url.pathname = moved;
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
+}
+
+/** A 401 when a password is set and the request does not carry it; null when the request may go on. */
+function passwordGate(request: NextRequest): NextResponse | null {
+  const password = process.env.DASHBOARD_PASSWORD;
+  if (!password) return null;
+  if (checkBasicAuth(request.headers.get("authorization"), password)) return null;
+  return new NextResponse("Authentication required", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="Overhear"' },
+  });
 }
 
 export const config = {

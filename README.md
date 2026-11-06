@@ -105,7 +105,7 @@ npm run db:generate   # regenerate migrations only if the schema changed
 npm run db:migrate
 
 # 4. Run and check
-npm run dev           # http://localhost:3000
+npm run dev           # http://localhost:3000/demo
 npm test              # run the test suite
 npm run lint
 npm run build
