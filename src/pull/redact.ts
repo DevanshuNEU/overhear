@@ -40,6 +40,7 @@ const KNOWN_NAMES = new Set([
   "UnprocessableEntityError",
   "RateLimitError",
   "InternalServerError",
+  "KeyStoreError",
 ]);
 
 function className(err: unknown): string {

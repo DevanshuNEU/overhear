@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { configPath, hasKey, overhearHome, readKey, removeKey, writeKey } from "./key-store";
+import { configPath, hasKey, KeyStoreError, overhearHome, readKey, removeKey, writeKey } from "./key-store";
 
 const KEY = "key_STORETEST0123456789abcdef";
 let home: string;
@@ -47,11 +47,80 @@ describe("key store", () => {
     expect(await hasKey()).toBe(true);
   });
 
-  it("tightens a directory that already exists with looser permissions", async () => {
-    fs.mkdirSync(path.join(home, "dot-overhear"), { mode: 0o755 });
-    fs.chmodSync(path.join(home, "dot-overhear"), 0o755);
+  it("uses an existing 0700 directory it owns", async () => {
+    fs.mkdirSync(path.join(home, "dot-overhear"), { mode: 0o700 });
+    fs.chmodSync(path.join(home, "dot-overhear"), 0o700);
     await writeKey(KEY);
-    expect(mode(path.join(home, "dot-overhear"))).toBe(0o700);
+    expect(await readKey()).toBe(KEY);
+  });
+
+  it("refuses an existing directory other users can open, and never changes its mode (OVERHEAR_HOME=$HOME)", async () => {
+    const dir = path.join(home, "dot-overhear");
+    for (const loose of [0o755, 0o750, 0o711, 0o701]) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.chmodSync(dir, loose);
+      const err = await writeKey(KEY).catch((e: unknown) => e);
+      expect(err, loose.toString(8)).toBeInstanceOf(KeyStoreError);
+      expect((err as KeyStoreError).code).toBe("home_unsafe");
+      expect((err as Error).message).toMatch(/chmod 700|OVERHEAR_HOME/);
+      expect(mode(dir), loose.toString(8)).toBe(loose);
+      expect(fs.existsSync(configPath())).toBe(false);
+    }
+  });
+
+  it.skipIf(process.getuid?.() === 0 || process.getuid === undefined)("refuses a directory owned by another user", async () => {
+    vi.stubEnv("OVERHEAR_HOME", "/usr");
+    const err = await writeKey(KEY).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(KeyStoreError);
+    expect((err as KeyStoreError).code).toBe("home_unsafe");
+    expect((err as Error).message).toMatch(/not yours|owned/);
+  });
+
+  it("removes leftover temp files from a crashed write, on write and on disconnect", async () => {
+    const dir = path.join(home, "dot-overhear");
+    await writeKey(KEY);
+    const leftovers = [".config.json.0123456789abcdef.tmp", ".config.json.fedcba9876543210.tmp"];
+    for (const name of leftovers) fs.writeFileSync(path.join(dir, name), JSON.stringify({ retellApiKey: KEY }), { mode: 0o600 });
+    fs.writeFileSync(path.join(dir, "notes.txt"), "keep me");
+
+    await writeKey("key_SECONDKEY0123456789abcdef");
+    expect(fs.readdirSync(dir).sort()).toEqual(["config.json", "notes.txt"]);
+
+    for (const name of leftovers) fs.writeFileSync(path.join(dir, name), JSON.stringify({ retellApiKey: KEY }), { mode: 0o600 });
+    await removeKey();
+    expect(fs.readdirSync(dir)).toEqual(["notes.txt"]);
+  });
+
+  it("refuses to read a key file that is a symlink", async () => {
+    const dir = path.join(home, "dot-overhear");
+    fs.mkdirSync(dir, { mode: 0o700 });
+    const target = path.join(home, "elsewhere.json");
+    fs.writeFileSync(target, JSON.stringify({ retellApiKey: KEY }), { mode: 0o600 });
+    fs.symlinkSync(target, configPath());
+    const err = await readKey().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(KeyStoreError);
+    expect((err as KeyStoreError).code).toBe("file_unsafe");
+    await expect(hasKey()).rejects.toBeInstanceOf(KeyStoreError);
+  });
+
+  it("refuses to read a key file whose mode is not 0600", async () => {
+    await writeKey(KEY);
+    for (const loose of [0o644, 0o640, 0o604, 0o400, 0o700]) {
+      fs.chmodSync(configPath(), loose);
+      const err = await readKey().catch((e: unknown) => e);
+      expect(err, loose.toString(8)).toBeInstanceOf(KeyStoreError);
+      expect((err as KeyStoreError).code).toBe("file_unsafe");
+    }
+    fs.chmodSync(configPath(), 0o600);
+    expect(await readKey()).toBe(KEY);
+  });
+
+  it("refuses to read a key from a directory other users can open", async () => {
+    await writeKey(KEY);
+    fs.chmodSync(path.join(home, "dot-overhear"), 0o755);
+    const err = await readKey().catch((e: unknown) => e);
+    expect((err as KeyStoreError).code).toBe("home_unsafe");
+    fs.chmodSync(path.join(home, "dot-overhear"), 0o700);
   });
 
   it("replaces an existing key atomically and leaves no temp files behind", async () => {

@@ -3,7 +3,7 @@
 // Local mode only: on a hosted copy every method answers 404 (src/proxy.ts says so too). The key comes only
 // from the JSON body, never from the URL or a cookie.
 import { checkKey } from "@/pull/retell-source";
-import { hasKey, removeKey, writeKey } from "@/pull/key-store";
+import { hasKey, KeyStoreError, removeKey, writeKey } from "@/pull/key-store";
 import { assertLocalRequest, FRAME_HEADERS } from "@/pull/local";
 import { CONNECT_MESSAGE, LOCAL_REFUSAL, type ConnectError } from "@/pull/labels";
 import { logSafe, safeError } from "@/pull/redact";
@@ -27,6 +27,11 @@ function plain(text: string, status: number): Response {
   return new Response(text, { status, headers: { ...NO_STORE, "content-type": "text/plain; charset=utf-8" } });
 }
 
+/** The answer for a key store failure: the store's own refusal when it made one, else a plain failure. */
+function storeError(err: unknown): ConnectError {
+  return err instanceof KeyStoreError ? err.code : "store_failed";
+}
+
 function logFailure(event: string, err: unknown) {
   const safe = safeError(err);
   logSafe(event, safe.status === undefined ? { name: safe.name, code: safe.code } : { name: safe.name, status: safe.status, code: safe.code });
@@ -39,7 +44,7 @@ export async function GET(request: Request): Promise<Response> {
     return json({ connected: await hasKey() });
   } catch (err) {
     logFailure("connect.read_failed", err);
-    return json({ connected: false });
+    return failed(storeError(err), 500);
   }
 }
 
@@ -84,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
       await writeKey(pasted.key);
     } catch (err) {
       logFailure("connect.store_failed", err);
-      return failed("store_failed", 500);
+      return failed(storeError(err), 500);
     }
     return json({ connected: true });
   } catch (err) {

@@ -120,6 +120,15 @@ describe("POST /api/connect", () => {
     expect(await res.json()).toEqual({ connected: false, error: "store_failed", message: CONNECT_MESSAGE.store_failed });
   });
 
+  it("says the store directory is unsafe, and stores nothing, when other users can open it", async () => {
+    fs.chmodSync(home, 0o755);
+    const res = await POST(post({ key: KEY }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ connected: false, error: "home_unsafe", message: CONNECT_MESSAGE.home_unsafe });
+    expect(fs.existsSync(configPath())).toBe(false);
+    expect((fs.statSync(home).mode & 0o777).toString(8)).toBe("755");
+  });
+
   it("refuses a body that is not JSON, not an object, has no key or is too large, without calling Retell", async () => {
     const cases: [Request, number][] = [
       [post(`{"key": ${KEY}`), 400],
@@ -144,6 +153,18 @@ describe("POST /api/connect", () => {
     expect(res.status).toBe(400);
     expect(retellCalls).toBe(0);
     expect(fs.existsSync(configPath())).toBe(false);
+  });
+});
+
+describe("GET /api/connect with an unsafe key file", () => {
+  it("says so instead of reading it", async () => {
+    await writeKey(KEY);
+    fs.chmodSync(configPath(), 0o644);
+    const res = await GET(get());
+    expect(res.status).toBe(500);
+    const text = await res.text();
+    expect(JSON.parse(text)).toEqual({ connected: false, error: "file_unsafe", message: CONNECT_MESSAGE.file_unsafe });
+    expect(text).not.toContain("ROUTETEST");
   });
 });
 
