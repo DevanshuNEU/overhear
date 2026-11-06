@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PLATFORMS, RESULTS } from "./schema";
 import {
   FIELD_STATUS_LABEL,
+  ruleCountLine,
   PLATFORM_LABEL,
   RESULT_LABEL,
   TIER_LABEL,
@@ -38,10 +39,17 @@ describe("labels for the call detail screen", () => {
     it("counts broken, unchecked and kept rules, worst first", () => {
       const r = (result: (typeof RESULTS)[number]) => ({ result });
       expect(rulesSummary([r("violated"), r("passed"), r("passed"), r("passed"), r("not_run")])).toBe("1 broken, 3 kept");
-      expect(rulesSummary([r("unverified"), r("passed")])).toBe("1 couldn't be checked, 1 kept");
+      expect(rulesSummary([r("unverified"), r("passed")])).toBe("1 couldn't check, 1 kept");
     });
     it("says plainly when no rule applied", () => {
       expect(rulesSummary([{ result: "not_applicable" }, { result: "not_run" }])).toBe("None applied");
     });
+  });
+
+  it("counts rules that did not apply or were not checked", () => {
+    expect(ruleCountLine("not_applicable", 1)).toBe("1 rule didn't apply");
+    expect(ruleCountLine("not_applicable", 5)).toBe("5 rules didn't apply");
+    expect(ruleCountLine("not_run", 1)).toBe("1 rule not checked");
+    expect(ruleCountLine("not_run", 2)).toBe("2 rules not checked");
   });
 });

@@ -4,8 +4,8 @@
 import type { ContractId, FieldCheck, GapCode, Note, Platform, ReviewReasonKind, Result, Verdict } from "./schema";
 
 export const RESULT_LABEL: Record<Result, string> = {
-  violated: "Violated",
-  passed: "Passed",
+  violated: "Broken",
+  passed: "Kept",
   unverified: "Couldn't check",
   not_applicable: "Doesn't apply",
   not_run: "Not checked",
@@ -21,7 +21,7 @@ export const CONTRACT_TITLE: Record<ContractId, string> = {
   promise_backed: "promises backed by the system",
   verified_before_change: "identity checked before changes",
   spoken_matches_committed: "spoken details match the booking",
-  transfer_kept: "transfers kept",
+  transfer_kept: "promised transfers happen",
   committed_matches_request: "booking matches the request",
 };
 
@@ -74,7 +74,7 @@ export const FACT_LABEL = {
 export const HEADING = {
   rows: "Said and did",
   reasons: "Why it needs review",
-  gaps: "What's missing",
+  gaps: "What we couldn't check",
   otherRules: "Other rules",
   timeline: "The call",
 };
@@ -100,14 +100,63 @@ export const REASON_TAG: Record<ReviewReasonKind, string> = {
   unanswered_request: "Unanswered request",
 };
 
-/** Leads the line that names the rules a call could not check. */
-export const COULDNT_CHECK_LEAD = "Couldn't check:";
-
 /** The Evidence fact: the source, and how many gaps it has when it has any. */
 export function evidenceFact(tier: 1 | 2, gapCount: number): string {
   if (gapCount === 0) return TIER_LABEL[tier];
   return `${TIER_LABEL[tier]}, ${gapCount} ${gapCount === 1 ? "gap" : "gaps"}`;
 }
+
+/** Said after the sentence of a rule that broke more than once. */
+export function repeatedLine(times: number): string {
+  return times === 2 ? "This happened twice." : `This happened ${times} times.`;
+}
+
+/** Said after a review reason when several rules could not be checked for it. */
+export function uncheckedCountLine(rules: number): string {
+  return `${rules} rules couldn't be checked.`;
+}
+
+/** The one line a rule gives when it could not be checked: the reason is said once, in the section it points to. */
+export const SEE_GAPS = "See what we couldn't check.";
+
+/** Names the rules a gap blocks. */
+export function blockedLine(titles: string[]): string {
+  return `Rules it blocks: ${titles.join(", ")}.`;
+}
+
+/** One line for the rules that share a result: "5 rules didn't apply", "1 rule not checked". */
+export function ruleCountLine(result: "not_applicable" | "not_run", count: number): string {
+  const rules = count === 1 ? "1 rule" : `${count} rules`;
+  return result === "not_applicable" ? `${rules} didn't apply` : `${rules} not checked`;
+}
+
+/** Opens the whole of a turn when the Said lane shows only the claim and the sentences beside it. */
+export const WHOLE_TURN = "Whole turn";
+
+/** "a", "a and b", "a, b and c". */
+function listed(items: string[]): string {
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/** ", at 2:01 and 2:22", or nothing when a time is missing for any of them. */
+function atTimes(times: string[]): string {
+  return times.length === 0 ? "" : `, at ${listed(times)}`;
+}
+
+const timesOf = (n: number) => (n === 2 ? "twice" : `${n} times`);
+
+/**
+ * The lead sentence for a rule that broke more than once: a template per rule, filled only with the count and the
+ * times of the findings. It states nothing the findings do not. `times` is empty when any time is unknown.
+ * A rule with no template falls back to the first finding's sentence and a count (see answer.ts).
+ */
+export const LEAD_TEMPLATES: Partial<Record<ContractId, (count: number, times: string[]) => string>> = {
+  promise_backed: (n, times) => `The agent made ${n} promises the system had not backed${atTimes(times)}.`,
+  verified_before_change: (n) => `${n} changes were made before the caller's identity was checked.`,
+  spoken_matches_committed: (n, times) => `The agent confirmed details that differed from the booking ${n} times${atTimes(times)}.`,
+  transfer_kept: (n, times) => `The agent said ${timesOf(n)} that it was transferring the caller${atTimes(times)}. No transfer was attempted.`,
+  committed_matches_request: (n) => `${n} bookings differed from what the caller asked for.`,
+};
 
 export const LOADING_LABEL = "Loading the call";
 
@@ -133,8 +182,26 @@ export const LANE_LABEL = {
   did: "Did",
 };
 
-/** Shown in the Did lane when a finding rests on nothing the system did. */
-export const NOTHING_DID = "Nothing in the call record.";
+/** Shown in the Did lane when the record gives no more specific proof that the system did nothing. */
+export const NOTHING_DID = "No matching action in the call record.";
+
+/** The proof that nothing was done, built only from what the record holds. `clock` is when the agent made the claim. */
+export function noTransferAfter(clock: string | null): string {
+  return `No transfer tool was called after ${clock ?? "the claim"}.`;
+}
+
+export function noChangeBefore(clock: string | null): string {
+  return `No tool that changes a booking was called before ${clock ?? "the claim"}.`;
+}
+
+export function toolsCalledLine(names: string[]): string {
+  return names.length === 0 ? "No tools were called in this call." : `Tools called in this call: ${names.join(", ")}.`;
+}
+
+/** A tool call that got no result back. */
+export function toolNoResultLine(name: string): string {
+  return `${name} was called, no result came back`;
+}
 
 export const FIELD_STATUS_LABEL: Record<FieldCheck["status"], string> = {
   match: "Matches",
@@ -222,7 +289,7 @@ export function rulesSummary(results: { result: Result }[]): string {
   const count = (r: Result) => results.filter((x) => x.result === r).length;
   const parts = [
     [count("violated"), "broken"],
-    [count("unverified"), "couldn't be checked"],
+    [count("unverified"), "couldn't check"],
     [count("passed"), "kept"],
   ].filter(([n]) => (n as number) > 0);
   return parts.length ? parts.map(([n, word]) => `${n} ${word}`).join(", ") : "None applied";

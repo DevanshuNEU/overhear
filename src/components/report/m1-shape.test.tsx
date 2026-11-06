@@ -27,23 +27,23 @@ describe("the first engine release's report shape (scheduling only)", () => {
 
   it("shows the failed call with no identity rule, no empty section and the right counts", () => {
     render(<CallReportView report={schedulingOnly(failedSample)} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(failedSample.headline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The agent said twice that it was transferring the caller");
     expect(screen.queryByText("Identity checked before changes")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Transfers kept" })).toHaveTextContent("Violated");
+    expect(screen.getByRole("region", { name: "Promised transfers happen" })).toHaveTextContent("Broken");
     for (const title of ["Promises backed by the system", "Spoken details match the booking"]) {
       expect(screen.getByRole("heading", { level: 3, name: title })).toBeInTheDocument();
     }
     expect(within(screen.getByRole("list", { name: "Key facts" })).getByText("1 broken, 2 kept")).toBeInTheDocument();
     const other = screen.getByRole("region", { name: "Other rules" });
     expect(within(other).getByText("Booking matches the request")).toBeInTheDocument();
-    expect(within(other).getByText("Not checked")).toBeInTheDocument();
+    expect(within(other).getByText("1 rule not checked")).toBeInTheDocument();
   });
 
   it("shows the passed call calmly, with its note, and every rule that ran collapsed", () => {
     const { container } = render(<CallReportView report={schedulingOnly(passedSample)} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Every promise that applied was kept. The caller's request wasn't checked.");
     expect(screen.queryByText("Identity checked before changes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Violated")).not.toBeInTheDocument();
+    expect(screen.queryByText("Broken")).not.toBeInTheDocument();
     expect(container.querySelectorAll("section > details")).toHaveLength(2);
     expect(within(screen.getByRole("list", { name: "Key facts" })).getByText("2 kept")).toBeInTheDocument();
   });

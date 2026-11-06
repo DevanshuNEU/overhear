@@ -10,6 +10,8 @@ export type Thread = {
   anchor: string;
   /** The contract a finding belongs to. Reasons and gaps have none. */
   contract?: ContractId;
+  /** A finding's own sentence, which is how its claim is told from others on the same turn. Reasons and gaps have none. */
+  text?: string;
   result: Result;
   label: string;
   /** Every seq the finding cites, once each, in call order. */
@@ -47,6 +49,7 @@ export function threadsOf(report: CallReport): Thread[] {
         id: anchor,
         anchor,
         contract: c.contract,
+        text: f.text,
         result: f.result,
         label: c.findings.length > 1 ? numberedLabel(title, i + 1, c.findings.length) : title,
         seqs,
@@ -65,13 +68,37 @@ export function threadsOf(report: CallReport): Thread[] {
   return [...findings, ...reasons, ...gaps];
 }
 
-/** What each railed thread draws at one item: a dot where the thread cites it, a line where it passes by. */
-export function railsAt(threads: Thread[], seq: number): RailMark[] {
-  return threads.flatMap((t) => {
-    if (!t.railed || t.seqs.length === 0) return [];
-    const first = t.seqs[0];
-    const last = t.seqs[t.seqs.length - 1];
-    if (seq < first || seq > last) return [];
-    return [{ id: t.id, mark: t.seqs.includes(seq) ? ("dot" as const) : ("line" as const), first: seq === first, last: seq === last }];
-  });
+/**
+ * What each railed thread draws at each row of the timeline: a dot on a row that cites it, a line on the rows
+ * between. A row can stand for several seqs (a tool call and its result are one row), so a thread's span is
+ * read in rows, in the order they are shown.
+ */
+export function railMarks(threads: Thread[], rows: number[][]): RailMark[][] {
+  const marks: RailMark[][] = rows.map(() => []);
+  for (const t of threads) {
+    if (!t.railed || t.seqs.length === 0) continue;
+    const cited = rows.flatMap((row, i) => (row.some((s) => t.seqs.includes(s)) ? [i] : []));
+    if (cited.length === 0) continue;
+    const first = cited[0];
+    const last = cited[cited.length - 1];
+    for (let i = first; i <= last; i++) marks[i].push({ id: t.id, mark: cited.includes(i) ? "dot" : "line", first: i === first, last: i === last });
+  }
+  return marks;
+}
+
+/**
+ * Which column of the rail area each railed thread draws in. The findings of one rule share a column, so their
+ * dots line up down the page; reasons and gaps each have their own. Columns are numbered from zero, in the order
+ * the rules first appear.
+ */
+export function railColumns(threads: Thread[]): Map<string, number> {
+  const columns = new Map<string, number>();
+  const byKey = new Map<string, number>();
+  for (const t of threads) {
+    if (!t.railed) continue;
+    const key = t.contract ?? t.id;
+    if (!byKey.has(key)) byKey.set(key, byKey.size);
+    columns.set(t.id, byKey.get(key)!);
+  }
+  return columns;
 }

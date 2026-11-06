@@ -1,37 +1,11 @@
 // One finding: the sentence the engine wrote, the caller's request when there is one, then the
 // said | did rows, then the compared details. Every lane is built from the finding's own seqs.
 import { useId } from "react";
-import type { ContractId, Detection, Evidence, Finding } from "@/report/schema";
+import type { ContractId, Detection, Evidence, Finding, Policy } from "@/report/schema";
+import { citedClaims } from "./claims";
 import { FIELD_COLUMN_LABEL, FIELD_STATUS_LABEL, NOTHING_COMMITTED, SHOW_IN_CALL, capitalize, comparedLine } from "@/report/labels";
-import { GapLines } from "./GapLines";
+import { AbsenceProof } from "./AbsenceProof";
 import { LaneRows } from "./LaneRows";
-
-// The speech classes each contract's claim is made of, so the words marked are the words the verdict
-// rests on. This copies the schema's own mapping (claimClass in schema.ts), plus tool_syntax for
-// transfers, which the schema accepts as a transfer claim in its violated check. Keep the two in step.
-const CLAIM_CLASSES: Partial<Record<ContractId, Detection["cls"][]>> = {
-  promise_backed: ["completion"],
-  spoken_matches_committed: ["completion"],
-  transfer_kept: ["transfer", "tool_syntax"],
-};
-
-/**
- * The claim words to mark for one finding. Several claims can share a turn, and a finding is about one of them.
- * Where the finding's own sentence quotes a claim, only the quotes it holds are marked. Where it quotes none,
- * a turn with a single claim of this kind has that one marked, and a turn with several is left unmarked, since
- * marking all of them would colour words the finding is not about.
- */
-function citedClaims(finding: Finding, contract: ContractId, detections: Detection[]): Detection[] {
-  const classes = CLAIM_CLASSES[contract] ?? [];
-  const ofKind = detections.filter((d) => classes.includes(d.cls));
-  const bySeq = new Map<number, Detection[]>();
-  for (const d of ofKind) bySeq.set(d.seq, [...(bySeq.get(d.seq) ?? []), d]);
-  return [...bySeq.values()].flatMap((atTurn) => {
-    const quoted = atTurn.filter((d) => finding.text.includes(d.quote));
-    if (quoted.length > 0) return quoted;
-    return atTurn.length === 1 ? atTurn : [];
-  });
-}
 
 const MARK_CLASS = {
   violated: "bg-report-critical-mark",
@@ -44,33 +18,40 @@ export function FindingBlock({
   evidence,
   detections,
   contract,
+  policy,
   anchor,
+  hideText = false,
 }: {
   finding: Finding;
   evidence: Evidence;
   detections: Detection[];
   contract: ContractId;
+  /** The policy that names which tools transfer or change a booking, so an absence can be proved. */
+  policy?: Policy;
   /** The id other parts of the page link to: the timeline's tags point here. */
   anchor?: string;
+  /** The lead above has said this finding's sentence word for word, so only a screen reader still gets it here. */
+  hideText?: boolean;
 }) {
   const id = useId();
   const claims = citedClaims(finding, contract, detections);
   const firstSeq = Math.min(...finding.asked, ...finding.said, ...finding.did);
+  // Under the sentence; or, when the sentence is hidden, after the evidence rather than alone under the heading.
+  const link = Number.isFinite(firstSeq) ? (
+    <a
+      href={`#item-${firstSeq}`}
+      aria-describedby={id}
+      className="mt-2 inline-block rounded py-1 text-[13px] text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
+    >
+      {SHOW_IN_CALL}
+    </a>
+  ) : null;
   return (
     <article id={anchor} aria-labelledby={id} className="scroll-mt-6 py-5 first:pt-0 last:pb-0 target:rounded-md target:bg-report-accent-tint target:ring-8 target:ring-report-accent-tint">
-      <p id={id} className="max-w-[62ch] break-words text-base font-medium leading-snug">
+      <p id={id} className={hideText ? "sr-only" : "max-w-[62ch] break-words text-base font-medium leading-snug"}>
         {finding.text}
       </p>
-      {Number.isFinite(firstSeq) ? (
-        <a
-          href={`#item-${firstSeq}`}
-          aria-describedby={id}
-          className="mt-1 inline-block rounded py-1 text-[13px] text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
-        >
-          {SHOW_IN_CALL}
-        </a>
-      ) : null}
-      <GapLines finding={finding} evidence={evidence} />
+      {hideText ? null : link}
       <LaneRows
         evidence={evidence}
         asked={finding.asked}
@@ -79,7 +60,9 @@ export function FindingBlock({
         detections={claims}
         markClass={MARK_CLASS[finding.result]}
         showEmptyDid
+        absence={<AbsenceProof evidence={evidence} policy={policy} contract={contract} finding={finding} />}
       />
+      {hideText ? link : null}
       {finding.fields.length > 0 ? (
         <table className="mt-5 w-full table-fixed border-collapse text-left text-sm">
           <thead>

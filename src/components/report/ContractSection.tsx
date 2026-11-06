@@ -2,19 +2,32 @@
 // is a single line that opens on request.
 import { useId } from "react";
 import { ChevronRight } from "lucide-react";
-import type { ContractResult, Detection, Evidence } from "@/report/schema";
-import { CONTRACT_TITLE, capitalize } from "@/report/labels";
+import type { ContractResult, Detection, Evidence, Policy } from "@/report/schema";
+import { CONTRACT_TITLE, SEE_GAPS, capitalize } from "@/report/labels";
 import { FindingBlock } from "./FindingBlock";
 import { ResultBadge } from "./StatusBadge";
 import { contractAnchor, findingAnchor } from "./threads";
 
-export function ContractSection({ contract, evidence, detections }: { contract: ContractResult; evidence: Evidence; detections: Detection[] }) {
+export function ContractSection({
+  contract,
+  evidence,
+  detections,
+  policy,
+  leadFinding,
+}: {
+  contract: ContractResult;
+  evidence: Evidence;
+  detections: Detection[];
+  policy?: Policy;
+  /** The finding whose sentence the lead above has already said, if it is in this rule. */
+  leadFinding?: number;
+}) {
   const id = useId();
   const title = capitalize(CONTRACT_TITLE[contract.contract]);
   const findings = (
     <div className="divide-y divide-report-line">
       {contract.findings.map((f, i) => (
-        <FindingBlock key={i} finding={f} evidence={evidence} detections={detections} contract={contract.contract} anchor={findingAnchor(contract.contract, i)} />
+        <FindingBlock key={i} finding={f} evidence={evidence} detections={detections} contract={contract.contract} policy={policy} anchor={findingAnchor(contract.contract, i)} hideText={leadFinding === i} />
       ))}
     </div>
   );
@@ -44,6 +57,13 @@ export function ContractSection({ contract, evidence, detections }: { contract: 
         </h3>
         <ResultBadge result={contract.result} />
       </div>
+      {contract.result === "unverified" && evidence.gaps.length > 0 ? (
+        <p className="-mt-2 mb-5 text-sm">
+          <a href="#gaps" className="text-report-warning underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent">
+            {SEE_GAPS}
+          </a>
+        </p>
+      ) : null}
       {findings}
     </section>
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
-import { railsAt, threadsOf } from "./threads";
+import { railColumns, railMarks, threadsOf } from "./threads";
 
 describe("threadsOf", () => {
   it("makes one thread per finding, with the seqs it rests on in call order", () => {
@@ -15,7 +15,7 @@ describe("threadsOf", () => {
 
   it("numbers the findings of a contract that has several, and leaves a lone one plain", () => {
     const labels = threadsOf(failedSample).map((t) => t.label);
-    expect(labels.filter((l) => l.startsWith("Transfers kept"))).toEqual(["Transfers kept, 1 of 2", "Transfers kept, 2 of 2"]);
+    expect(labels.filter((l) => l.startsWith("Promised transfers happen"))).toEqual(["Promised transfers happen, 1 of 2", "Promised transfers happen, 2 of 2"]);
     expect(labels).toContain("Promises backed by the system");
   });
 
@@ -42,34 +42,57 @@ describe("threadsOf", () => {
   });
 });
 
-describe("railsAt", () => {
+describe("railMarks", () => {
   const thread = (id: string, seqs: number[]) => ({ id, anchor: id, result: "violated" as const, seqs, railed: true, label: id });
+  const one = (n: number) => Array.from({ length: n }, (_, i) => [i + 1]);
 
-  it("puts a dot on each member and a line on the items between", () => {
-    const t = [thread("a", [2, 5])];
-    expect(railsAt(t, 1)).toEqual([]);
-    expect(railsAt(t, 2)).toEqual([{ id: "a", mark: "dot", first: true, last: false }]);
-    expect(railsAt(t, 3)).toEqual([{ id: "a", mark: "line", first: false, last: false }]);
-    expect(railsAt(t, 5)).toEqual([{ id: "a", mark: "dot", first: false, last: true }]);
-    expect(railsAt(t, 6)).toEqual([]);
+  it("puts a dot on each row the thread cites and a line on the rows between", () => {
+    const marks = railMarks([thread("a", [2, 5])], one(6));
+    expect(marks[0]).toEqual([]);
+    expect(marks[1]).toEqual([{ id: "a", mark: "dot", first: true, last: false }]);
+    expect(marks[2]).toEqual([{ id: "a", mark: "line", first: false, last: false }]);
+    expect(marks[4]).toEqual([{ id: "a", mark: "dot", first: false, last: true }]);
+    expect(marks[5]).toEqual([]);
   });
 
-  it("ignores threads that are not railed", () => {
-    expect(railsAt([{ ...thread("a", [2, 5]), railed: false }], 2)).toEqual([]);
+  it("reads a row that stands for several seqs, such as a tool call and its result, as one place", () => {
+    // Rows: [1] [2 and 4: a call and its result] [3] [5]. The thread cites 4 and 5.
+    const marks = railMarks([thread("a", [4, 5])], [[1], [2, 4], [3], [5]]);
+    expect(marks.map((m) => m.map((x) => x.mark))).toEqual([[], ["dot"], ["line"], ["dot"]]);
+    expect(marks[1][0].first).toBe(true);
+    expect(marks[3][0].last).toBe(true);
   });
 
-  it("draws no rail for a thread that cites nothing", () => {
-    const t = { ...thread("a", []) };
-    expect(railsAt([t], 1)).toEqual([]);
+  it("ignores threads that are not railed or cite nothing", () => {
+    expect(railMarks([{ ...thread("a", [2, 5]), railed: false }], one(6)).flat()).toEqual([]);
+    expect(railMarks([thread("a", [])], one(3)).flat()).toEqual([]);
   });
 
-  it("puts overlapping threads in their own columns, whatever order they are given", () => {
-    const t = [thread("a", [1, 4]), thread("b", [3, 6])];
-    expect(railsAt(t, 3).map((r) => [r.id, r.mark])).toEqual([["a", "line"], ["b", "dot"]]);
-    expect(railsAt(t, 4).map((r) => [r.id, r.mark, r.last])).toEqual([["a", "dot", true], ["b", "line", false]]);
+  it("puts overlapping threads in their own columns, in the order they are given", () => {
+    const marks = railMarks([thread("a", [1, 4]), thread("b", [3, 6])], one(6));
+    expect(marks[2].map((r) => [r.id, r.mark])).toEqual([["a", "line"], ["b", "dot"]]);
+    expect(marks[3].map((r) => [r.id, r.mark, r.last])).toEqual([["a", "dot", true], ["b", "line", false]]);
   });
 
-  it("gives a thread of one item a dot that is both first and last", () => {
-    expect(railsAt([thread("a", [5])], 5)).toEqual([{ id: "a", mark: "dot", first: true, last: true }]);
+  it("gives a thread of one row a dot that is both first and last", () => {
+    expect(railMarks([thread("a", [5])], one(5))[4]).toEqual([{ id: "a", mark: "dot", first: true, last: true }]);
+  });
+});
+
+describe("railColumns", () => {
+  it("puts the findings of one rule in one column, and other rules in their own", () => {
+    const threads = threadsOf(unverifiedSample);
+    const cols = railColumns(threads);
+    const railed = threads.filter((t) => t.railed);
+    expect(new Set(railed.map((t) => cols.get(t.id))).size).toBe(new Set(railed.map((t) => t.contract ?? t.id)).size);
+    const failed = threadsOf(failedSample).filter((t) => t.railed);
+    const failedCols = railColumns(threadsOf(failedSample));
+    expect(failed).toHaveLength(2);
+    expect(failedCols.get(failed[0].id)).toBe(failedCols.get(failed[1].id));
+  });
+
+  it("numbers columns from zero, in the order the rules first appear", () => {
+    const cols = railColumns(threadsOf(unverifiedSample));
+    expect([...new Set(cols.values())].sort()).toEqual(Array.from({ length: new Set(cols.values()).size }, (_, i) => i));
   });
 });
