@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-needs-review",
+  "source": "real",
+  "independent": false,
+  "platform": "retell",
+  "locked": true,
+  "label": { "by": "sample", "at": "2026-11-06", "note": "Scrubbed demo call, from the needs-review sample report. The sample needs review only because a model found an unanswered request. M1 has no request source, so it expects passed with request_not_checked. Change this to needs_review when request sources land." },
+  "expect": { "verdict": "passed", "contracts": { "promise_backed": "not_applicable", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },
+  "record": {
+    "call_id": "call_sample_needs_review",
+    "agent_version": 0,
+    "call_status": "ended",
+    "start_timestamp": 1793905786277,
+    "call_type": "web_call",
+    "disconnection_reason": "user_hangup",
+    "duration_ms": 68001,
+    "call_analysis": { "call_successful": false, "call_summary": "The user called to book the earliest available doctor's appointment. The scheduling system returned a temporary error, so the agent advised calling back in 15 - 30 minutes and explained it could not arrange a callback.", "user_sentiment": "Neutral", "in_voicemail": false },
+    "transcript_with_tool_calls": [
+      {
+        "role": "agent",
+        "content": "Thank you for calling Northwind Family Clinic. This is Riley. How may I help you today?",
+        "words": [{ "word": "Thank", "start": 0.474, "end": 0.474 }]
+      },
+      {
+        "role": "user",
+        "content": "Hey. What's up, Riley? How are you doing? ",
+        "words": [{ "word": "Hey.", "start": 5.8749997, "end": 5.8749997 }]
+      },
+      {
+        "role": "agent",
+        "content": "I’m doing well, thank you! How can I help you today?",
+        "words": [{ "word": "I’m", "start": 8.057, "end": 8.057 }]
+      },
+      {
+        "role": "user",
+        "content": "So I actually wanted to book an appointment. Doctor's appointment. ",
+        "words": [{ "word": "So", "start": 11.924999999999999, "end": 11.924999999999999 }]
+      },
+      {
+        "role": "agent",
+        "content": "Absolutely. What date would you prefer, and do you have a specific doctor in mind?",
+        "words": [{ "word": "Absolutely.", "start": 15.837, "end": 15.837 }]
+      },
+      {
+        "role": "user",
+        "content": "What's the earliest date that I can get? ",
+        "words": [{ "word": "What's", "start": 21.265, "end": 21.265 }]
+      },
+      { "role": "tool_call_invocation", "tool_call_id": "tc_01", "name": "check_availability", "arguments": "{\"execution_message\":\"I’ll check the earliest available appointment with any provider.\"}" },
+      {
+        "role": "agent",
+        "content": "I’ll ",
+        "words": [{ "word": "I’ll", "start": 24.348, "end": 24.348 }]
+      },
+      { "role": "tool_call_result", "tool_call_id": "tc_01", "content": "HTTP 500: Axios Error: error code: ERR_BAD_RESPONSE, error message: Request failed with status code 500\nresponse status: 500", "successful": false },
+      {
+        "role": "agent",
+        "content": "check the earliest available appointment with any provider.I’m sorry, but I can’t access the appointment calendar right now. Please try again shortly.",
+        "words": [{ "word": "check", "start": 24.569, "end": 24.569 }]
+      },
+      {
+        "role": "user",
+        "content": "Why can't you access the appointment calendar? ",
+        "words": [{ "word": "Why", "start": 34.325, "end": 34.325 }]
+      },
+      {
+        "role": "agent",
+        "content": "It looks like the scheduling system returned a temporary error. Please try again shortly, or I can help once it’s back online.",
+        "words": [{ "word": "It", "start": 37.088, "end": 37.088 }]
+      },
+      {
+        "role": "user",
+        "content": "Okay. So can you try to give me a callback when it's back again? ",
+        "words": [{ "word": "Okay.", "start": 44.555, "end": 44.555 }]
+      },
+      {
+        "role": "agent",
+        "content": "I can’t place callbacks, but you’re welcome to call us again shortly and I’ll check availability then.",
+        "words": [{ "word": "I", "start": 48.623, "end": 48.623 }]
+      },
+      {
+        "role": "user",
+        "content": "After how long should I call you? ",
+        "words": [{ "word": "After", "start": 53.495002, "end": 53.495002 }]
+      },
+      {
+        "role": "agent",
+        "content": "Please call back in about 15 - 30 minutes.",
+        "words": [{ "word": "Please", "start": 56.119, "end": 56.119 }]
+      },
+      {
+        "role": "user",
+        "content": "Okay. Gotcha. Thanks. ",
+        "words": [{ "word": "Okay.", "start": 59.294998, "end": 59.294998 }]
+      },
+      {
+        "role": "agent",
+        "content": "You’re welcome. Have a great day!",
+        "words": [{ "word": "You’re", "start": 61.828, "end": 61.828 }]
+      },
+      {
+        "role": "user",
+        "content": "You too. Bye. ",
+        "words": [{ "word": "You", "start": 63.975001999999996, "end": 63.975001999999996 }]
+      },
+      {
+        "role": "agent",
+        "content": "Goodbye!",
+        "words": [{ "word": "Goodbye!", "start": 65.471, "end": 65.471 }]
+      }
+    ]
+  }
+}
