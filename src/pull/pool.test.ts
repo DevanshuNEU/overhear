@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { POOL_SIZE, runPool, type PoolError } from "./pool";
+import { createLimiter, POOL_SIZE, runPool, type PoolError } from "./pool";
 
 const err = (e: PoolError) => Object.assign(new Error("x"), { pool: e });
 const toError = (e: unknown): PoolError => (e as { pool?: PoolError }).pool ?? { code: "unknown" };
@@ -54,7 +54,7 @@ describe("runPool", () => {
     });
     const out = await runPool(tasks, { ...h.opts, size: 3 });
     expect(out.every((r) => r.ok)).toBe(true);
-    expect(h.sleeps).toEqual([3000]);
+    expect(h.sleeps).toEqual([3000, 7]);
     expect(h.waits[0]).toBe(4000);
     expect(h.waits.at(-1)).toBeNull();
   });
@@ -73,7 +73,7 @@ describe("runPool", () => {
       h.opts,
     );
     expect(out[0]).toEqual({ ok: true, value: "ok" });
-    expect(h.sleeps).toEqual([1007, 2007, 4007, 8007]);
+    expect(h.sleeps).toEqual([1007, 7, 2007, 7, 4007, 7, 8007, 7]);
   });
 
   it("gives up after four retries and marks that call error", async () => {
@@ -140,5 +140,95 @@ describe("runPool", () => {
     const seen: number[] = [];
     await runPool([async () => 1, async () => 2], { ...h.opts, onResult: (i) => seen.push(i) });
     expect(seen.sort()).toEqual([0, 1]);
+  });
+
+  it("two pools on one limiter never have more than five tasks in flight together", async () => {
+    const h = harness();
+    const limiter = createLimiter(POOL_SIZE);
+    let live = 0;
+    let peak = 0;
+    const make = (n: number) =>
+      Array.from({ length: n }, (_, i) => async () => {
+        live++;
+        peak = Math.max(peak, live);
+        await new Promise((r) => setImmediate(r));
+        live--;
+        return i;
+      });
+    const [a, b] = await Promise.all([runPool(make(12), { ...h.opts, limiter }), runPool(make(12), { ...h.opts, limiter })]);
+    expect(peak).toBe(5);
+    expect([...a, ...b].every((r) => r.ok)).toBe(true);
+  });
+
+  it("a 429 in one pool pauses the other pool on the same limiter", async () => {
+    const h = harness();
+    const limiter = createLimiter(POOL_SIZE);
+    let release: () => void = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    const slow = { ...h.opts, limiter, sleep: (ms: number) => (ms === 3000 ? hold : Promise.resolve()) };
+    let hit = false;
+    const a = runPool(
+      [
+        async () => {
+          if (!hit) {
+            hit = true;
+            throw err({ status: 429, retryAfterMs: 3000, code: "rate_limited" });
+          }
+          return "a";
+        },
+      ],
+      slow,
+    );
+    await new Promise((r) => setImmediate(r));
+    let started = false;
+    const b = runPool(
+      [
+        async () => {
+          started = true;
+          return "b";
+        },
+      ],
+      { ...slow },
+    );
+    await new Promise((r) => setImmediate(r));
+    expect(started).toBe(false);
+    release();
+    expect((await b)[0]).toEqual({ ok: true, value: "b" });
+    expect((await a)[0]).toEqual({ ok: true, value: "a" });
+  });
+
+  it("a cancel wakes workers waiting in the 429 pause", async () => {
+    const h = harness();
+    const controller = new AbortController();
+    let calls = 0;
+    const tasks = Array.from({ length: 3 }, () => async () => {
+      calls++;
+      throw err({ status: 429, retryAfterMs: 30_000, code: "rate_limited" });
+    });
+    const done = runPool(tasks, { ...h.opts, size: 3, sleep: () => new Promise<void>(() => {}), signal: controller.signal, shouldStop: () => controller.signal.aborted });
+    await new Promise((r) => setImmediate(r));
+    controller.abort();
+    const out = await done;
+    expect(calls).toBe(3);
+    expect(out.every((r) => !r.ok && r.error.code === "cancelled")).toBe(true);
+  });
+
+  it("workers leaving the 429 pause each wait the injected jitter", async () => {
+    const h = harness();
+    let first = true;
+    const jitters = [11, 22];
+    const tasks = Array.from({ length: 3 }, (_, i) => async () => {
+      if (i === 0 && first) {
+        first = false;
+        throw err({ status: 429, retryAfterMs: 3000, code: "rate_limited" });
+      }
+      await new Promise((r) => setImmediate(r));
+      return i;
+    });
+    let n = 0;
+    await runPool(tasks, { ...h.opts, size: 3, jitter: () => jitters[n++ % 2] });
+    expect(h.sleeps[0]).toBe(3000);
+    expect(h.sleeps.slice(1).every((ms) => ms === 11 || ms === 22)).toBe(true);
+    expect(h.sleeps.length).toBeGreaterThan(1);
   });
 });

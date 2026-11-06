@@ -1,5 +1,7 @@
 // A bounded pool for the Retell pull: five requests at a time, backoff on 429 and 5xx, and a pause shared by every
-// worker when Retell says slow down. `sleep`, `jitter` and `now` are injected so tests are exact and never wait.
+// worker when Retell says slow down. The five slots and the pause live in a Limiter, so every pool that shares one
+// (a pull and a refetch) stays under five requests in flight together and obeys one pause. `sleep`, `jitter` and
+// `now` are injected so tests are exact and never wait.
 import { toPoolError } from "./retell-source";
 
 export const POOL_SIZE = 5;
@@ -11,8 +13,41 @@ const MAX_WAIT_MS = 60_000;
 export type PoolError = { status?: number; retryAfterMs?: number; code: string };
 export type PoolResult<T> = { ok: true; value: T } | { ok: false; error: PoolError };
 
+/** The shared state behind the limit: slots in use, the queue for a slot, and the 429 pause. */
+export type Limiter = {
+  size: number;
+  inflight: number;
+  queue: (() => void)[];
+  gate: Promise<void> | null;
+  gateUntil: number;
+  listeners: Set<(untilMs: number | null) => void>;
+};
+
+export function createLimiter(size: number = POOL_SIZE): Limiter {
+  return { size, inflight: 0, queue: [], gate: null, gateUntil: 0, listeners: new Set() };
+}
+
+const acquire = (l: Limiter): Promise<void> => {
+  if (l.inflight < l.size) {
+    l.inflight++;
+    return Promise.resolve();
+  }
+  // The slot is handed over by release, so inflight stays the same.
+  return new Promise<void>((resolve) => l.queue.push(resolve));
+};
+
+const release = (l: Limiter) => {
+  const next = l.queue.shift();
+  if (next) next();
+  else l.inflight--;
+};
+
 export type PoolOptions = {
   size: number;
+  /** Slots and pause shared with other pools. Without it the pool has its own, of `size`. */
+  limiter?: Limiter;
+  /** Aborting wakes workers that wait in a pause, so a cancel shows at once. */
+  signal?: AbortSignal;
   /** Called with the time (ms since epoch) the pool resumes, and with null when it has resumed. */
   onWait(untilMs: number | null): void;
   sleep(ms: number): Promise<void>;
@@ -27,24 +62,35 @@ export type PoolOptions = {
 export async function runPool<T>(tasks: (() => Promise<T>)[], opts: PoolOptions): Promise<PoolResult<T>[]> {
   const now = opts.now ?? Date.now;
   const toError = opts.toError ?? toPoolError;
+  const limiter = opts.limiter ?? createLimiter(opts.size);
   const results: (PoolResult<T> | undefined)[] = new Array(tasks.length).fill(undefined);
   let next = 0;
   let aborted: PoolError | null = null;
-  let gate: Promise<void> | null = null;
-  let gateUntil = 0;
+
+  const stopped = () => opts.shouldStop?.() === true || opts.signal?.aborted === true;
+
+  /** Resolves when `p` does, or at once when the signal aborts. */
+  function untilCancelled(p: Promise<unknown>): Promise<unknown> {
+    const signal = opts.signal;
+    if (!signal) return p;
+    if (signal.aborted) return Promise.resolve();
+    return Promise.race([p, new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }))]);
+  }
+
+  const notify = (until: number | null) => limiter.listeners.forEach((fn) => fn(until));
 
   function pause(ms: number) {
     const until = now() + ms;
-    if (gate && until <= gateUntil) return;
-    gateUntil = until;
-    opts.onWait(until);
+    if (limiter.gate && until <= limiter.gateUntil) return;
+    limiter.gateUntil = until;
+    notify(until);
     const p: Promise<void> = opts.sleep(ms).then(() => {
-      if (gate === p) {
-        gate = null;
-        opts.onWait(null);
+      if (limiter.gate === p) {
+        limiter.gate = null;
+        notify(null);
       }
     });
-    gate = p;
+    limiter.gate = p;
   }
 
   const finish = (i: number, r: PoolResult<T>) => {
@@ -52,14 +98,43 @@ export async function runPool<T>(tasks: (() => Promise<T>)[], opts: PoolOptions)
     opts.onResult?.(i, r);
   };
 
+  /** Waits out the pause, then takes a slot. False when the pool was cancelled while waiting; true holds a slot. */
+  async function enter(): Promise<boolean> {
+    for (;;) {
+      let waited = false;
+      while (limiter.gate) {
+        waited = true;
+        await untilCancelled(limiter.gate);
+        if (stopped()) return false;
+      }
+      // Workers leaving the pause together would hit Retell together again: spread them out.
+      if (waited) {
+        const j = opts.jitter();
+        if (j > 0) await untilCancelled(opts.sleep(j));
+        if (stopped()) return false;
+      }
+      await acquire(limiter);
+      if (!limiter.gate) return true;
+      release(limiter);
+    }
+  }
+
   async function runOne(i: number) {
     for (let attempt = 0; ; attempt++) {
-      while (gate) await gate;
-      if (aborted) return finish(i, { ok: false, error: aborted });
-      if (opts.shouldStop?.()) return finish(i, { ok: false, error: { code: "cancelled" } });
+      const held = await enter();
+      if (aborted) {
+        if (held) release(limiter);
+        return finish(i, { ok: false, error: aborted });
+      }
+      if (!held || stopped()) {
+        if (held) release(limiter);
+        return finish(i, { ok: false, error: { code: "cancelled" } });
+      }
+      let value: T;
       try {
-        return finish(i, { ok: true, value: await tasks[i]() });
+        value = await tasks[i]();
       } catch (e) {
+        release(limiter);
         const error = toError(e);
         if (error.status === 401 || error.status === 403) {
           aborted = { status: error.status, code: "bad_key" };
@@ -69,8 +144,11 @@ export async function runPool<T>(tasks: (() => Promise<T>)[], opts: PoolOptions)
         if (!retryable || attempt >= MAX_RETRIES) return finish(i, { ok: false, error });
         const wait = error.retryAfterMs !== undefined ? Math.min(error.retryAfterMs, MAX_WAIT_MS) : BASE_WAIT_MS * 2 ** attempt + opts.jitter();
         if (error.status === 429) pause(wait);
-        else await opts.sleep(wait);
+        else await untilCancelled(opts.sleep(wait));
+        continue;
       }
+      release(limiter);
+      return finish(i, { ok: true, value });
     }
   }
 
@@ -81,6 +159,12 @@ export async function runPool<T>(tasks: (() => Promise<T>)[], opts: PoolOptions)
     }
   }
 
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.size, tasks.length)) }, worker));
+  limiter.listeners.add(opts.onWait);
+  if (limiter.gate) opts.onWait(limiter.gateUntil);
+  try {
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.size, tasks.length)) }, worker));
+  } finally {
+    limiter.listeners.delete(opts.onWait);
+  }
   return results as PoolResult<T>[];
 }
