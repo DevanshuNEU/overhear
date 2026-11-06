@@ -4,6 +4,7 @@ import { CallReportView } from "./CallReportView";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
 import { CONTRACT_TITLE, capitalize } from "@/report/labels";
+import { ABSENCE_VARIANTS, resultBeforeCall } from "@/report/samples/variants.fixture";
 
 describe("CallReportView on the failed sample", () => {
   const report = failedSample;
@@ -93,7 +94,7 @@ describe("CallReportView on the failed sample", () => {
     expect(held).toHaveLength(3);
     for (const d of held) expect(d.open).toBe(false);
     const rows = screen.getByRole("region", { name: "Said and did" });
-    expect(within(rows).getByText("Promises backed by the system")).toBeInTheDocument();
+    expect(within(rows).getByRole("heading", { level: 3, name: "Promises backed by the system" })).toBeInTheDocument();
   });
 
   it("shows what the system did for a kept promise: the call, its result and the compared details", () => {
@@ -221,5 +222,23 @@ describe("CallReportView on an unverified result", () => {
     setup();
     expect(screen.queryByText("Passed")).not.toBeInTheDocument();
     expect(screen.getAllByText("Couldn't check").length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("CallReportView on variants the schema allows", () => {
+  it("shows a booking whose result arrived before its call as one call that came back, never as a call with no result", () => {
+    render(<CallReportView report={resultBeforeCall} />);
+    expect(screen.queryAllByText("book_appointment was called, no result came back")).toHaveLength(0);
+    expect(screen.queryByText(/^tc_03 /)).not.toBeInTheDocument();
+  });
+
+  it("does not state an absence the record cannot prove, in the lead, the Did lane or the steps", () => {
+    for (const [name, report] of Object.entries(ABSENCE_VARIANTS)) {
+      const { unmount } = render(<CallReportView report={report} />);
+      expect(screen.getByRole("heading", { level: 1 }), name).not.toHaveTextContent("No transfer was attempted.");
+      expect(screen.queryByText(/No transfer tool was called/), name).not.toBeInTheDocument();
+      expect(screen.getByRole("complementary", { name: "What to do next" }), name).not.toHaveTextContent("The record shows");
+      unmount();
+    }
   });
 });

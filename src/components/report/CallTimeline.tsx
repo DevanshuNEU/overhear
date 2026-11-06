@@ -12,6 +12,9 @@ import { markQuotes } from "./highlight";
 import { railColumns, railMarks, threadsOf, type Thread } from "./threads";
 
 const RAIL_STEP = 14;
+
+/** The highlight on claim words, by the result of the finding they belong to. Only findings that need attention are marked here. */
+const MARK_CLASS = { violated: "bg-report-critical-mark", unverified: "bg-report-warning-mark" } as const;
 const DOT_TOP = 13;
 
 const TAG_CLASS = {
@@ -72,13 +75,21 @@ function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind
       <div className="min-w-0 space-y-1">
         {row.turns.map((turn, i) => {
           const tags = threads.filter((t) => t.seqs.includes(turn.seq));
-          // The claim words of any broken or unchecked finding that cites this turn, marked as in the Said lane.
-          const quotes = tags.flatMap((t) => (t.contract ? citedClaims({ text: t.text ?? "" }, t.contract, detections).filter((d) => d.seq === turn.seq).map((d) => d.quote) : []));
-          const markClass = tags.some((t) => t.result === "violated") ? "bg-report-critical-mark" : "bg-report-warning-mark";
+          // The claim words of any broken or unchecked finding that cites this turn, marked as in the Said lane, each
+          // with its own finding's result. Broken first, so words two findings share take the broken mark.
+          const quotes = [...tags]
+            .sort((a, b) => Number(b.result === "violated") - Number(a.result === "violated"))
+            .flatMap((t) =>
+              t.contract
+                ? citedClaims({ text: t.text ?? "" }, t.contract, detections)
+                    .filter((d) => d.seq === turn.seq)
+                    .map((d) => ({ quote: d.quote, markClass: MARK_CLASS[t.result === "violated" ? "violated" : "unverified"] }))
+                : [],
+            );
           return (
             <div key={turn.seq}>
               <p id={i === 0 ? undefined : `item-${turn.seq}`} className="max-w-[68ch] scroll-mt-6 [overflow-wrap:anywhere] text-[15px] leading-relaxed target:bg-report-accent-tint">
-                {markQuotes(turn.text, quotes, markClass)}
+                {markQuotes(turn.text, quotes, MARK_CLASS.unverified)}
               </p>
               {tags.length > 0 ? (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">

@@ -5,15 +5,17 @@ import { NextSteps } from "./NextSteps";
 import { CallReportView } from "./CallReportView";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
-import { NEXT_STEPS, REASON_NEXT_STEPS } from "@/report/labels";
+import { PROVEN_NEXT_STEPS, REASON_NEXT_STEPS } from "@/report/labels";
 
 describe("NextSteps", () => {
   it("lists the numbered steps for what broke, each with its lead and its sentence", () => {
+    // The failed sample's record proves the transfer's absence, so its steps say what the record shows.
     render(<NextSteps report={failedSample} />);
     const aside = screen.getByRole("complementary", { name: "What to do next" });
     const items = within(aside).getAllByRole("listitem");
-    expect(items).toHaveLength(NEXT_STEPS.transfer_kept.length);
-    NEXT_STEPS.transfer_kept.forEach((step, i) => {
+    const steps = PROVEN_NEXT_STEPS.transfer_kept!;
+    expect(items).toHaveLength(steps.length);
+    steps.forEach((step, i) => {
       expect(items[i]).toHaveTextContent(step.lead);
       expect(items[i]).toHaveTextContent(step.text);
       expect(within(items[i]).getByText(String(i + 1))).toBeInTheDocument();

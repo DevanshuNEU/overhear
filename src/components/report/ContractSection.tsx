@@ -35,12 +35,15 @@ export function ContractSection({
   if (contract.result === "passed") {
     return (
       <section id={contractAnchor(contract.contract)} aria-labelledby={id} className="scroll-mt-6 border-t border-report-line">
+        {/* A summary is a button, and some screen readers drop a heading inside it from heading navigation, so
+            the heading sits outside for the outline and the summary shows the same title. */}
+        <h3 id={id} className="sr-only">
+          {title}
+        </h3>
         <details className="group">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent [&::-webkit-details-marker]:hidden">
             <ChevronRight aria-hidden className="size-4 shrink-0 text-report-muted transition-transform group-open:rotate-90 motion-reduce:transition-none" />
-            <h3 id={id} className="min-w-0 flex-1 text-base font-medium">
-              {title}
-            </h3>
+            <span className="min-w-0 flex-1 text-base font-medium">{title}</span>
             <ResultBadge result={contract.result} />
           </summary>
           <div className="pb-6 pl-7">{findings}</div>

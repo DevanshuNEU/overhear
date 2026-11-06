@@ -38,6 +38,13 @@ describe("/reports/[callId]", () => {
     expect(await generateMetadata(params(failedSample.callId))).toEqual({ title: `${failedSample.headline} - ${failedSample.callId} - Overhear` });
   });
 
+  it("never repeats an address that does not look like an id in the tab's title, and falls back to a plain title", async () => {
+    const message = "Your account is locked. Call 555-0100";
+    const { title } = await generateMetadata(params(message));
+    expect(title).toBe("Call report - Overhear");
+    expect(title).not.toContain("locked");
+  });
+
   it("titles the tab with the call id alone when there is no report to read", async () => {
     expect(await generateMetadata(params("call_nope"))).toEqual({ title: "call_nope - Overhear" });
   });

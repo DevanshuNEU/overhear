@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { CallTimeline } from "./CallTimeline";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
+import { mixedResultsOnOneTurn } from "@/report/samples/variants.fixture";
 
 const rowOf = (seq: number) => document.getElementById(`item-${seq}`)!.closest("li")!;
 
@@ -129,6 +130,16 @@ describe("CallTimeline", () => {
     const first = Array.from(document.getElementById("item-25")!.querySelectorAll("mark")).map((m) => m.textContent);
     expect(first).toEqual(["I'll go ahead and connect you with a nurse now"]);
     expect(Array.from(rowOf(27).querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["Transferring you to a nurse now"]);
+  });
+
+  it("marks each claim with its own finding's result when a broken and an unchecked finding share a turn", () => {
+    render(<CallTimeline report={mixedResultsOnOneTurn} />);
+    const marks = Array.from(document.getElementById("item-25")!.querySelectorAll("mark"));
+    const classOf = (words: string) => marks.find((m) => m.textContent === words)!.className;
+    expect(classOf("I'll go ahead and connect you with a nurse now")).toContain("bg-report-critical-mark");
+    const promise = classOf("Your appointment with Dr. Nair is confirmed for September 24th at 9:00 AM");
+    expect(promise).toContain("bg-report-warning-mark");
+    expect(promise).not.toContain("bg-report-critical-mark");
   });
 
   it("marks no words on a turn that no broken or unchecked finding cites", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { failedSample, needsReviewSample } from "@/report/samples";
+import { resultBeforeCall } from "@/report/samples/variants.fixture";
 import { timelineRows } from "./rows";
 
 describe("timelineRows", () => {
@@ -30,6 +31,18 @@ describe("timelineRows", () => {
     expect(outcome.seqs).toEqual([6, 8]);
     expect(rows.indexOf(outcome)).toBeGreaterThan(rows.indexOf(spoken));
     expect(rows.indexOf(outcome)).toBeLessThan(rows.findIndex((r) => r.seqs.includes(9)));
+  });
+
+  it("pairs a result that arrived before its call, and shows the one row where the result arrived", () => {
+    const rows = timelineRows(resultBeforeCall.evidence);
+    const action = rows.filter((r) => r.seqs.includes(22) || r.seqs.includes(24));
+    expect(action).toHaveLength(1);
+    expect(action[0].kind === "action" && action[0].entry.line).toBe("book_appointment succeeded");
+    // The result is at 22, between the turns at 21 and 23.
+    const at = rows.indexOf(action[0]);
+    expect(at).toBeGreaterThan(rows.findIndex((r) => r.seqs.includes(21)));
+    expect(at).toBeLessThan(rows.findIndex((r) => r.seqs.includes(23)));
+    expect(rows.flatMap((r) => r.seqs).sort((a, b) => a - b)).toEqual(resultBeforeCall.evidence.items.map((i) => i.seq));
   });
 
   it("does not group turns across an outcome", () => {
