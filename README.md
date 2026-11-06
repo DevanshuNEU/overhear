@@ -139,7 +139,7 @@ Because migrations run in the pre-deploy step, every deploy applies pending sche
 3. Set these environment variables on the web service:
    - `RETELL_API_KEY`
    - `ANTHROPIC_API_KEY`
-   - `APP_URL`, the Railway-issued public URL for the service (for example `https://overhear-production.up.railway.app`)
+   - `APP_URL`, the Railway-issued public URL for the service, shaped like `https://<your-service>.up.railway.app`
    - `JUDGE_PROVIDER`, `jev` or `claude`
    - `JEV_API_KEY`, optional; leave unset to run the judge on Claude
    - `RETELL_AGENT_ID` stays unset for the first deploy. You add it after provisioning the agent below.
