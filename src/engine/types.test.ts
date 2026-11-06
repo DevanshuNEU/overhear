@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { InputError, type Outcome } from "./types";
+import { NOT_A_RETELL_CALL } from "@/report/labels";
 import { passedSample } from "@/report/samples";
 
 describe("InputError", () => {
@@ -18,8 +19,9 @@ describe("Outcome", () => {
   it("is plain data: every kind survives a JSON round trip unchanged", () => {
     const outcomes: Outcome[] = [
       { kind: "report", report: passedSample },
-      { kind: "no_content", callId: "call_sample_none" },
-      { kind: "error", message: "The report did not validate." },
+      { kind: "no_content", callId: "call_sample_none", reason: "storage_stripped" },
+      { kind: "error", callId: "call_sample_failed", message: "The report did not validate." },
+      { kind: "error", callId: null, message: NOT_A_RETELL_CALL.message },
     ];
     for (const o of outcomes) expect(JSON.parse(JSON.stringify(o))).toEqual(o);
   });

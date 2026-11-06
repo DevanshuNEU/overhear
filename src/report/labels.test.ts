@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { PLATFORMS, RESULTS } from "./schema";
 import {
   FIELD_STATUS_LABEL,
+  NO_CONTENT_LINE,
+  NO_CONTENT_REASONS,
+  NOT_A_RETELL_CALL,
   ruleCountLine,
   PLATFORM_LABEL,
   RESULT_LABEL,
@@ -51,5 +54,19 @@ describe("labels for the call detail screen", () => {
     expect(ruleCountLine("not_applicable", 5)).toBe("5 rules didn't apply");
     expect(ruleCountLine("not_run", 1)).toBe("1 rule not checked");
     expect(ruleCountLine("not_run", 2)).toBe("2 rules not checked");
+  });
+});
+
+describe("words for a call with no report", () => {
+  it("has one plain sentence for every no_content reason", () => {
+    expect(NO_CONTENT_REASONS).toEqual(["storage_stripped", "never_connected", "no_transcript"]);
+    expect(Object.keys(NO_CONTENT_LINE).sort()).toEqual([...NO_CONTENT_REASONS].sort());
+    for (const r of NO_CONTENT_REASONS) expect(NO_CONTENT_LINE[r]).toMatch(/^[A-Z].*\.$/);
+    expect(new Set(Object.values(NO_CONTENT_LINE)).size).toBe(NO_CONTENT_REASONS.length);
+  });
+
+  it("says what a record that is not a Retell call is, and what to pass instead", () => {
+    expect(NOT_A_RETELL_CALL.message).toMatch(/call_id/);
+    expect(NOT_A_RETELL_CALL.fix).toMatch(/get-call/);
   });
 });
