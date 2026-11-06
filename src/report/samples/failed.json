@@ -137,13 +137,13 @@
     {
       "seq": 9,
       "cls": "offer",
-      "quote": "Would any of those work",
+      "quote": "Would any of those work, or would you like a different date/time",
       "source": "code"
     },
     {
       "seq": 11,
       "cls": "refusal",
-      "quote": "I'm not able to recommend a specific doctor",
+      "quote": "I'm not able to recommend a specific doctor for a medical issue like that - for anything related to your ear, it'd be best to speak with a nurse who can guide you properly",
       "source": "code"
     },
     {
@@ -156,20 +156,20 @@
       "seq": 14,
       "cls": "intention",
       "kind": "book",
-      "quote": "I'll book you with Dr. Amara Osei on September 24th",
+      "quote": "Got it - I'll book you with Dr. Amara Osei on September 24th at",
       "source": "code"
     },
     {
       "seq": 25,
       "cls": "intention",
       "kind": "book",
-      "quote": "Now let me book that appointment with Dr. Nair",
+      "quote": "Now let me book that appointment with Dr. Nair for September 24th at 9:00 AM",
       "source": "code"
     },
     {
       "seq": 25,
       "cls": "completion",
-      "quote": "You're all set, Sofia!",
+      "quote": "You're all set, Sofia",
       "source": "code"
     },
     {
@@ -182,13 +182,13 @@
     {
       "seq": 25,
       "cls": "transfer",
-      "quote": "I'll go ahead and connect you with a nurse now",
+      "quote": "I'll go ahead and connect you with a nurse now regarding your ear concern",
       "source": "code"
     },
     {
       "seq": 27,
       "cls": "transfer",
-      "quote": "Transferring you to a nurse now",
+      "quote": "Transferring you to a nurse now - take care and feel better soon",
       "source": "code"
     }
   ],

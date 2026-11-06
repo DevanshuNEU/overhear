@@ -116,7 +116,7 @@
     {
       "seq": 23,
       "cls": "offer",
-      "quote": "Should I book Friday, November 6, 2026, at 9:00 a.m.",
+      "quote": "Should I book Friday, November 6, 2026, at 9:00 a.m. with Dr. Priya Nair",
       "source": "code"
     },
     {
@@ -129,7 +129,7 @@
     {
       "seq": 38,
       "cls": "offer",
-      "quote": "I can connect you with a nurse",
+      "quote": "For specific requirements, I can connect you with a nurse",
       "source": "code"
     }
   ],

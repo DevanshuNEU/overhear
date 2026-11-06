@@ -79,7 +79,7 @@ describe("CallReportView on the failed sample", () => {
     const said = within(findings[1]).getByRole("group", { name: "Said" });
     expect(said).toHaveTextContent("Transferring you to a nurse now");
     // The words that made the claim are marked, not the whole turn.
-    expect(within(said).getByText("Transferring you to a nurse now").tagName).toBe("MARK");
+    expect(within(said).getByText("Transferring you to a nurse now - take care and feel better soon").tagName).toBe("MARK");
     expect(within(said).getByText("2:22")).toBeInTheDocument();
     // The Did lane proves the absence from the record: no transfer after the claim, and the tools the call did use.
     const did = within(findings[1]).getByRole("group", { name: "Did" });

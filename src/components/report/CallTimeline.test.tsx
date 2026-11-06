@@ -128,15 +128,15 @@ describe("CallTimeline", () => {
   it("marks the claim words on a threaded turn, the same highlight as the Said lane", () => {
     render(<CallTimeline report={failedSample} />);
     const first = Array.from(document.getElementById("item-25")!.querySelectorAll("mark")).map((m) => m.textContent);
-    expect(first).toEqual(["I'll go ahead and connect you with a nurse now"]);
-    expect(Array.from(rowOf(27).querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["Transferring you to a nurse now"]);
+    expect(first).toEqual(["I'll go ahead and connect you with a nurse now regarding your ear concern"]);
+    expect(Array.from(rowOf(27).querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["Transferring you to a nurse now - take care and feel better soon"]);
   });
 
   it("marks each claim with its own finding's result when a broken and an unchecked finding share a turn", () => {
     render(<CallTimeline report={mixedResultsOnOneTurn} />);
     const marks = Array.from(document.getElementById("item-25")!.querySelectorAll("mark"));
     const classOf = (words: string) => marks.find((m) => m.textContent === words)!.className;
-    expect(classOf("I'll go ahead and connect you with a nurse now")).toContain("bg-report-critical-mark");
+    expect(classOf("I'll go ahead and connect you with a nurse now regarding your ear concern")).toContain("bg-report-critical-mark");
     const promise = classOf("Your appointment with Dr. Nair is confirmed for September 24th at 9:00 AM");
     expect(promise).toContain("bg-report-warning-mark");
     expect(promise).not.toContain("bg-report-critical-mark");
