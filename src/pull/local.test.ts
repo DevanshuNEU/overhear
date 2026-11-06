@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { assertLocalRequest, isLocalMode, isLoopbackBind, isLoopbackHost, isProductApiPath, isSameOrigin } from "./local";
+import { assertLocalRequest, FRAME_HEADERS, isLocalMode, isLoopbackBind, isLoopbackHost, isProductApiPath, isSameOrigin } from "./local";
 
-const LOCAL = { OVERHEAR_LOCAL: "1" };
+// Local mode on a server Next says is bound to 127.0.0.1. Tests say so explicitly; nothing assumes it.
+const LOCAL = { OVERHEAR_LOCAL: "1", __NEXT_PRIVATE_ORIGIN: "http://127.0.0.1:3000" };
 const HOSTED = {};
 
 function req(method: string, headers: Record<string, string>, path = "/api/connect") {
@@ -109,12 +110,17 @@ describe("isLoopbackBind", () => {
     }
   });
 
-  it("cannot tell when Next has not said, and leaves it to the other checks", () => {
-    expect(isLoopbackBind({})).toBe(true);
+  it("fails closed when Next has not said where it is bound", () => {
+    expect(isLoopbackBind({})).toBe(false);
+    expect(isLoopbackBind({ __NEXT_PRIVATE_ORIGIN: "" })).toBe(false);
   });
 });
 
 describe("assertLocalRequest", () => {
+  it("refuses everything when Next has not said where it is bound", () => {
+    expect(assertLocalRequest(req("GET", { host: "127.0.0.1:3000" }), { OVERHEAR_LOCAL: "1" })?.status).toBe(403);
+  });
+
   it("refuses everything when local mode runs on a server bound to every interface", () => {
     const res = assertLocalRequest(req("GET", { host: "localhost:3000" }), { ...LOCAL, __NEXT_PRIVATE_ORIGIN: "http://localhost:3000" });
     expect(res?.status).toBe(403);
@@ -171,5 +177,18 @@ describe("assertLocalRequest", () => {
   it("never caches its refusals", () => {
     const res = assertLocalRequest(req("GET", { host: "evil.com" }), LOCAL);
     expect(res?.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("forbids framing on every refusal", () => {
+    for (const res of [assertLocalRequest(req("GET", { host: "evil.com" }), LOCAL), assertLocalRequest(req("GET", { host: "localhost" }), {})]) {
+      expect(res?.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+      expect(res?.headers.get("x-frame-options")).toBe("DENY");
+    }
+  });
+});
+
+describe("FRAME_HEADERS", () => {
+  it("is the two headers that stop another site framing the local server", () => {
+    expect(FRAME_HEADERS).toEqual({ "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY" });
   });
 });

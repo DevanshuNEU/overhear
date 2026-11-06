@@ -4,7 +4,7 @@
 // from the JSON body, never from the URL or a cookie.
 import { checkKey } from "@/pull/retell-source";
 import { hasKey, removeKey, writeKey } from "@/pull/key-store";
-import { assertLocalRequest } from "@/pull/local";
+import { assertLocalRequest, FRAME_HEADERS } from "@/pull/local";
 import { CONNECT_MESSAGE, LOCAL_REFUSAL, type ConnectError } from "@/pull/labels";
 import { logSafe, safeError } from "@/pull/redact";
 
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 // A Retell key is a few dozen characters; anything near this is not a key.
 const MAX_BODY = 4096;
 
-const NO_STORE = { "cache-control": "no-store" };
+const NO_STORE = { "cache-control": "no-store", ...FRAME_HEADERS };
 
 function json(body: Record<string, unknown>, status = 200): Response {
   return Response.json(body, { status, headers: NO_STORE });

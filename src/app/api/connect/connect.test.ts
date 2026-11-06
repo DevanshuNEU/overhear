@@ -19,6 +19,7 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "overhear-connect-"));
   vi.stubEnv("OVERHEAR_HOME", home);
   vi.stubEnv("OVERHEAR_LOCAL", "1");
+  vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://127.0.0.1:3000");
   retell = { status: 200, body: { items: [], has_more: false } };
   retellCalls = 0;
   // Every Retell request in this file lands here; no test touches the network.
@@ -157,6 +158,21 @@ describe("DELETE /api/connect", () => {
 });
 
 describe("the route's own local check", () => {
+  it("forbids framing on every answer, refusals included", async () => {
+    const answers = [await GET(get()), await POST(post({ key: KEY })), await DELETE(del()), await GET(get({ host: "evil.com" })), await POST(post("nope"))];
+    for (const res of answers) {
+      expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+      expect(res.headers.get("x-frame-options")).toBe("DENY");
+    }
+  });
+
+  it("refuses everything when Next has not said the server is on 127.0.0.1", async () => {
+    vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "");
+    expect((await GET(get())).status).toBe(403);
+    expect((await POST(post({ key: KEY }))).status).toBe(403);
+    expect(retellCalls).toBe(0);
+  });
+
   it("answers 404 on every method when OVERHEAR_LOCAL is unset, and stores nothing", async () => {
     vi.stubEnv("OVERHEAR_LOCAL", "");
     await writeKey(KEY);

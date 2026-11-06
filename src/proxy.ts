@@ -14,34 +14,48 @@
 //
 // Machine-to-machine routes (`/api/tools/*`, `/api/webhooks/retell`) are
 // already verified by `verifyRetellSignature` and must keep working for
-// Retell's servers even when a password is set, so they are excluded both
-// by the matcher below and by an in-handler allowlist check.
+// Retell's servers even when a password is set, so they skip the password
+// (see `isExcludedPath`). The matcher runs the proxy on every path, those and
+// Next's own files included, so local mode can check them too.
 //
-// Order of the checks, for every path the matcher lets in:
-// 1. Excluded paths pass untouched.
-// 2. Local mode (`OVERHEAR_LOCAL=1`, see src/pull/local.ts): every request needs a loopback Host, and every request
-//    that can change something needs a same-origin Origin, or it gets a 403. This covers the server-rendered pages
-//    that show call transcripts too. On a hosted copy the product API routes (`/api/connect`, `/api/pulls`,
-//    `/api/calls/`) answer 404 instead; `/reports/` stays served, because there it shows only the samples. The
-//    route handlers repeat this check, so a path the matcher misses is still covered.
-// 3. The shared password, when one is set.
-// 4. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
+// Order of the checks, for every path:
+// 1. Local mode only (`OVERHEAR_LOCAL=1`, see src/pull/local.ts): the server must be bound to 127.0.0.1, every
+//    request needs a loopback Host, and every request that can change something needs a same-origin Origin, or it
+//    gets a 403. This runs before the excluded paths, so health, `/_next/*`, the tools and the webhook answer only
+//    this computer too, and it covers the server-rendered pages that show call transcripts. Every local-mode
+//    answer also forbids framing. The route handlers repeat this check.
+// 2. Excluded paths pass untouched.
+// 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`) answer 404.
+//    `/reports/` stays served, because there it shows only the samples.
+// 4. The shared password, when one is set.
+// 5. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
 //    runs after the password, so a visitor without it gets a 401 here, as before the move.
 import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth, isExcludedPath } from "@/lib/auth-gate";
 import { movedDemoPath } from "@/lib/demo-paths";
-import { checkLocalRequest, hostedNotFound, isLocalMode, isProductApiPath } from "@/pull/local";
+import { checkLocalRequest, forbidFraming, hostedNotFound, isLocalMode, isProductApiPath } from "@/pull/local";
 
 export function proxy(request: NextRequest): Response {
+  if (!isLocalMode()) return hosted(request);
+  const refused = checkLocalRequest(request);
+  if (refused) return refused;
+  const res = gate(request);
+  forbidFraming(res.headers);
+  return res;
+}
+
+/** A hosted copy: excluded paths untouched, then the product API routes 404, then the shared gate. */
+function hosted(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
   if (isExcludedPath(pathname)) return NextResponse.next();
+  if (isProductApiPath(pathname)) return hostedNotFound();
+  return gate(request);
+}
 
-  if (isLocalMode()) {
-    const refused = checkLocalRequest(request);
-    if (refused) return refused;
-  } else if (isProductApiPath(pathname)) {
-    return hostedNotFound();
-  }
+/** Excluded paths pass; everything else meets the password, then the old demo link redirect. */
+function gate(request: NextRequest): Response {
+  const { pathname } = request.nextUrl;
+  if (isExcludedPath(pathname)) return NextResponse.next();
 
   const denied = passwordGate(request);
   if (denied) return denied;
@@ -67,6 +81,7 @@ function passwordGate(request: NextRequest): NextResponse | null {
   });
 }
 
+// Every path. Excluded paths are let through in code (step 2 above), after local mode has checked them.
 export const config = {
-  matcher: ["/((?!api/tools/|api/webhooks/retell|api/health|_next/|favicon.ico).*)"],
+  matcher: ["/(.*)"],
 };

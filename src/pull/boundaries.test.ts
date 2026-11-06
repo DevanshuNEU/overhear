@@ -57,6 +57,13 @@ describe("src/pull boundaries", () => {
 });
 
 describe("the local server binds loopback", () => {
+  it("Next still records the address it serves in __NEXT_PRIVATE_ORIGIN, which local mode's bind check reads", () => {
+    // If a Next upgrade drops or renames it, local mode refuses every request (it fails closed). This test fails
+    // first, at upgrade time, so the check can be moved to whatever Next records instead.
+    const startServer = read(path.join(ROOT, "node_modules", "next", "dist", "server", "lib", "start-server.js"));
+    expect(startServer).toMatch(/process\.env\.__NEXT_PRIVATE_ORIGIN\s*=\s*appUrl/);
+  });
+
   it("npm run local sets local mode and passes -H 127.0.0.1", () => {
     const pkg = JSON.parse(read(path.join(ROOT, "package.json"))) as { scripts: Record<string, string> };
     expect(pkg.scripts.local).toBe("OVERHEAR_LOCAL=1 next dev -H 127.0.0.1");

@@ -79,6 +79,7 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "overhear-canary-"));
   vi.stubEnv("OVERHEAR_HOME", path.join(home, "store"));
   vi.stubEnv("OVERHEAR_LOCAL", "1");
+  vi.stubEnv("__NEXT_PRIVATE_ORIGIN", `http://${HOST}`);
   captured = [];
   answers = [];
   retellUrls = [];

@@ -89,12 +89,23 @@ describe("proxy", () => {
     expect(res?.status).toBe(401);
   });
 
-  it("matches the excluded routes out of the proxy, and nothing else", async () => {
+  it("runs on every path, the excluded ones and Next's own files included, so local mode can check them", async () => {
     const { config } = await import("./proxy");
     const [pattern] = config.matcher;
     const re = new RegExp(`^${pattern}$`);
-    for (const path of EXCLUDED_PATHS) expect(re.test(path), path).toBe(false);
-    for (const path of GATED_PATHS) expect(re.test(path), path).toBe(true);
+    for (const path of [...EXCLUDED_PATHS, ...GATED_PATHS, "/_next/static/chunks/app.js", "/favicon.ico"]) expect(re.test(path), path).toBe(true);
+  });
+
+  it("on a hosted copy, passes the excluded paths untouched with any Host, as before", async () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "");
+    process.env.DASHBOARD_PASSWORD = "secret";
+    for (const path of [...EXCLUDED_PATHS, "/_next/static/chunks/app.js", "/favicon.ico"]) {
+      const res = await proxy(reqOf(path, { host: "retell-callback.example" }, "POST"));
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("location"), path).toBeNull();
+      expect(res.headers.get("content-security-policy"), path).toBeNull();
+      expect(res.headers.get("x-frame-options"), path).toBeNull();
+    }
   });
 
   describe("old demo links", () => {
@@ -127,12 +138,18 @@ describe("proxy", () => {
   });
 });
 
+/** Local mode on a server Next says is bound to 127.0.0.1. Tests say so explicitly; nothing assumes it. */
+function localMode() {
+  vi.stubEnv("OVERHEAR_LOCAL", "1");
+  vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://127.0.0.1:3000");
+}
+
 describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
   const LOOPBACK = { host: "localhost:3000" };
   const PAGES = ["/", "/reports/call_sample_failed", "/demo", "/how-it-works"];
 
   it("refuses a server-rendered page or a product route with a foreign Host", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     delete process.env.DASHBOARD_PASSWORD;
     for (const path of [...PAGES, "/api/connect", "/api/pulls", "/calls/abc"]) {
       for (const host of ["evil.com", "evil.com:3000", "192.168.1.20:3000"]) {
@@ -143,7 +160,7 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
   });
 
   it("lets a loopback GET through to pages and product routes", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     delete process.env.DASHBOARD_PASSWORD;
     for (const path of [...PAGES, "/api/connect"]) {
       for (const host of ["localhost:3000", "127.0.0.1:4100", "[::1]:3000"]) {
@@ -155,7 +172,7 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
   });
 
   it("refuses a state-changing request with a foreign or missing Origin, on any path", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     delete process.env.DASHBOARD_PASSWORD;
     for (const path of ["/api/connect", "/", "/reports/call_sample_failed"]) {
       for (const origin of ["http://evil.com", "http://localhost:3001", "null", undefined]) {
@@ -170,14 +187,14 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
   });
 
   it("lets a same-origin POST through", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     delete process.env.DASHBOARD_PASSWORD;
     const res = await proxy(reqOf("/api/connect", { ...LOOPBACK, origin: "http://localhost:3000" }, "POST"));
     expect(res?.status).toBe(200);
   });
 
   it("checks the Host before the password, so a foreign Host never sees the password prompt", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     process.env.DASHBOARD_PASSWORD = "secret";
     expect((await proxy(reqOf("/", { host: "evil.com" })))?.status).toBe(403);
     expect((await proxy(reqOf("/", LOOPBACK)))?.status).toBe(401);
@@ -185,7 +202,7 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
   });
 
   it("refuses every request when the server is not bound to 127.0.0.1", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://localhost:3000");
     delete process.env.DASHBOARD_PASSWORD;
     for (const path of ["/", "/api/connect", "/reports/call_sample_failed"]) {
@@ -195,16 +212,49 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
     expect((await proxy(reqOf("/", { host: "127.0.0.1:3000" })))?.status).toBe(200);
   });
 
-  it("leaves the excluded machine-to-machine routes alone, whatever the Host", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
-    for (const path of EXCLUDED_PATHS) {
-      const res = await proxy(reqOf(path, { host: "retell-callback.example" }, "POST"));
-      expect(res?.status, path).toBe(200);
+  it("checks the Host before the excluded paths, so health, Next's files, tools and the webhook refuse a foreign Host", async () => {
+    localMode();
+    for (const path of [...EXCLUDED_PATHS, "/_next/static/chunks/app.js", "/favicon.ico"]) {
+      for (const method of ["GET", "POST"]) {
+        const res = await proxy(reqOf(path, { host: "evil.com:3000", origin: "http://evil.com:3000" }, method));
+        expect(res.status, `${method} ${path}`).toBe(403);
+      }
+    }
+  });
+
+  it("still lets loopback requests reach the excluded paths without the password", async () => {
+    localMode();
+    process.env.DASHBOARD_PASSWORD = "secret";
+    for (const path of ["/api/health", "/_next/static/chunks/app.js", "/favicon.ico"]) {
+      expect((await proxy(reqOf(path, LOOPBACK))).status, path).toBe(200);
+    }
+    const tool = await proxy(reqOf("/api/tools/check-availability", { ...LOOPBACK, origin: "http://localhost:3000" }, "POST"));
+    expect(tool.status).toBe(200);
+  });
+
+  it("forbids framing on a page, an API route, an excluded path, a redirect, a 401 and a 403", async () => {
+    localMode();
+    delete process.env.DASHBOARD_PASSWORD;
+    const responses = [
+      await proxy(reqOf("/reports/call_sample_failed", LOOPBACK)),
+      await proxy(reqOf("/", LOOPBACK)),
+      await proxy(reqOf("/api/connect", LOOPBACK)),
+      await proxy(reqOf("/api/health", LOOPBACK)),
+      await proxy(reqOf("/calls/abc", LOOPBACK)),
+      await proxy(reqOf("/", { host: "evil.com" })),
+      await proxy(reqOf("/api/connect", { ...LOOPBACK, origin: "http://evil.com" }, "POST")),
+    ];
+    process.env.DASHBOARD_PASSWORD = "secret";
+    responses.push(await proxy(reqOf("/", LOOPBACK)));
+    expect(responses.map((r) => r.status)).toEqual([200, 200, 200, 200, 307, 403, 403, 401]);
+    for (const res of responses) {
+      expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+      expect(res.headers.get("x-frame-options")).toBe("DENY");
     }
   });
 
   it("treats the report screen the same with and without OVERHEAR_DEMO_STATES, read independently", async () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    localMode();
     delete process.env.DASHBOARD_PASSWORD;
     for (const flag of ["1", ""]) {
       vi.stubEnv("OVERHEAR_DEMO_STATES", flag);

@@ -9,10 +9,10 @@
 // - Every request that can change something (any method but GET and HEAD) must carry an Origin equal to its own
 //   Host. A page on another site, another port or a sandboxed frame (`Origin: null`) cannot set or remove the key.
 // - A Host check is not authentication: a machine on the network can send `Host: localhost`. So local mode also
-//   refuses every request when the server was started on anything but 127.0.0.1 (say `OVERHEAR_LOCAL=1` sits in
-//   .env and someone runs plain `npm run dev`, which binds every interface). Next records the address it serves
-//   in `__NEXT_PRIVATE_ORIGIN`; when that is missing (tests, or a future Next) this one check cannot tell and
-//   lets the others decide.
+//   refuses every request unless the server was started on 127.0.0.1 (say `OVERHEAR_LOCAL=1` sits in .env and
+//   someone runs plain `npm run dev`, which binds every interface). See isLoopbackBind.
+// - Every answer forbids framing (FRAME_HEADERS), so a page on another site cannot frame the local server to
+//   clickjack a disconnect or a pull, or show transcripts inside its own page.
 // These checks run in src/proxy.ts for every path and again in each product route handler.
 // Pure and dependency-free, so the proxy can import it.
 import { LOCAL_REFUSAL } from "./labels";
@@ -39,17 +39,37 @@ export function isSameOrigin(origin: string | null | undefined, host: string | n
 }
 
 /**
- * False when Next says it is serving on an address other than 127.0.0.1. Next writes `localhost` for both a
- * 0.0.0.0 bind and a `localhost` bind, and `[::1]` for both `::` and `::1`, so only 127.0.0.1 is trusted.
+ * True only when Next says it is serving on 127.0.0.1.
+ *
+ * Why an internal Next variable: a request handler cannot see the address the server listens on, and Next
+ * exposes no public way to ask. Its start-server writes the address to `process.env.__NEXT_PRIVATE_ORIGIN` when
+ * it starts listening (`next dev` and `next start` alike). It writes `localhost` for both a 0.0.0.0 bind and a
+ * `localhost` bind, and `[::1]` for both `::` and `::1`, so only 127.0.0.1 is trusted.
+ *
+ * It fails closed: when the variable is missing, local mode refuses every request. If a Next upgrade drops or
+ * renames it, `npm run local` answers 403 everywhere until this check is moved to what Next records instead; a
+ * test in boundaries.test.ts reads Next's start-server and fails at upgrade time. Tests opt in by setting the
+ * variable to a 127.0.0.1 origin themselves; nothing here assumes it.
  */
 export function isLoopbackBind(env: Record<string, string | undefined> = process.env): boolean {
   const origin = env.__NEXT_PRIVATE_ORIGIN;
-  if (!origin) return true;
+  if (!origin) return false;
   try {
     return new URL(origin).hostname === "127.0.0.1";
   } catch {
     return false;
   }
+}
+
+/** Sent on every local-mode answer: no other page may frame this one. */
+export const FRAME_HEADERS: Readonly<Record<string, string>> = {
+  "content-security-policy": "frame-ancestors 'none'",
+  "x-frame-options": "DENY",
+};
+
+/** Adds FRAME_HEADERS to a response's headers, in place. */
+export function forbidFraming(headers: Headers): void {
+  for (const [name, value] of Object.entries(FRAME_HEADERS)) headers.set(name, value);
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD"]);
@@ -63,7 +83,7 @@ export function isProductApiPath(pathname: string): boolean {
 }
 
 function refusal(status: 403 | 404, text: string = status === 404 ? LOCAL_REFUSAL.notFound : LOCAL_REFUSAL.forbidden): Response {
-  return new Response(text, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+  return new Response(text, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", ...FRAME_HEADERS } });
 }
 
 /**
