@@ -6,6 +6,7 @@ import type { ContractResult, Detection, Evidence } from "@/report/schema";
 import { CONTRACT_TITLE, capitalize } from "@/report/labels";
 import { FindingBlock } from "./FindingBlock";
 import { ResultBadge } from "./StatusBadge";
+import { findingAnchor } from "./threads";
 
 export function ContractSection({ contract, evidence, detections }: { contract: ContractResult; evidence: Evidence; detections: Detection[] }) {
   const id = useId();
@@ -13,7 +14,7 @@ export function ContractSection({ contract, evidence, detections }: { contract: 
   const findings = (
     <div className="divide-y divide-report-line">
       {contract.findings.map((f, i) => (
-        <FindingBlock key={i} finding={f} evidence={evidence} detections={detections} contract={contract.contract} />
+        <FindingBlock key={i} finding={f} evidence={evidence} detections={detections} contract={contract.contract} anchor={findingAnchor(contract.contract, i)} />
       ))}
     </div>
   );

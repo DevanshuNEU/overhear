@@ -2,7 +2,9 @@
 // the contract results, and the evidence the findings point into.
 import type { CallReport, ContractResult, Result } from "@/report/schema";
 import { CONTRACT_TITLE, HEADING, RESULT_LABEL, capitalize } from "@/report/labels";
+import { CallTimeline } from "./CallTimeline";
 import { ContractSection } from "./ContractSection";
+import { OpenTarget } from "./OpenTarget";
 import { ReportHeader } from "./ReportHeader";
 
 const SHOWN: Result[] = ["violated", "unverified", "passed"];
@@ -17,6 +19,7 @@ export function CallReportView({ report }: { report: CallReport }) {
   const skipped = report.results.filter((c) => !SHOWN.includes(c.result));
   return (
     <div className="space-y-12">
+      <OpenTarget />
       <ReportHeader report={report} />
       {shown.length > 0 ? (
         <section aria-labelledby="rows-heading">
@@ -45,6 +48,7 @@ export function CallReportView({ report }: { report: CallReport }) {
           </ul>
         </section>
       ) : null}
+      <CallTimeline report={report} />
     </div>
   );
 }

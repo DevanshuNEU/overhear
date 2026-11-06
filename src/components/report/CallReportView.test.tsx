@@ -46,7 +46,8 @@ describe("CallReportView on the failed sample", () => {
     const held = Array.from(container.querySelectorAll("details")).filter((d) => d.querySelector("summary")?.textContent?.includes("Passed"));
     expect(held).toHaveLength(3);
     for (const d of held) expect(d.open).toBe(false);
-    expect(screen.getByText(/Promises backed by the system/)).toBeInTheDocument();
+    const rows = screen.getByRole("region", { name: "Said and did" });
+    expect(within(rows).getByText("Promises backed by the system")).toBeInTheDocument();
   });
 
   it("shows what the system did for a kept promise: the call, its result and the compared details", () => {

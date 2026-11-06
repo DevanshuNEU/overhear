@@ -3,18 +3,11 @@
 import { useId } from "react";
 import type { ReactNode } from "react";
 import type { Detection, Evidence, Item } from "@/report/schema";
-import {
-  BACKEND_LOG_TAG,
-  LANE_LABEL,
-  NOTHING_DID,
-  RAW_DETAIL_LABEL,
-  backendActionLine,
-  eventLine,
-  toolCallLine,
-  toolResultLine,
-} from "@/report/labels";
-import { formatClock, rawText } from "./format";
+import { BACKEND_LOG_TAG, LANE_LABEL, NOTHING_DID } from "@/report/labels";
+import { describeDid } from "./describe";
+import { formatClock } from "./format";
 import { markQuotes } from "./highlight";
+import { RawDetail } from "./RawDetail";
 
 type Turn = Extract<Item, { kind: "turn" }>;
 
@@ -87,31 +80,9 @@ export function SaidLane({
   );
 }
 
-/** The one line a thing the system did gets, and the raw record behind it. */
-function didLine(item: Item, evidence: Evidence): { line: string; raw: unknown; backend: boolean } | null {
-  // A result is named by the call it answers. If its id belongs to more than one call it answers none for sure,
-  // so it keeps the id and takes no tool's name.
-  const callName = (id: string) => {
-    const calls = evidence.items.filter((x) => x.kind === "tool_call" && x.id === id);
-    return calls.length === 1 && calls[0].kind === "tool_call" ? calls[0].name : id;
-  };
-  switch (item.kind) {
-    case "tool_call":
-      return { line: toolCallLine(item.name), raw: item.args, backend: false };
-    case "tool_result":
-      return { line: toolResultLine(callName(item.id), item.ok), raw: item.payload, backend: false };
-    case "backend_action":
-      return { line: backendActionLine(item.tool, item.ok), raw: { args: item.args, result: item.result, ts: item.ts }, backend: true };
-    case "event":
-      return { line: eventLine(item.type), raw: item.data, backend: false };
-    case "turn":
-      return null;
-  }
-}
-
 export function DidLane({ evidence, seqs }: { evidence: Evidence; seqs: number[] }) {
   const lines = itemsAt(evidence, seqs).flatMap((it) => {
-    const l = didLine(it, evidence);
+    const l = describeDid(it, evidence);
     return l ? [{ seq: it.seq, ...l }] : [];
   });
   return (
@@ -128,16 +99,7 @@ export function DidLane({ evidence, seqs }: { evidence: Evidence; seqs: number[]
                 </span>
                 {l.backend ? <span className="rounded bg-report-accent-tint px-1.5 text-[12px] text-report-accent">{BACKEND_LOG_TAG}</span> : null}
               </div>
-              {l.raw !== undefined && l.raw !== null ? (
-                <details data-raw className="mt-1">
-                  <summary className="inline-block cursor-pointer rounded py-0.5 text-[13px] text-report-muted hover:text-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent">
-                    {RAW_DETAIL_LABEL}
-                  </summary>
-                  <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-report-line bg-report-canvas p-3 font-mono text-[12px] leading-relaxed text-report-ink-2">
-                    {rawText(l.raw)}
-                  </pre>
-                </details>
-              ) : null}
+              <RawDetail raw={l.raw} />
             </li>
           ))}
         </ol>

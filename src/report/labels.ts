@@ -74,6 +74,7 @@ export const FACT_LABEL = {
 export const HEADING = {
   rows: "Said and did",
   otherRules: "Other rules",
+  timeline: "The call",
 };
 
 export const KEY_FACTS_LABEL = "Key facts";
@@ -121,6 +122,14 @@ export function comparedLine(from: FieldCheck["from"], values: string[]): string
   if (values.length === 0) return FIELD_NONE_LABEL[from];
   return `${FIELD_FROM_LABEL[from]}: ${values.join(", ")}`;
 }
+
+export const SPEAKER_LABEL = {
+  agent: "Agent",
+  caller: "Caller",
+};
+
+/** The link from a finding to the first item it cites in the call timeline. */
+export const SHOW_IN_CALL = "Show in the call";
 
 export const COPY_ID_LABEL = "Copy call ID";
 export const COPIED_LABEL = "Copied";
