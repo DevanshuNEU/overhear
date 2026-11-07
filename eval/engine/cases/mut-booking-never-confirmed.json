@@ -5,7 +5,7 @@
   "independent": false,
   "platform": "retell",
   "locked": true,
-  "label": { "by": "mutation", "at": "2026-11-07", "note": "The booking worked, but the agent's confirmation is replaced by a line that confirms nothing. No promise was made, so promise_backed does not apply, and nothing told the caller what was booked, so the details cannot be checked: unverified." },
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "The booking worked, but the agent's confirmation is replaced by a line that confirms nothing. No promise was made, so promise_backed does not apply, and the caller did hear the time and the doctor (in the offers and in the line announcing the 2:00 p.m. booking with Dr. Priya Nair), but never as a confirmation of what was booked, so there is no confirmation to check against the booking: unverified." },
   "derivedFrom": "sample-passed",
   "expect": { "verdict": "needs_review", "contracts": { "promise_backed": "not_applicable", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },
   "record": {

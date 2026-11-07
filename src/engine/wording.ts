@@ -83,6 +83,10 @@ export const REASONS = {
     missing: "the {tool} call has no result and nothing else in the record shows the caller was connected",
     fix: "Export the call with its tool results, or add a backend log with --actions.",
   },
+  change_no_result: {
+    missing: "the {tool} call has no result in the record, so we couldn't tell whether the {kind} went through",
+    fix: "Export the call with its tool results, or add a backend log with --actions.",
+  },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
   zone_unsure: {
     missing: "the agent said {said}, and the {kind} is {matched} {matchedWhere}, which is {primary} {primaryWhere}, so we couldn't tell which {what} the caller meant",

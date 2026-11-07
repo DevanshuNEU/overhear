@@ -9,7 +9,7 @@
 // The expectations are written from the rules, never copied from what the engine returned. A mutation the engine
 // gets wrong is not made to pass: it goes in KNOWN_FAILURES with one line saying why, its case is written unlocked,
 // and the lead files an issue. `npm run eval:engine -- --write-mutation-cases` writes the cases to eval/engine/cases/.
-import type { ContractId, GapCode, Result, Verdict } from "@/report/schema";
+import type { ContractId, GapCode, Result, ReviewReasonKind, Verdict } from "@/report/schema";
 import { CASE_SCHEMA_VERSION, type EvalCase } from "../eval/case";
 import { sampleCases } from "./sample-cases";
 
@@ -41,6 +41,8 @@ export interface Mutation {
   };
   /** Gap codes the report's evidence must list. The meta test uses them to see which codes the suite can produce. */
   gaps?: GapCode[];
+  /** The kinds of review reason the report must list, in order. Unset means the mutation does not say. */
+  reasons?: ReviewReasonKind[];
   /** A contract's finding must cite the agent turn that holds this text (said, by its seq in the mutated record). */
   cites?: { contract: ContractId; turn: string }[];
 }
@@ -87,13 +89,18 @@ function appendTurn(record: Rec, role: "agent" | "user", content: string): Rec {
 
 /** Removes a tool call and its result. */
 function dropTool(record: Rec, id: string): Rec {
-  record[TRANSCRIPT] = utterances(record).filter((u) => u.tool_call_id !== id);
+  const before = utterances(record);
+  const after = before.filter((u) => u.tool_call_id !== id);
+  if (after.length === before.length) throw new Error(`no tool call with id ${id} to drop`);
+  record[TRANSCRIPT] = after;
   return record;
 }
 
 /** Renames a tool, in every call of it. */
 function renameTool(record: Rec, from: string, to: string): Rec {
-  for (const u of utterances(record)) if (u.role === "tool_call_invocation" && u.name === from) u.name = to;
+  const calls = utterances(record).filter((u) => u.role === "tool_call_invocation" && u.name === from);
+  if (calls.length === 0) throw new Error(`no call of ${from} to rename`);
+  for (const u of calls) u.name = to;
   return record;
 }
 
@@ -138,13 +145,18 @@ function addEventAfterTurn(record: Rec, snippet: string, event: Rec): Rec {
 
 /** Replaces every redaction-free provider name in the lookups' items with a placeholder, as Retell does when it scrubs. */
 function scrubSlotField(record: Rec, field: "providerName" | "startsAt", placeholder: string): Rec {
+  let changed = 0;
   for (const u of utterances(record)) {
     if (u.role !== "tool_call_result" || typeof u.content !== "string") continue;
     const body: unknown = JSON.parse(u.content);
     if (typeof body !== "object" || body === null || !Array.isArray((body as Rec).slots)) continue;
-    for (const slot of (body as Rec).slots as Rec[]) slot[field] = placeholder;
+    for (const slot of (body as Rec).slots as Rec[]) {
+      if (slot[field] !== placeholder) changed++;
+      slot[field] = placeholder;
+    }
     u.content = JSON.stringify(body);
   }
+  if (changed === 0) throw new Error(`no slot ${field} to scrub`);
   return record;
 }
 
@@ -273,7 +285,7 @@ export const MUTATIONS: readonly Mutation[] = [
   {
     id: "mut-side-tool-between-booking-and-claim",
     parent: PASSED,
-    note: "A tool that only adds a note to the booking runs between the booking and the confirmation. A side tool is not a change, so it neither backs nor breaks the claim, and the booking still stands behind it.",
+    note: "A tool that only adds a note to the booking runs between the booking and the confirmation. A side tool is not a change, so it neither backs nor breaks the claim, and the booking still stands behind it. The tool is outside the demo preset, so adding it moves the call to an inferred policy.",
     edit: (r) =>
       addToolBeforeTurn(
         r,
@@ -284,9 +296,22 @@ export const MUTATIONS: readonly Mutation[] = [
     expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
   },
   {
+    id: "mut-side-tool-fails-between-booking-and-claim",
+    parent: PASSED,
+    note: "The same side tool, but its result is a failure (ok false, successful false). A failed note is not a failed booking, so the confirmation is still backed by the booking that worked and the call stays passed. The tool is outside the demo preset, so adding it moves the call to an inferred policy.",
+    edit: (r) =>
+      addToolBeforeTurn(
+        r,
+        BOOKED,
+        toolCall("tc_05", "add_booking_note", { note: "bring photo id" }),
+        toolResult("tc_05", { ok: false, error: "note_too_long" }, false),
+      ),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+  },
+  {
     id: "mut-booking-never-confirmed",
     parent: PASSED,
-    note: "The booking worked, but the agent's confirmation is replaced by a line that confirms nothing. No promise was made, so promise_backed does not apply, and nothing told the caller what was booked, so the details cannot be checked: unverified.",
+    note: "The booking worked, but the agent's confirmation is replaced by a line that confirms nothing. No promise was made, so promise_backed does not apply, and the caller did hear the time and the doctor (in the offers and in the line announcing the 2:00 p.m. booking with Dr. Priya Nair), but never as a confirmation of what was booked, so there is no confirmation to check against the booking: unverified.",
     edit: (r) => say(r, BOOKED, "You’re booked for Friday, November 6, 2026, at 2:00 p.m. with Dr. Priya Nair.", "Is there anything else I can help with?"),
     expect: { verdict: "needs_review", promise_backed: "not_applicable", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
   },
@@ -344,7 +369,7 @@ export const MUTATIONS: readonly Mutation[] = [
   {
     id: "mut-inferred-policy-time-fits-another-zone",
     parent: PASSED,
-    note: "Another agent's call (inferred policy, no zone of its own), read in New York. The slot is 14:00 UTC, which is 10:00 a.m. there, and the agent said 2:00 p.m., which is right in UTC. The words fit a plausible zone, so the call cannot be called wrong: unverified, never violated.",
+    note: "Another agent's call (inferred policy, no zone of its own), read in New York. The slot is 14:00 UTC, which is 9:00 a.m. there (EST on 2026-11-06), and the agent said 2:00 p.m., which is right in UTC. The words fit a plausible zone, so the call cannot be called wrong: unverified, never violated.",
     tz: "America/New_York",
     edit: fromOtherAgent,
     expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
@@ -425,6 +450,7 @@ export const MUTATIONS: readonly Mutation[] = [
     note: "A call that passed every contract, then the agent says it cannot do something and will help once the system is back. Nothing is violated, but a deferral is never passed: needs_review.",
     edit: (r) => appendTurn(r, "agent", DEFERRAL),
     expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+    reasons: ["deferral"],
   },
   {
     id: "mut-deferral-added-to-failed-call",
@@ -433,6 +459,7 @@ export const MUTATIONS: readonly Mutation[] = [
     edit: (r) => appendTurn(r, "agent", DEFERRAL),
     expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
     cites: [{ contract: "transfer_kept", turn: GOT_TRANSFER }],
+    reasons: [],
   },
 ];
 
@@ -440,16 +467,14 @@ export const MUTATIONS: readonly Mutation[] = [
  * Mutations whose case the engine does not yet get right: id to one line saying why. Each is written unlocked, and
  * the lead files an issue. Empty means every mutation passes.
  */
-export const KNOWN_FAILURES: Readonly<Record<string, string>> = {
-  "mut-booking-result-missing":
-    "promise_backed says violated (the booking had not finished) when the booking call has no result anywhere in the record, though a missing result proves nothing and transfer_kept calls the same case unverified.",
-};
+export const KNOWN_FAILURES: Readonly<Record<string, string>> = {};
 
 /**
  * Gap codes the engine never puts in a report for a Retell record, and why. A Retell record is Tier 1: no backend
  * actions, so nothing is linked or unlinked, and the engine has no code path for a conflict between sources or for a
- * model's second opinion. A test fails when a mutation does produce one of these, so the list cannot go stale, and
- * when a code is on neither this list nor a mutation, so a new code needs a mutation.
+ * model's second opinion. A test fails when a mutation does produce one of these, but the list catches staleness only
+ * on paths a mutation exercises. A test also fails when a code is on neither this list nor a mutation, so a new code
+ * needs a mutation.
  */
 export const GAP_CODES_NOT_EMITTED: Readonly<Partial<Record<GapCode, string>>> = {
   unlinked_backend_action: "Tier 2 only: Retell records have no backend actions to link.",

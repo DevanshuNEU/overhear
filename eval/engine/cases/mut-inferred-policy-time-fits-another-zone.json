@@ -5,7 +5,7 @@
   "independent": false,
   "platform": "retell",
   "locked": true,
-  "label": { "by": "mutation", "at": "2026-11-07", "note": "Another agent's call (inferred policy, no zone of its own), read in New York. The slot is 14:00 UTC, which is 10:00 a.m. there, and the agent said 2:00 p.m., which is right in UTC. The words fit a plausible zone, so the call cannot be called wrong: unverified, never violated." },
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "Another agent's call (inferred policy, no zone of its own), read in New York. The slot is 14:00 UTC, which is 9:00 a.m. there (EST on 2026-11-06), and the agent said 2:00 p.m., which is right in UTC. The words fit a plausible zone, so the call cannot be called wrong: unverified, never violated." },
   "derivedFrom": "sample-passed",
   "tz": "America/New_York",
   "expect": { "verdict": "needs_review", "contracts": { "promise_backed": "passed", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },

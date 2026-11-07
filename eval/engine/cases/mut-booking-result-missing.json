@@ -4,8 +4,8 @@
   "source": "mutation",
   "independent": false,
   "platform": "retell",
-  "locked": false,
-  "label": { "by": "mutation", "at": "2026-11-07", "note": "The booking call is there but its result is not, as when a record drops a result. The call was made and nothing shows how it ended, so a booking claim is not proved wrong: unverified, never violated. Known failure: promise_backed says violated (the booking had not finished) when the booking call has no result anywhere in the record, though a missing result proves nothing and transfer_kept calls the same case unverified." },
+  "locked": true,
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "The booking call is there but its result is not, as when a record drops a result. The call was made and nothing shows how it ended, so a booking claim is not proved wrong: unverified, never violated." },
   "derivedFrom": "sample-passed",
   "expect": { "verdict": "needs_review", "contracts": { "promise_backed": "unverified", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },
   "record": {
