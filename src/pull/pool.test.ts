@@ -231,4 +231,94 @@ describe("runPool", () => {
     expect(h.sleeps.slice(1).every((ms) => ms === 11 || ms === 22)).toBe(true);
     expect(h.sleeps.length).toBeGreaterThan(1);
   });
+  it("removes each abort listener once its wait settles without a cancel", async () => {
+    const h = harness();
+    const controller = new AbortController();
+    let added = 0;
+    let removed = 0;
+    const signal = controller.signal;
+    const add = signal.addEventListener.bind(signal);
+    const remove = signal.removeEventListener.bind(signal);
+    signal.addEventListener = ((type: string, fn: EventListenerOrEventListenerObject, o?: AddEventListenerOptions | boolean) => {
+      if (type === "abort") added++;
+      add(type, fn, o);
+    }) as typeof signal.addEventListener;
+    signal.removeEventListener = ((type: string, fn: EventListenerOrEventListenerObject, o?: EventListenerOptions | boolean) => {
+      if (type === "abort") removed++;
+      remove(type, fn, o);
+    }) as typeof signal.removeEventListener;
+    const attempts = new Map<number, number>();
+    const tasks = Array.from({ length: 4 }, (_, i) => async () => {
+      const n = (attempts.get(i) ?? 0) + 1;
+      attempts.set(i, n);
+      if (n <= 3) throw err({ status: i % 2 === 0 ? 429 : 503, retryAfterMs: 5, code: "x" });
+      return i;
+    });
+    const out = await runPool(tasks, { ...h.opts, size: 2, signal });
+    expect(out.every((r) => r.ok)).toBe(true);
+    expect(added).toBeGreaterThan(0);
+    expect(removed).toBe(added);
+  });
+
+  it("a 401 wakes workers waiting in the 429 pause and leaves the shared pause in place", async () => {
+    const h = harness();
+    const limiter = createLimiter(POOL_SIZE);
+    const tick = () => new Promise((r) => setImmediate(r));
+    const tasks = [
+      async () => {
+        throw err({ status: 429, retryAfterMs: 30_000, code: "rate_limited" });
+      },
+      async () => {
+        await tick();
+        await tick();
+        throw err({ status: 401, code: "bad_key" });
+      },
+      async () => 2,
+      async () => 3,
+    ];
+    const done = runPool(tasks, { ...h.opts, size: 2, limiter, sleep: () => new Promise<void>(() => {}) });
+    const out = await Promise.race([done, new Promise<"hung">((r) => setTimeout(() => r("hung"), 300))]);
+    expect(out).not.toBe("hung");
+    const results = out as Awaited<typeof done>;
+    expect(results[1]).toEqual({ ok: false, error: { status: 401, code: "bad_key" } });
+    expect(results.every((r) => r.ok || r.error.code === "bad_key")).toBe(true);
+    expect(limiter.gate).not.toBeNull();
+  });
+
+  it("the last retry getting a 429 still applies the capped shared pause", async () => {
+    const h = harness();
+    const limiter = createLimiter(POOL_SIZE);
+    let calls = 0;
+    let pauses = 0;
+    let release: () => void = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    const sleep = (ms: number) => {
+      h.sleeps.push(ms);
+      if (ms !== 7 && ++pauses === 5) return hold;
+      return Promise.resolve();
+    };
+    let started = false;
+    const done = runPool(
+      [
+        async () => {
+          calls++;
+          throw err({ status: 429, retryAfterMs: 120_000, code: "rate_limited" });
+        },
+        async () => {
+          started = true;
+          return "next";
+        },
+      ],
+      { ...h.opts, size: 1, limiter, sleep },
+    );
+    for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+    expect(calls).toBe(5);
+    expect(limiter.gate).not.toBeNull();
+    expect(started).toBe(false);
+    expect(h.sleeps.filter((ms) => ms === 60_000)).toHaveLength(5);
+    release();
+    const out = await done;
+    expect(out[0]).toEqual({ ok: false, error: { status: 429, retryAfterMs: 120_000, code: "rate_limited" } });
+    expect(out[1]).toEqual({ ok: true, value: "next" });
+  });
 });
