@@ -3,7 +3,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { NOT_A_RETELL_CALL } from "@/report/labels";
 import { CallReportSchema } from "@/report/schema";
-import { SAMPLE_REPORTS, failedSample, passedSample } from "@/report/samples";
+import { SAMPLE_REPORTS, failedSample, needsReviewSample, passedSample } from "@/report/samples";
+import { isDeepStrictEqual } from "node:util";
+import preset from "./presets/northwind-clinic.json";
 import { analyzeRetellCall } from "./analyze";
 import * as check from "./check";
 import { ev, type ItemSpec } from "./testing/build";
@@ -16,6 +18,7 @@ vi.mock("./check", async (importOriginal) => {
 });
 
 const opts = { tz: "UTC" };
+const isPreset = (policy: unknown) => isDeepStrictEqual(policy, preset);
 
 describe("analyzeRetellCall", () => {
   it("turns a raw record into a validated report", () => {
@@ -93,6 +96,78 @@ describe("analyzeRetellCall", () => {
         expect(out.report.results.find((c) => c.contract === "transfer_kept")?.result).toBe("unverified");
       }
     }
+  });
+
+  describe("the demo agent's id", () => {
+    const withAgent = (raw: unknown, agentId: unknown) => ({ ...(raw as Record<string, unknown>), agent_id: agentId });
+    const verdictOf = (out: ReturnType<typeof analyzeRetellCall>) => (out.kind === "report" ? out.report.verdict : out.kind);
+    const sourceOf = (out: ReturnType<typeof analyzeRetellCall>) => (out.kind === "report" ? (isPreset(out.report.policy) ? "preset" : "inferred") : out.kind);
+
+    it("a call from another agent with demo-shaped results is inferred", () => {
+      const raw = withAgent(toRetell(failedSample.evidence), "agent_other");
+      const out = analyzeRetellCall(raw, { ...opts, demoAgentId: "agent_demo" });
+      expect(sourceOf(out)).toBe("inferred");
+      expect(verdictOf(out)).not.toBe("failed");
+    });
+
+    it("the call of the demo agent gets the preset", () => {
+      const out = analyzeRetellCall(withAgent(toRetell(failedSample.evidence), "agent_demo"), { ...opts, demoAgentId: "agent_demo" });
+      expect(sourceOf(out)).toBe("preset");
+      expect(verdictOf(out)).toBe("failed");
+    });
+
+    it("a call with an agent id and no demo agent configured is inferred", () => {
+      const out = analyzeRetellCall(withAgent(toRetell(failedSample.evidence), "agent_demo"), opts);
+      expect(sourceOf(out)).toBe("inferred");
+      expect(verdictOf(out)).not.toBe("failed");
+    });
+
+    // The OVE-38 hole: lookups all failed and the booking says only { ok: true }, which reads as the demo by shape.
+    it("another agent whose lookups failed and whose booking is a bare ok is inferred, not Failed", () => {
+      const turn = (role: "agent" | "caller", text: string, startSec: number): ItemSpec => ({ kind: "turn", role, text, startSec, interrupted: null });
+      const raw = withAgent(
+        toRetell(
+          ev([
+            turn("caller", "I need an appointment.", 1),
+            { kind: "tool_call", id: "tc_1", name: "check_availability", args: {} },
+            { kind: "tool_result", id: "tc_1", ok: null, platformOk: false, payload: "HTTP 500: Request failed" },
+            { kind: "tool_call", id: "tc_2", name: "book_appointment", args: { slotId: "x" } },
+            { kind: "tool_result", id: "tc_2", ok: null, platformOk: true, payload: { ok: true } },
+            turn("agent", "Let me transfer you to someone who can help.", 30),
+          ]),
+        ),
+        "agent_other",
+      );
+      // Without an agent id the shape rule grants the preset: that is the hole.
+      const noId = analyzeRetellCall({ ...(raw as Record<string, unknown>), agent_id: undefined }, { ...opts, demoAgentId: "agent_demo" });
+      expect(sourceOf(noId)).toBe("preset");
+      const out = analyzeRetellCall(raw, { ...opts, demoAgentId: "agent_demo" });
+      expect(sourceOf(out)).toBe("inferred");
+      expect(verdictOf(out)).not.toBe("failed");
+      expect(out.kind === "report" && out.report.results.find((c) => c.contract === "transfer_kept")?.result).toBe("unverified");
+    });
+
+    it("a call with no agent id behaves as before, with or without a demo agent configured", () => {
+      for (const demoAgentId of [undefined, "agent_demo"]) {
+        const o = { ...opts, demoAgentId };
+        expect(verdictOf(analyzeRetellCall(toRetell(failedSample.evidence), o))).toBe("failed");
+        expect(verdictOf(analyzeRetellCall(toRetell(passedSample.evidence), o))).toBe("passed");
+        expect(verdictOf(analyzeRetellCall(toRetell(needsReviewSample.evidence), o))).toBe("needs_review");
+        expect(sourceOf(analyzeRetellCall(toRetell(needsReviewSample.evidence), o))).toBe("inferred");
+      }
+    });
+
+    it("an agent id that is not text counts as no agent id", () => {
+      for (const id of [42, null, "", {}]) {
+        const out = analyzeRetellCall(withAgent(toRetell(failedSample.evidence), id), { ...opts, demoAgentId: "agent_demo" });
+        expect(verdictOf(out)).toBe("failed");
+      }
+    });
+
+    it("keeps the agent id out of the report", () => {
+      const out = analyzeRetellCall(withAgent(toRetell(failedSample.evidence), "agent_demo"), { ...opts, demoAgentId: "agent_demo" });
+      expect(JSON.stringify(out)).not.toContain("agent_demo");
+    });
   });
 
   it("handles a call with no turns", () => {

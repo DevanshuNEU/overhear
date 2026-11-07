@@ -444,6 +444,41 @@ describe("policyFor", () => {
     });
   });
 
+  // The preset is the only policy that can mark an unkept transfer Failed, so it goes only to the agent the caller
+  // named. A call that carries an agent id is judged by that id and never by the shape of its results.
+  describe("by Retell agent id", () => {
+    const demoShaped = () => demoCall();
+
+    it("gives the preset when the call's agent is the demo agent", () => {
+      expect(policyFor(demoShaped(), { agentId: "agent_demo", demoAgentId: "agent_demo" }).source).toBe("preset");
+    });
+
+    it("gives the preset to the demo agent whatever its results look like", () => {
+      expect(policyFor(ev(tool("tc_1", "lookup_order", {}, { order: { id: "o-1" } })), { agentId: "agent_demo", demoAgentId: "agent_demo" }).source).toBe("preset");
+    });
+
+    it("infers for another agent, even with demo-shaped results", () => {
+      expect(policyFor(demoShaped(), { agentId: "agent_other", demoAgentId: "agent_demo" }).source).toBe("inferred");
+    });
+
+    it("infers when the call has an agent id and no demo agent is configured", () => {
+      expect(policyFor(demoShaped(), { agentId: "agent_other" }).source).toBe("inferred");
+      expect(policyFor(demoShaped(), { agentId: "agent_other", demoAgentId: undefined }).source).toBe("inferred");
+      expect(policyFor(demoShaped(), { agentId: "agent_demo", demoAgentId: "" }).source).toBe("inferred");
+    });
+
+    it("falls back to the shape rule when the call has no agent id", () => {
+      for (const agent of [undefined, {}, { agentId: null }, { agentId: null, demoAgentId: "agent_demo" }, { demoAgentId: "agent_demo" }]) {
+        expect(policyFor(demoShaped(), agent).source).toBe("preset");
+        expect(policyFor(needsReviewSample.evidence, agent).source).toBe("inferred");
+      }
+    });
+
+    it("an empty agent id is no agent id", () => {
+      expect(policyFor(demoShaped(), { agentId: "", demoAgentId: "agent_demo" }).source).toBe("preset");
+    });
+  });
+
   it("hands out a copy of the preset, so a caller cannot change it for the next call", () => {
     const first = policyFor(failedSample.evidence).policy as Policy;
     first.tools.book_appointment.kind = "cancel";

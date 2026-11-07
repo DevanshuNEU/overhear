@@ -14,8 +14,8 @@ export const analyzeRetellCall: Analyze = (raw, opts): Outcome => {
   try {
     const adapted = fromRetell(raw);
     if (adapted.kind === "no_content") return adapted;
-    const { policy, source } = policyFor(adapted.evidence);
-    const report = checkCall(adapted.evidence, policy, { ...opts, policySource: source });
+    const { policy, source } = policyFor(adapted.evidence, { agentId: adapted.agentId, demoAgentId: opts.demoAgentId });
+    const report = checkCall(adapted.evidence, policy, { tz: opts.tz, policySource: source });
     const valid = CallReportSchema.safeParse(report);
     if (!valid.success) {
       const first = valid.error.issues[0];

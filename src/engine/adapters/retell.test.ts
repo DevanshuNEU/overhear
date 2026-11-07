@@ -134,6 +134,18 @@ describe("fromRetell", () => {
     expect(e.callFields).toEqual({ disconnection_reason: "user_hangup", call_analysis: {} });
   });
 
+  it("hands back the agent id beside the evidence, not inside it", () => {
+    const out = fromRetell(call());
+    expect(out.kind === "evidence" && out.agentId).toBe("agent_northwind");
+    expect(JSON.stringify((out as { evidence: Evidence }).evidence)).not.toContain("agent_northwind");
+    for (const agent_id of [undefined, "", "  ", "\t\n", 7, null, {}]) {
+      const none = fromRetell(call({ agent_id }));
+      expect(none.kind === "evidence" && none.agentId).toBeNull();
+    }
+    const wrapped = fromRetell({ event: "call_analyzed", call: call() });
+    expect(wrapped.kind === "evidence" && wrapped.agentId).toBe("agent_northwind");
+  });
+
   it("reads start_timestamp into callStartMs and agent_version into agentVersion", () => {
     expect(evidenceOf(call())).toMatchObject({ callStartMs: 1793911370896, agentVersion: "3" });
     expect(evidenceOf(call({ start_timestamp: undefined, agent_version: undefined }))).toMatchObject({ callStartMs: null, agentVersion: null });
@@ -377,7 +389,7 @@ describe("fromRetell", () => {
         ...sample.evidence,
         items: sample.evidence.items.map((it) => (it.kind === "tool_result" ? { ...it, ok: null } : it)),
       };
-      expect(back).toEqual({ kind: "evidence", source: "transcript_with_tool_calls", evidence: expected });
+      expect(back).toEqual({ kind: "evidence", source: "transcript_with_tool_calls", agentId: null, evidence: expected });
     });
   });
 });
