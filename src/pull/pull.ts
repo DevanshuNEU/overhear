@@ -58,6 +58,8 @@ type Store = {
   limiter: Limiter;
   /** Single-call fetches under way, by call id, so two readers of one call make one request. */
   fetching: Map<string, Promise<Outcome | null>>;
+  /** Calls Retell said it does not have, until Disconnect, so a made-up id opened again is not asked again. */
+  missing: Set<string>;
   /** Counts clearPulls, so a fetch that began before Disconnect can tell and store nothing. */
   epoch: number;
 };
@@ -65,7 +67,7 @@ type Store = {
 const g = globalThis as typeof globalThis & { __overhearPulls?: Store };
 // Read on every use, so a reset of the global (tests) takes effect.
 const getStore = (): Store =>
-  (g.__overhearPulls ??= { pulls: new Map(), calls: new Map(), limiter: createLimiter(POOL_SIZE), fetching: new Map(), epoch: 0 });
+  (g.__overhearPulls ??= { pulls: new Map(), calls: new Map(), limiter: createLimiter(POOL_SIZE), fetching: new Map(), missing: new Set(), epoch: 0 });
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const defaultJitter = () => Math.floor(Math.random() * 250);
@@ -244,6 +246,7 @@ export function clearPulls(): void {
   store.pulls.clear();
   store.calls.clear();
   store.fetching.clear();
+  store.missing.clear();
   store.epoch++;
 }
 
@@ -292,18 +295,24 @@ export async function retryCall(callId: string, opts: { key?: string } & PullTun
 const OPENED = "opened";
 /** How many such calls the store keeps. The oldest goes first. */
 export const MAX_OPENED = 50;
+/** How many single-call fetches may be under way (on the wire or waiting for a slot): the five slots and two waiting. */
+export const MAX_OPEN_FETCHES = POOL_SIZE + 2;
+/** How many Retell 404s are remembered. */
+const MAX_MISSING = 200;
 
 /**
  * Fetches one call that is not in the store (a call opened by its address), analyzes it and keeps a report or a
  * no_content answer, so the next open makes no request. Goes through the shared limiter like every other Retell
  * request. Null when there is nothing to show: no usable key, Retell does not have the call, the call has not ended,
- * or the request failed. An error outcome is returned but not kept, so the next open tries again. Two callers for one
+ * or the request failed; also null, with no request, when too many fetches are under way already (another site must
+ * not be able to queue Retell requests by looping over made-up ids) or Retell already said 404 for this id. An error outcome is returned but not kept, so the next open tries again. Two callers for one
  * call share one request. Disconnect during the request means nothing is kept.
  */
 export function fetchCall(callId: string, opts: { analyze: Analyze; key?: string } & PullTuning): Promise<Outcome | null> {
   const store = getStore();
   const running = store.fetching.get(callId);
   if (running) return running;
+  if (store.missing.has(callId) || store.fetching.size >= MAX_OPEN_FETCHES) return Promise.resolve(null);
   const p = fetchOne(store, callId, opts).finally(() => {
     if (store.fetching.get(callId) === p) store.fetching.delete(callId);
   });
@@ -316,6 +325,8 @@ async function fetchOne(store: Store, callId: string, opts: { analyze: Analyze; 
   const key = opts.key ?? (await readStoredKey());
   if (key === null || store.epoch !== epoch) return null;
   const task = async (): Promise<{ meta: CallMeta; outcome: Outcome } | null> => {
+    // Disconnect while this waited for a slot: the key is no longer ours to send.
+    if (store.epoch !== epoch) return null;
     const raw = await getCall(key, callId, opts);
     const meta = toMeta(raw);
     // The list only shows calls that have ended; a call opened by address follows the same rule.
@@ -329,7 +340,12 @@ async function fetchOne(store: Store, callId: string, opts: { analyze: Analyze; 
     jitter: opts.jitter ?? defaultJitter,
     now: opts.now,
     onWait: () => {},
+    shouldStop: () => store.epoch !== epoch,
   });
+  if (!res.ok && res.error.status === 404 && store.epoch === epoch) {
+    if (store.missing.size >= MAX_MISSING) store.missing.clear();
+    store.missing.add(callId);
+  }
   if (!res.ok || res.value === null) return null;
   const { meta, outcome } = res.value;
   // Disconnect happened while the request ran, or a pull has listed the call since: leave the store as it is.

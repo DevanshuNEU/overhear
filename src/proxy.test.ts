@@ -201,6 +201,29 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
     expect((await proxy(reqOf("/", { ...LOOPBACK, ...GOOD_AUTH })))?.status).toBe(200);
   });
 
+  it("refuses a cross-site or same-site subresource GET to /reports/, with no Retell request, but lets a top-level navigation and the user's own pages through", async () => {
+    localMode();
+    delete process.env.DASHBOARD_PASSWORD;
+    const fetched = vi.fn();
+    vi.stubGlobal("fetch", fetched);
+    for (const site of ["cross-site", "same-site"]) {
+      for (const dest of ["image", "script", "style", "iframe", "empty", "frame", "embed", undefined]) {
+        const headers: Record<string, string> = { ...LOOPBACK, "sec-fetch-site": site };
+        if (dest) headers["sec-fetch-dest"] = dest;
+        const res = await proxy(reqOf("/reports/call_made_up_123", headers));
+        expect(res?.status, `${site} ${dest}`).toBe(403);
+      }
+    }
+    expect(fetched).not.toHaveBeenCalled();
+    // A top-level navigation (the user clicking a link) works, and so do the user's own pages and old browsers.
+    expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "cross-site", "sec-fetch-dest": "document" })))?.status).toBe(200);
+    expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "none", "sec-fetch-dest": "document" })))?.status).toBe(200);
+    expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" })))?.status).toBe(200);
+    expect((await proxy(reqOf("/reports/x", LOOPBACK)))?.status).toBe(200);
+    // Other paths are not this rule's business.
+    expect((await proxy(reqOf("/demo", { ...LOOPBACK, "sec-fetch-site": "cross-site", "sec-fetch-dest": "image" })))?.status).toBe(200);
+  });
+
   it("refuses every request when the server is not bound to 127.0.0.1", async () => {
     localMode();
     vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://localhost:3000");

@@ -14,7 +14,7 @@ import type { CallReport } from "@/report/schema";
 import { getReport } from "@/report/store";
 import { analyzeCall } from "./analyzer";
 import { removeKey, writeKey } from "./key-store";
-import { clearPulls, getOutcome, MAX_OPENED, startPull, whenSettled } from "./pull";
+import { clearPulls, getOutcome, MAX_OPEN_FETCHES, MAX_OPENED, startPull, whenSettled } from "./pull";
 import { makePullSource, pullSource } from "./report-source";
 
 const KEY = "key_REPORTSRC0123456789abcdef";
@@ -170,6 +170,13 @@ describe("pullSource", () => {
     expect(await getReport(id, pullSource)).toEqual({ status: "not_found", callId: id });
     expect(retell.gets()).toHaveLength(1);
     expect(getOutcome(id)).toBeNull();
+    // Remembered until Disconnect: opening a made-up id again does not ask Retell again.
+    expect(await getReport(id, pullSource)).toEqual({ status: "not_found", callId: id });
+    expect(await getReport(id, pullSource)).toEqual({ status: "not_found", callId: id });
+    expect(retell.gets()).toHaveLength(1);
+    clearPulls();
+    expect(await getReport(id, pullSource)).toEqual({ status: "not_found", callId: id });
+    expect(retell.gets()).toHaveLength(2);
   });
 
   it("an id that cannot be a Retell call id never reaches Retell", async () => {
@@ -200,6 +207,55 @@ describe("pullSource", () => {
     clearPulls();
     await pending;
     expect(getOutcome(id)).toBeNull();
+  });
+
+  /** A fake Retell whose get-calls wait until released, so a test can hold requests in flight and in the queue. */
+  function gatedRetell(ids: string[]) {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const started: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const id = decodeURIComponent(new URL(String(input)).pathname.split("/").pop()!);
+        started.push(id);
+        await gate;
+        return ids.includes(id) ? json(200, recordFor(failedSample, id)) : json(404, {});
+      }),
+    );
+    return { started, release };
+  }
+  const until = async (done: () => boolean) => {
+    for (let i = 0; i < 200 && !done(); i++) await new Promise((r) => setImmediate(r));
+    expect(done()).toBe(true);
+  };
+
+  it("a fetch still queued at Disconnect sends nothing, with the old key or any other", async () => {
+    const ids = Array.from({ length: 7 }, () => uid("queued"));
+    const retell = gatedRetell(ids);
+    const opens = ids.map((i) => getReport(i, pullSource));
+    await until(() => retell.started.length === 5);
+    clearPulls();
+    await removeKey();
+    retell.release();
+    const results = await Promise.all(opens);
+    // Five were already on the wire; the two that were waiting for a slot never went out.
+    expect(retell.started).toHaveLength(5);
+    expect(results.filter((r) => r.status === "not_found")).toHaveLength(7);
+    for (const i of ids) expect(getOutcome(i)).toBeNull();
+  });
+
+  it("an eighth concurrent address fetch (five in flight, two waiting) makes no request", async () => {
+    const ids = Array.from({ length: MAX_OPEN_FETCHES + 1 }, () => uid("flood"));
+    const retell = gatedRetell(ids);
+    const opens = ids.map((i) => getReport(i, pullSource));
+    await until(() => retell.started.length === 5);
+    retell.release();
+    const results = await Promise.all(opens);
+    expect(retell.started).toHaveLength(MAX_OPEN_FETCHES);
+    expect(results.slice(0, MAX_OPEN_FETCHES).every((r) => r.status === "found")).toBe(true);
+    expect(results[MAX_OPEN_FETCHES]).toEqual({ status: "not_found", callId: ids[MAX_OPEN_FETCHES] });
+    expect(retell.started).not.toContain(ids[MAX_OPEN_FETCHES]);
   });
 
   it("a report the schema rejects gives unreadable", async () => {
