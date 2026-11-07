@@ -228,6 +228,24 @@ describe("checkCall", () => {
       expect(report.results.find((r) => r.contract === "promise_backed")?.result).toBe("passed");
     });
 
+    it("schedule_follow_up_call failing leaves the booking passed", () => {
+      const { report, policy } = judge("schedule_follow_up_call", { phone: "555-0100" }, CONFIRM);
+      expect(policy.tools.schedule_follow_up_call).toBeUndefined();
+      expect(report.verdict).not.toBe("failed");
+    });
+
+    it("a follow-up visit booking that fails, then a confirmation, is Failed", () => {
+      const e = ev([
+        caller("Book me for Friday.", 1),
+        ...lookup(),
+        ...tool("tc_2", "book_follow_up_appointment", { slotId: "slot_1", patientId: "p1" }, { ok: false, error: "unavailable" }),
+        agent(CONFIRM, 20),
+      ]);
+      const { policy, source } = policyFor(e);
+      expect(policy.tools.book_follow_up_appointment).toEqual({ role: "change", kind: "book" });
+      expect(parsed(checkCall(e, policy, { tz: "UTC", policySource: source })).verdict).toBe("failed");
+    });
+
     it("a real change failing after a good booking still fails the call", () => {
       const { report } = judge("book_slot", { slotId: "slot_2" }, CONFIRM);
       expect(report.verdict).toBe("failed");

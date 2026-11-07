@@ -169,6 +169,22 @@ describe("roleFor", () => {
       expect(roleFor("cancelReminder")?.role).not.toBe("change");
     });
 
+    // A follow-up visit is a booking; only a follow-up call, task or the like is a side tool.
+    it.each([
+      ["book_follow_up_appointment", "book"],
+      ["book_followup_appointment", "book"],
+      ["schedule_follow_up_appointment", "book"],
+      ["bookFollowUpAppointment", "book"],
+      ["create_follow_up_visit", "book"],
+      ["cancel_follow_up_appointment", "cancel"],
+    ] as const)("%s still reads as a %s", (name, kind) => expect(roleFor(name)).toEqual({ role: "change", kind }));
+
+    it("keeps a follow-up call a side tool", () => {
+      expect(roleFor("schedule_follow_up_call")?.role).not.toBe("change");
+      expect(roleFor("schedule_followup")?.role).not.toBe("change");
+      expect(roleFor("scheduleFollowUp")?.role).not.toBe("change");
+    });
+
     it("keeps real changes and transfers that merely sit near a side word", () => {
       expect(roleFor("book_appointment")).toEqual({ role: "change", kind: "book" });
       expect(roleFor("transfer_call")).toEqual({ role: "transfer" });
