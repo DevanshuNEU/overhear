@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configPath, readKey, writeKey } from "@/pull/key-store";
 import { CONNECT_MESSAGE } from "@/pull/labels";
+import { getOutcome, startPull, whenSettled } from "@/pull/pull";
 import { DELETE, GET, POST } from "./route";
 
 const KEY = "key_ROUTETEST0123456789abcdef";
@@ -218,5 +219,41 @@ describe("the route's own local check", () => {
     }
     expect(await readKey()).toBe(KEY);
     expect(retellCalls).toBe(0);
+  });
+});
+
+describe("POST /api/connect replacing a key", () => {
+  const OLD = "key_OLDACCOUNT0123456789abcdef";
+  const analyze = (raw: unknown) => ({ kind: "no_content" as const, callId: (raw as { call_id: string }).call_id, reason: "no_transcript" as const });
+
+  async function pullOne() {
+    await writeKey(OLD);
+    const fn = (async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const body = url.pathname === "/v3/list-calls" ? { items: [{ call_id: "call_old", call_status: "ended", start_timestamp: 1, duration_ms: 1 }], has_more: false } : { call_id: "call_old", transcript: "hi" };
+      return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    const id = startPull({ n: 1, analyze, key: OLD, fetch: fn, baseURL: "http://stub.test" });
+    await whenSettled(id);
+    expect(getOutcome("call_old")).not.toBeNull();
+  }
+
+  afterEach(() => {
+    (globalThis as { __overhearPulls?: unknown }).__overhearPulls = undefined;
+  });
+
+  it("drops the old account's pulls and calls once the new key is stored", async () => {
+    await pullOne();
+    expect((await POST(post({ key: KEY }))).status).toBe(200);
+    expect(await readKey()).toBe(KEY);
+    expect(getOutcome("call_old")).toBeNull();
+  });
+
+  it("keeps them when the new key is refused, because the old key is still the one in use", async () => {
+    await pullOne();
+    retell = { status: 401, body: {} };
+    expect((await POST(post({ key: KEY }))).status).toBe(422);
+    expect(await readKey()).toBe(OLD);
+    expect(getOutcome("call_old")).not.toBeNull();
   });
 });

@@ -11,6 +11,9 @@
 // - A Host check is not authentication: a machine on the network can send `Host: localhost`. So local mode also
 //   refuses every request unless the server was started on 127.0.0.1 (say `OVERHEAR_LOCAL=1` sits in .env and
 //   someone runs plain `npm run dev`, which binds every interface). See isLoopbackBind.
+// - A call screen (/reports/...) opened by another website as an image, script, frame or fetch is refused: opening
+//   one can cost a Retell request, so a page that loops over made-up ids must not be able to spend them. Only a
+//   top-level navigation (the user following a link) may come from another site. See isCrossSiteSubresource.
 // - Every answer forbids framing (FRAME_HEADERS), so a page on another site cannot frame the local server to
 //   clickjack a disconnect or a pull, or show transcripts inside its own page.
 // These checks run in src/proxy.ts for every path and again in each product route handler.
@@ -87,8 +90,31 @@ function refusal(status: 403 | 404, text: string = status === 404 ? LOCAL_REFUSA
 }
 
 /**
+ * True for a GET or HEAD to /reports/ that another site (or another port on this computer, which is same-site) made
+ * as a subresource: the browser says so in Sec-Fetch-Site, and Sec-Fetch-Dest is anything but `document`. A
+ * top-level navigation (unless Sec-Purpose says prefetch), the same origin, a typed address (`none`) and a client that sends no Fetch Metadata pass.
+ */
+export function isCrossSiteSubresource(req: Request): boolean {
+  if (!SAFE_METHODS.has(req.method.toUpperCase())) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(req.url).pathname;
+  } catch {
+    return false;
+  }
+  if (pathname !== "/reports" && !pathname.startsWith("/reports/")) return false;
+  const site = req.headers.get("sec-fetch-site")?.toLowerCase();
+  if (site !== "cross-site" && site !== "same-site") return false;
+  // A prefetch another site starts with speculation rules arrives as a document, so Sec-Purpose names it. Next's own
+  // prefetch is same-origin and returned above.
+  if (req.headers.get("sec-purpose")?.toLowerCase().includes("prefetch")) return true;
+  return req.headers.get("sec-fetch-dest")?.toLowerCase() !== "document";
+}
+
+/**
  * The local check for one request: a 403 when the server is not bound to 127.0.0.1, for a foreign Host, or for a
- * request that can change something without a same-origin Origin; null when the request may go on. Does not look
+ * request that can change something without a same-origin Origin, and for a call screen another site loads as a
+ * subresource; null when the request may go on. Does not look
  * at local mode; see assertLocalRequest.
  */
 export function checkLocalRequest(req: Request, env: Record<string, string | undefined> = process.env): Response | null {
@@ -96,6 +122,7 @@ export function checkLocalRequest(req: Request, env: Record<string, string | und
   const host = req.headers.get("host");
   if (!isLoopbackHost(host)) return refusal(403);
   if (!SAFE_METHODS.has(req.method.toUpperCase()) && !isSameOrigin(req.headers.get("origin"), host)) return refusal(403);
+  if (isCrossSiteSubresource(req)) return refusal(403);
   return null;
 }
 

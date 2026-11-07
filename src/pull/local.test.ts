@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { assertLocalRequest, FRAME_HEADERS, isLocalMode, isLoopbackBind, isLoopbackHost, isProductApiPath, isSameOrigin } from "./local";
+import { assertLocalRequest, checkLocalRequest, FRAME_HEADERS, isLocalMode, isLoopbackBind, isLoopbackHost, isProductApiPath, isSameOrigin } from "./local";
 
 // Local mode on a server Next says is bound to 127.0.0.1. Tests say so explicitly; nothing assumes it.
 const LOCAL = { OVERHEAR_LOCAL: "1", __NEXT_PRIVATE_ORIGIN: "http://127.0.0.1:3000" };
@@ -190,5 +190,56 @@ describe("assertLocalRequest", () => {
 describe("FRAME_HEADERS", () => {
   it("is the two headers that stop another site framing the local server", () => {
     expect(FRAME_HEADERS).toEqual({ "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY" });
+  });
+});
+
+describe("checkLocalRequest: cross-site subresources of /reports/", () => {
+  const get = (path: string, site?: string, dest?: string, purpose?: string) => {
+    const headers: Record<string, string> = { host: "localhost:3000" };
+    if (site) headers["sec-fetch-site"] = site;
+    if (dest) headers["sec-fetch-dest"] = dest;
+    if (purpose) headers["sec-purpose"] = purpose;
+    return checkLocalRequest(req("GET", headers, path), LOCAL);
+  };
+
+  it("refuses a cross-site or same-site GET that is not a document, with 403 and no caching", async () => {
+    for (const site of ["cross-site", "same-site"]) {
+      const res = get("/reports/call_x", site, "image");
+      expect(res?.status).toBe(403);
+      expect(res?.headers.get("cache-control")).toBe("no-store");
+      expect(res?.headers.get("x-frame-options")).toBe("DENY");
+      expect(get("/reports/call_x", site)?.status).toBe(403);
+    }
+    expect(checkLocalRequest(req("HEAD", { host: "localhost:3000", "sec-fetch-site": "cross-site", "sec-fetch-dest": "image" }, "/reports/x"), LOCAL)?.status).toBe(403);
+  });
+
+  it("lets a top-level navigation, the same origin, a typed address and a client without Fetch Metadata through", () => {
+    expect(get("/reports/call_x", "cross-site", "document")).toBeNull();
+    expect(get("/reports/call_x", "same-site", "document")).toBeNull();
+    expect(get("/reports/call_x", "same-origin", "empty")).toBeNull();
+    expect(get("/reports/call_x", "none", "document")).toBeNull();
+    expect(get("/reports/call_x")).toBeNull();
+  });
+
+  it("refuses a cross-site or same-site prefetch even though it arrives as a document", () => {
+    for (const site of ["cross-site", "same-site"]) {
+      for (const purpose of ["prefetch", "prefetch;anonymous-client-ip", "Prefetch", "prefetch;prerender"]) {
+        expect(get("/reports/call_x", site, "document", purpose)?.status, `${site} ${purpose}`).toBe(403);
+      }
+    }
+    expect(checkLocalRequest(req("HEAD", { host: "localhost:3000", "sec-fetch-site": "cross-site", "sec-fetch-dest": "document", "sec-purpose": "prefetch" }, "/reports/x"), LOCAL)?.status).toBe(403);
+  });
+
+  it("lets Next's own prefetch (same origin, with or without Sec-Purpose) and a plain cross-site navigation through", () => {
+    expect(get("/reports/call_x", "same-origin", "empty", "prefetch")).toBeNull();
+    expect(get("/reports/call_x", "same-origin", "document")).toBeNull();
+    expect(get("/reports/call_x", undefined, undefined, "prefetch")).toBeNull();
+    expect(get("/reports/call_x", "cross-site", "document", "prerender")).toBeNull();
+    expect(get("/reports/call_x", "none", "document", "prefetch")).toBeNull();
+  });
+
+  it("applies to the /reports/ path only", () => {
+    expect(get("/demo", "cross-site", "image")).toBeNull();
+    expect(get("/reportsx/a", "cross-site", "image")).toBeNull();
   });
 });

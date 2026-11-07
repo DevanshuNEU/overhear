@@ -90,7 +90,7 @@ export type Listing = { calls: CallMeta[]; listed: number; skipped: number };
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-function toMeta(item: unknown): CallMeta | null {
+export function toMeta(item: unknown): CallMeta | null {
   if (typeof item !== "object" || item === null) return null;
   const r = item as Record<string, unknown>;
   const callId = str(r.call_id);
