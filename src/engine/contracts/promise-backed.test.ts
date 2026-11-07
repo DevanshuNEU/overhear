@@ -290,6 +290,54 @@ describe("promise_backed", () => {
       expect(r.finding.text).toContain("the call used make_appointment, which the policy doesn't describe");
     });
 
+    describe("a failed change followed by a tool that might be a retry", () => {
+      it("is unverified when a tool the policy doesn't describe ran after the failure", () => {
+        const r = run(ev([...tool("tc_1", "book_appointment", { ok: false, error: "slot taken" }), ...tool("tc_2", "make_appointment", { ok: true }), agent(BOOKED, 40)]));
+        expect(r.out.result).toBe("unverified");
+        expect(r.finding).toEqual({
+          result: "unverified",
+          text: "Couldn't check promises backed by the system: the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking.",
+          said: [5],
+          did: [1, 2, 3],
+          asked: [],
+          fields: [],
+          gaps: [],
+        });
+      });
+
+      it("names only the undescribed tools used after the failure", () => {
+        const r = run(
+          ev([...tool("tc_0", "set_appointment", {}), ...tool("tc_1", "book_appointment", { ok: false, error: "x" }), ...tool("tc_2", "make_appointment", {}), agent(BOOKED, 40)]),
+        );
+        expect(r.out.result).toBe("unverified");
+        expect(r.finding.text).toContain("the call used make_appointment, which");
+        expect(r.finding.text).not.toContain("set_appointment");
+      });
+
+      it("stands as violated when the later tool is described and is not a change", () => {
+        const r = run(ev([...tool("tc_1", "book_appointment", { ok: false, error: "slot taken" }), ...lookup(), agent(BOOKED, 40)]));
+        expect(r.out.result).toBe("violated");
+        expect(r.finding.text).toMatch(/The booking failed: slot taken\.$/);
+      });
+
+      it("stands as violated when the undescribed tool ran before the failure", () => {
+        const r = run(ev([...tool("tc_0", "make_appointment", {}), ...tool("tc_1", "book_appointment", { ok: false, error: "slot taken" }), agent(BOOKED, 40)]));
+        expect(r.out.result).toBe("violated");
+        expect(r.finding.text).toMatch(/The booking failed: slot taken\.$/);
+      });
+
+      it("stands as violated when the undescribed tool ran only after the claim", () => {
+        const r = run(ev([...tool("tc_1", "book_appointment", { ok: false, error: "slot taken" }), agent(BOOKED, 40), ...tool("tc_2", "make_appointment", {})]));
+        expect(r.out.result).toBe("violated");
+      });
+
+      it("a backend action on an undescribed tool after the failure counts too", () => {
+        const action: ItemSpec = { kind: "backend_action", id: "ba_1", toolCallId: "tc_1", tool: "make_appointment", args: {}, result: {}, ok: true, ts: "t", link: { toolCallId: "tc_1", by: "tool_call_id" } };
+        const r = run(ev([...tool("tc_1", "book_appointment", { ok: false, error: "x" }), action, agent(BOOKED, 40)], { tier: 2 }));
+        expect(r.out.result).toBe("unverified");
+      });
+    });
+
     it("a claim made before the change was first tried does not say none was attempted at all", () => {
       const r = run(ev([...lookup(), agent(BOOKED, 5), ...tool("tc_1", "book_appointment", { ok: true })]));
       expect(r.out.result).toBe("violated");
