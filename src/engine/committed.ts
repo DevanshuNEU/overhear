@@ -81,8 +81,8 @@ export interface CommittedDetails {
  * The details a change committed, field by field, from the policy's field paths. item. paths read the item the
  * change meant, found in the earlier lookups that offered an item with the change's id (a lookup that failed does
  * not count). When several items carry the id and disagree on a field, that field is read from none of them: if the
- * change needs it, it is unresolved and one gap names each candidate's lookup, result seq and values; if not, it is
- * left out with no gap. args., result. and call. paths read the change itself and the call's fields. A field is
+ * change needs it, it is unresolved and its own gap names each candidate's lookup, result seq and value for it; if
+ * not, it is left out with no gap. args., result. and call. paths read the change itself and the call's fields. A field is
  * required when the tool's required list names it; with no list, when the field's own required flag is set; a
  * list of [] makes none required. A required field with no value is unresolved; so is any field whose value is a
  * redaction placeholder. Each unresolved field has an unresolved_committed_detail gap. Throws InputError for a
@@ -132,25 +132,22 @@ export function committedDetails(ev: Evidence, policy: Policy, change: ToolUse):
   }
 
   const seqs = change.resultSeq === null ? [change.callSeq] : [change.callSeq, change.resultSeq];
-  const gaps = unresolved.flatMap(({ field, why }): Gap[] => {
-    if (why === "disagree") return [];
-    const gap: Gap = { code: "unresolved_committed_detail", detail: unresolvedDetail(field, change.tool, why), seqs: [...seqs], tool: change.tool, field };
+  // One gap per unresolved field, each findable by its own field name. A disputed field's gap names every
+  // candidate's lookup, result and value for that field, and cites every candidate's result.
+  const gaps = unresolved.map(({ field, why }): Gap => {
+    let detail: string;
+    let cited = seqs;
+    if (why === "disagree") {
+      const said = candidates.map((c): LookupCandidate => ({ tool: c.use.tool, seq: c.use.resultSeq!, said: candidateSaid(policy.fields[field], c.item, zone) }));
+      detail = lookupsDisagreeDetail(field, said);
+      cited = [...new Set([...seqs, ...said.map((c) => c.seq)])].sort((a, b) => a - b);
+    } else {
+      detail = unresolvedDetail(field, change.tool, why);
+    }
+    const gap: Gap = { code: "unresolved_committed_detail", detail, seqs: [...cited], tool: change.tool, field };
     if (change.kind) gap.kind = change.kind;
-    return [gap];
+    return gap;
   });
-  if (unresolved.some((u) => u.why === "disagree")) {
-    const named = Object.keys(policy.fields).filter((name) => disagree.has(name));
-    const said = candidates.map((c): LookupCandidate => ({ tool: c.use.tool, seq: c.use.resultSeq!, said: candidateSaid(policy, named, c.item, zone) }));
-    const gap: Gap = {
-      code: "unresolved_committed_detail",
-      detail: lookupsDisagreeDetail(said),
-      seqs: [...new Set([...seqs, ...said.map((c) => c.seq)])].sort((a, b) => a - b),
-      tool: change.tool,
-      field: named.join(", "),
-    };
-    if (change.kind) gap.kind = change.kind;
-    gaps.push(gap);
-  }
   return { fields, types, unresolved: unresolved.map((u) => u.field), gaps };
 }
 
@@ -178,23 +175,14 @@ function comparableKey(type: FieldType, value: unknown, zone: Zone): string {
 }
 
 /**
- * What one candidate item said for the fields in dispute, in the policy's order: its values, then a name as
- * "with ...". A scrubbed value is named by its field and never repeated; a blank one is left out; nothing at all
- * reads "nothing".
+ * What one candidate item said for a disputed field, as display text. A scrubbed value is never repeated, and a
+ * blank one reads "nothing".
  */
-function candidateSaid(policy: Policy, names: string[], item: unknown, zone: Zone): string {
-  const plain: string[] = [];
-  const withs: string[] = [];
-  for (const name of names) {
-    const f = policy.fields[name];
-    const value = readItem(f.path, item);
-    if (isBlank(value)) continue;
-    if (isPlaceholder(value)) plain.push(`${name} hidden by Retell`);
-    else if (f.type === "name") withs.push(`with ${String(value).trim()}`);
-    else plain.push(formatValue(f.type, value, zone.tz, zone.policyTz));
-  }
-  const text = [plain.join(", "), ...withs].filter((s) => s !== "").join(" ");
-  return text === "" ? "nothing" : text;
+function candidateSaid(field: Policy["fields"][string], item: unknown, zone: Zone): string {
+  const value = readItem(field.path, item);
+  if (isBlank(value)) return "nothing";
+  if (isPlaceholder(value)) return "a value hidden by Retell";
+  return formatValue(field.type, value, zone.tz, zone.policyTz);
 }
 
 /**

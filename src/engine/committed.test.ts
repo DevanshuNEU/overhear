@@ -280,7 +280,7 @@ const WITH_APPOINTMENTS: Policy = {
 };
 
 describe("committedDetails when earlier lookups disagree", () => {
-  it("two lookups with the same id and different needed fields: unresolved, one gap naming both candidates", () => {
+  it("two lookups with the same id and different needed fields: unresolved, one gap per field naming both candidates", () => {
     const e = ev([
       ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
       ...tool("tc_2", "list_appointments", {}, { appointments: [osei("s-2", "2026-12-01T16:00:00.000Z")] }),
@@ -289,13 +289,19 @@ describe("committedDetails when earlier lookups disagree", () => {
     const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
     expect(d.fields).toEqual({});
     expect(d.unresolved).toEqual(["date", "time"]);
-    expect(d.gaps).toHaveLength(1);
-    const [gap] = d.gaps;
-    expect(gap).toMatchObject({ code: "unresolved_committed_detail", tool: "book_appointment", kind: "book", field: "date, time, provider" });
-    expect(gap.seqs).toEqual(expect.arrayContaining([2, 4]));
-    expect(gap.seqs).toEqual([2, 4, 5, 6]);
-    expect(gap.detail).toBe(
-      "Earlier lookups gave different details for this slot: check_availability (result 2) said Tuesday, November 10, 9:00 AM with Dr. Priya Nair; list_appointments (result 4) said Tuesday, December 1, 4:00 PM with Dr. Amara Osei.",
+    // Date and time are needed and disputed; provider is disputed too but not needed, so it has no gap.
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    const byField = (name: string) => d.gaps.find((g) => g.field === name)!;
+    for (const name of ["date", "time"]) {
+      expect(byField(name)).toMatchObject({ code: "unresolved_committed_detail", tool: "book_appointment", kind: "book" });
+      expect(byField(name).seqs).toEqual(expect.arrayContaining([2, 4]));
+      expect(byField(name).seqs).toEqual([2, 4, 5, 6]);
+    }
+    expect(byField("date").detail).toBe(
+      "Earlier lookups gave different values for the date of this slot: check_availability (result 2) said Tuesday, November 10; list_appointments (result 4) said Tuesday, December 1.",
+    );
+    expect(byField("time").detail).toBe(
+      "Earlier lookups gave different values for the time of this slot: check_availability (result 2) said 9:00 AM; list_appointments (result 4) said 4:00 PM.",
     );
   });
 
@@ -320,10 +326,10 @@ describe("committedDetails when earlier lookups disagree", () => {
     // Both items name the same provider, so that field still resolves.
     expect(d.fields).toEqual({ provider: "Dr. Priya Nair" });
     expect(d.unresolved).toEqual(["date", "time"]);
-    expect(d.gaps).toHaveLength(1);
-    expect(d.gaps[0].seqs).toEqual([2, 3, 4]);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.seqs)).toEqual([[2, 3, 4], [2, 3, 4]]);
     expect(d.gaps[0].detail).toBe(
-      "Earlier lookups gave different details for this slot: check_availability (result 2) said Tuesday, November 10, 9:00 AM; check_availability (result 2) said Wednesday, November 11, 11:00 AM.",
+      "Earlier lookups gave different values for the date of this slot: check_availability (result 2) said Tuesday, November 10; check_availability (result 2) said Wednesday, November 11.",
     );
   });
 
@@ -360,7 +366,7 @@ describe("committedDetails when earlier lookups disagree", () => {
     const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
     expect(d.fields).toEqual({});
     expect(d.unresolved).toEqual(["date", "time"]);
-    expect(d.gaps).toHaveLength(1);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
     expect(d.gaps[0].detail).toContain("check_availability (result 2) said nothing");
   });
 
@@ -372,10 +378,12 @@ describe("committedDetails when earlier lookups disagree", () => {
     ]);
     const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
     expect(d.unresolved).toEqual(["date", "time"]);
-    expect(d.gaps).toHaveLength(1);
-    expect(d.gaps[0].detail).not.toContain("[date 1]");
-    expect(d.gaps[0].detail).not.toContain("[person name 1]");
-    expect(d.gaps[0].detail).toContain("check_availability (result 2) said date hidden by Retell");
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    for (const g of d.gaps) {
+      expect(g.detail).not.toContain("[date 1]");
+      expect(g.detail).not.toContain("[person name 1]");
+      expect(g.detail).toContain("check_availability (result 2) said a value hidden by Retell");
+    }
   });
 
   it("candidates that write the same moment two ways agree", () => {
@@ -398,8 +406,9 @@ describe("committedDetails when earlier lookups disagree", () => {
     ]);
     const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
     expect(d.unresolved).toEqual(["date", "time"]);
-    expect(d.gaps).toHaveLength(1);
-    expect(d.gaps[0].seqs).toEqual([2, 4, 6, 7, 8]);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.seqs)).toEqual([[2, 4, 6, 7, 8], [2, 4, 6, 7, 8]]);
+    expect(d.gaps[0].detail).toContain("list_appointments (result 6)");
   });
 });
 
