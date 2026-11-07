@@ -1,6 +1,11 @@
 // The shell for the call report screens: a light surface of its own (tokens in globals.css under
 // .report), a skip link, and one landmark for the content.
+import { BackLink } from "@/components/report/BackLink";
+import { isLocalMode } from "@/pull/local";
 import { PAGE_NAME, SKIP_TO_CONTENT_LABEL } from "@/report/labels";
+
+// The back link depends on local mode, which is read from the environment, so no build may bake it in.
+export const dynamic = "force-dynamic";
 
 export default function ReportsLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +17,11 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
         {SKIP_TO_CONTENT_LABEL}
       </a>
       <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
-        <p className="mb-10 text-sm font-semibold tracking-[-0.01em] text-report-ink-2 sm:mb-14">{PAGE_NAME}</p>
+        {/* The row is 44 px tall for the link's touch target; the negative top margin keeps the name where it was. */}
+        <div className="-mt-3 mb-7 flex items-center gap-4 sm:mb-11">
+          <p className="text-sm font-semibold tracking-[-0.01em] text-report-ink-2">{PAGE_NAME}</p>
+          <BackLink local={isLocalMode()} />
+        </div>
         <main id="call" tabIndex={-1} className="outline-none">
           {children}
         </main>

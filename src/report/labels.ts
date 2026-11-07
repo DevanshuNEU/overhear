@@ -282,6 +282,8 @@ export const RAW_UNAVAILABLE = "The raw record couldn't be shown.";
 export const BACKEND_LOG_TAG = "Backend log";
 export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";
+/** The link above a call screen. Local mode goes to the call list; a hosted copy has no list, so it goes to the demo. */
+export const BACK_LABEL = { local: "All calls", hosted: "Back to the demo" } as const;
 /** The tab's title in place of an address that does not look like a call ID, so a crafted address is never repeated. */
 export const REPORT_TITLE = "Call report";
 
