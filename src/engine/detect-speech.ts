@@ -265,8 +265,9 @@ function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
 }
 
 // A sentence that opens with a wait clause: "Once the system is back, I'll connect you", "When a nurse is free I'll
-// transfer you". "Now that", "since", "because" and "so" state a fact or a reason, so they are not in the list.
-const LEADING_WAIT = /^\s*(?:(?:and|so|okay|ok|alright|all right|sure|great|perfect|thanks|thank you)[,.!]?\s+)*(?:once|after|when|whenever|as soon as|until|before)\b/i;
+// transfer you". "Now that", "since", "because" and "so" state a fact or a reason, and "before we hang up" promises the
+// claim during this call, so none of them are in the list.
+const LEADING_WAIT = /^\s*(?:(?:and|so|okay|ok|alright|all right|sure|great|perfect|thanks|thank you)[,.!]?\s+)*(?:once|after|when|whenever|as soon as|until)\b/i;
 
 /** What a transfer or intention at a position is worth: a leading wait clause before it makes it a deferral. */
 function claimAt(s: string, at: number, end: number): "claim" | "deferral" | "maybe" {

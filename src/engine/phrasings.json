@@ -1583,5 +1583,19 @@
     ],
     "kind": "book",
     "source": "review:ove-46"
+  },
+  {
+    "text": "Before we hang up, I'll connect you with a nurse.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Before you go, I'll transfer you to billing.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
   }
 ]
