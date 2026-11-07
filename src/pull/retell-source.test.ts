@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeKey } from "./key-store";
-import { checkKey, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
+import { checkKey, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
 
 const KEY = "key_SOURCETEST0123456789abcdef";
 
@@ -45,6 +45,51 @@ describe("makeRetell", () => {
     expect(client.baseURL).toBe(RETELL_API_BASE);
     expect(client.logLevel).toBe("off");
     expect(RETELL_API_BASE).toBe("https://api.retellai.com");
+  });
+
+  it("takes OVERHEAR_RETELL_BASE_URL only in local mode, and only for a loopback http origin", () => {
+    vi.stubEnv("OVERHEAR_RETELL_BASE_URL", "http://127.0.0.1:4555");
+    // A hosted copy (no OVERHEAR_LOCAL) ignores it.
+    expect(makeRetell(KEY).baseURL).toBe(RETELL_API_BASE);
+    expect(localRetellBase()).toBeNull();
+    vi.stubEnv("OVERHEAR_LOCAL", "0");
+    expect(makeRetell(KEY).baseURL).toBe(RETELL_API_BASE);
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    expect(makeRetell(KEY).baseURL).toBe("http://127.0.0.1:4555");
+    expect(localRetellBase()).toBe("http://127.0.0.1:4555");
+    // An explicit base URL (a test's) still wins.
+    expect(makeRetell(KEY, { baseURL: "http://127.0.0.1:1" }).baseURL).toBe("http://127.0.0.1:1");
+  });
+
+  it("refuses an override that is not a plain loopback http origin", () => {
+    vi.stubEnv("OVERHEAR_LOCAL", "1");
+    const refused = [
+      "https://127.0.0.1:4555",
+      "https://api.retellai.com",
+      "http://attacker.example",
+      "http://127.0.0.1.attacker.example:4555",
+      "http://localhost.attacker.example",
+      "http://attacker.example/@127.0.0.1",
+      "http://127.0.0.1@attacker.example",
+      "http://user:pw@127.0.0.1:4555",
+      "http://127.0.0.1:4555/v2",
+      "http://127.0.0.1:4555/?x=1",
+      "http://127.0.0.1:4555/#x",
+      "http://0.0.0.0:4555",
+      "http://192.168.0.2:4555",
+      "ftp://127.0.0.1",
+      "127.0.0.1:4555",
+      "",
+    ];
+    for (const value of refused) {
+      vi.stubEnv("OVERHEAR_RETELL_BASE_URL", value);
+      expect(localRetellBase(), value).toBeNull();
+      expect(makeRetell(KEY).baseURL, value).toBe(RETELL_API_BASE);
+    }
+    for (const value of ["http://localhost:9", "http://[::1]:9", "http://127.0.0.1"]) {
+      vi.stubEnv("OVERHEAR_RETELL_BASE_URL", value);
+      expect(localRetellBase(), value).not.toBeNull();
+    }
   });
 
   it("sends the key only as a Bearer header, never in the URL", async () => {

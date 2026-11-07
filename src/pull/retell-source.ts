@@ -2,16 +2,42 @@
 // - The client never retries (the pull's own pool decides that), never logs (the SDK's debug log prints request
 //   details), and talks to Retell's own API unless a test passes another base URL. RETELL_BASE_URL and RETELL_LOG
 //   in the environment are ignored, so a stray variable cannot send the key elsewhere or print it.
+// - The one exception is OVERHEAR_RETELL_BASE_URL, for the live canary (scripts/canary-live.ts). It counts only in
+//   local mode and only when it is a plain http origin on a loopback host (see localRetellBase), so it can never
+//   send the key off this computer, and a hosted copy ignores it.
 // - The key goes to Retell only as the SDK's `Authorization: Bearer` header, never in a URL.
 // - A client holds the key in a public field. Never log a client, return one from a route or pass one to React.
 import Retell, { APIError } from "retell-sdk";
 import type { PoolError } from "./pool";
 import type { Logger } from "retell-sdk/client";
 import { isKeyShaped, readKey } from "./key-store";
+import { isLocalMode } from "./local";
 import { logSafe, safeError } from "./redact";
 
 export const RETELL_API_BASE = "https://api.retellai.com";
 const TIMEOUT_MS = 15_000;
+
+const LOOPBACK_NAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/**
+ * The base URL the live canary points the app at, or null. Honored only in local mode, and only for a plain
+ * `http://` origin on a loopback host (no credentials, path, query or fragment). Anything else is ignored, so the
+ * key can go only to a server on this computer.
+ */
+export function localRetellBase(env: Record<string, string | undefined> = process.env): string | null {
+  const raw = env.OVERHEAR_RETELL_BASE_URL;
+  if (!raw || !isLocalMode(env)) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" || !LOOPBACK_NAMES.has(url.hostname)) return null;
+  if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") return null;
+  if (url.pathname !== "/") return null;
+  return url.origin;
+}
 
 export type RetellOptions = { baseURL?: string; fetch?: typeof fetch };
 
@@ -21,7 +47,7 @@ const SILENT: Logger = { error: noop, warn: noop, info: noop, debug: noop };
 export function makeRetell(key: string, opts: RetellOptions = {}): Retell {
   return new Retell({
     apiKey: key,
-    baseURL: opts.baseURL ?? RETELL_API_BASE,
+    baseURL: opts.baseURL ?? localRetellBase() ?? RETELL_API_BASE,
     fetch: opts.fetch,
     maxRetries: 0,
     timeout: TIMEOUT_MS,
