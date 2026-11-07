@@ -263,6 +263,11 @@ describe("display", () => {
     expect(formatValue("time", "2026-11-05T14:00:00Z", ny)).toBe("9:00 AM");
     expect(formatValue("datetime", "2026-11-05T14:00:00Z", ny)).toBe("Thursday, November 5 at 9:00 AM");
     expect(formatValue("name", "Dr. Priya Nair", ny)).toBe("Dr. Priya Nair");
+    // Never JSON, and never a redaction placeholder as if it were a value.
+    expect(formatValue("string", { a: 1 }, ny)).toBe("a value that can't be shown");
+    expect(formatValue("string", ["x"], ny)).toBe("a value that can't be shown");
+    expect(formatValue("name", "[person name 1]", ny)).toBe("a value that can't be shown");
+    expect(formatValue("date", "[date 1]", ny)).toBe("a value that can't be shown");
   });
 
   it("returns the spoken words of each value", () => {

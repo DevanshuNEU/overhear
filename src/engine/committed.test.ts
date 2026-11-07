@@ -115,6 +115,9 @@ describe("committedDetails", () => {
     expect(d.types).toEqual({ date: "date", time: "time", provider: "name" });
     expect(d.unresolved).toEqual([]);
     expect(d.gaps).toEqual([]);
+    // Which fields the change needs, and which lookup result the item was read from (tc_3's result is seq 6).
+    expect(d.required).toEqual(["date", "time"]);
+    expect(d.sources).toEqual([4]);
   });
 
   it("a lookup that came after the change, or that failed, does not count", () => {
