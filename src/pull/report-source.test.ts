@@ -14,7 +14,7 @@ import type { CallReport } from "@/report/schema";
 import { getReport } from "@/report/store";
 import { analyzeCall } from "./analyzer";
 import { removeKey, writeKey } from "./key-store";
-import { clearPulls, getOutcome, startPull, whenSettled } from "./pull";
+import { clearPulls, getOutcome, MAX_OPENED, startPull, whenSettled } from "./pull";
 import { makePullSource, pullSource } from "./report-source";
 
 const KEY = "key_REPORTSRC0123456789abcdef";
@@ -209,6 +209,16 @@ describe("pullSource", () => {
     const found = await getReport(id, source);
     expect(found.status).toBe("unreadable");
     expect(found).not.toHaveProperty("report");
+  });
+
+  it("keeps at most MAX_OPENED calls opened by address and drops the oldest", async () => {
+    const ids = Array.from({ length: MAX_OPENED + 3 }, () => uid("cap"));
+    fakeRetell(Object.fromEntries(ids.map((i) => [i, recordFor(passedSample, i)])));
+    for (const id of ids) await getReport(id, pullSource);
+    expect(getOutcome(ids[0])).toBeNull();
+    expect(getOutcome(ids[2])).toBeNull();
+    expect(getOutcome(ids[3])?.outcome.kind).toBe("report");
+    expect(getOutcome(ids[ids.length - 1])?.outcome.kind).toBe("report");
   });
 
   it("goes through the shared limiter: never more than five requests in flight", async () => {
