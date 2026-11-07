@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "stand-in (engine not built yet)",
-  "inputs": { "cases": 3, "fingerprint": "92355167b23f929ed7e84731e3c19e66bee540a2c16d56909fc44e84a1851c1e" },
+  "inputs": { "cases": 3, "fingerprint": "89222f6ccd51f6a42eac5d7405f1c65d2b837ee3d8938da411ac1a598fa59ddf" },
   "metrics": {
     "independent": {
       "n": 0,
@@ -69,7 +69,7 @@
       "outcomes": { "report": 0, "no_content": 0, "error": 3 },
       "passing": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
       "overall": {
-        "confusion": { "failed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 1 }, "needs_review": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 2 } },
+        "confusion": { "failed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 1 }, "needs_review": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 1 }, "passed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 1 } },
         "verdictAccuracy": { "k": 0, "n": 3, "value": 0, "ci": [0, 0.5615] },
         "failedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
         "failedRecall": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
@@ -149,7 +149,7 @@
       "locked": true,
       "outcome": "error",
       "message": "engine not built yet",
-      "expected": "passed",
+      "expected": "needs_review",
       "actual": "error",
       "verdictMatch": false,
       "contracts": [{ "contract": "promise_backed", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "no_report", "agree": false }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "no_report", "agree": false }],
