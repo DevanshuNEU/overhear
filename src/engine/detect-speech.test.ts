@@ -138,6 +138,11 @@ describe("detectAll reads spoken tool syntax", () => {
     ["transfer_call()", ["transfer_call"]],
     ['book_appointment({"slot_id": 3})', ["book_appointment"]],
     ["Calling book_appointment(date: 5th) now", ["book_appointment"]],
+    ["Calling transfer_call(billing) now", ["transfer_call"]],
+    ["book_appointment(3)", ["book_appointment"]],
+    ["transfer_call ()", ["transfer_call"]],
+    ['book("Monday")', ["book"]],
+    ["book(date=Monday)", ["book"]],
   ])("%s is tool_syntax", (text, tools) => {
     const out = detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax");
     expect(out).toHaveLength(1);
@@ -148,6 +153,8 @@ describe("detectAll reads spoken tool syntax", () => {
     ["cancel: your 3pm is gone", ["cancel"]],
     ["I can book (if you want) tomorrow", ["book"]],
     ["I can transfer_call tomorrow", ["transfer_call"]],
+    ["I'll book ('cause you asked) tomorrow", ["book"]],
+    ["I can book (tomorrow: 9am or Friday)", ["book"]],
   ])("%s is not tool_syntax", (text, tools) => {
     expect(detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax")).toEqual([]);
   });

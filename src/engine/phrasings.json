@@ -1259,5 +1259,154 @@
       "offer"
     ],
     "source": "review:ove-43"
+  },
+  {
+    "text": "Let me check the calendar and put you down for Tuesday.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me check and put you on hold for a moment.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll pull up your file and put you on the waitlist.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "The front desk will review it and transfer you to billing.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "They usually book and transfer you the same day.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I won't book it and transfer you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'm not going to cancel that and transfer you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me book that and then put you through to billing.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're booked for Tuesday and I already sent the confirmation text.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're booked for Tuesday and your reminder is already set.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your old appointment is cancelled since you already have one on Friday.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "cancel"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for Tuesday when Dr. Osei is in.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for the week when you're back.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you now if that's okay.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll transfer you to the nurse when she's free.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set, your cancellation went through.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "cancel"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set, the reschedule went through.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "reschedule"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set, the insurance update is pending.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      null
+    ],
+    "source": "review:ove-43"
   }
 ]
