@@ -16,15 +16,15 @@ No cases yet.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 97% (31 of 32) | 32 | 84% to 99% |
-| Verdict accuracy | 97% (31 of 32) | 32 | 84% to 99% |
-| Precision of failed | 93% (14 of 15) | 15 | 70% to 99% |
+| Cases passing every check | 100% (32 of 32) | 32 | 89% to 100% |
+| Verdict accuracy | 100% (32 of 32) | 32 | 89% to 100% |
+| Precision of failed | 100% (14 of 14) | 14 | 78% to 100% |
 | Recall of failed | 100% (14 of 14) | 14 | 78% to 100% |
 | False failed on normal calls | 0% (0 of 5) | 5 | 0% to 43% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 32 | 97% (31 of 32) | 83% (5 of 6) | 100% (5 of 5) | 0% (0 of 5) | 17% (5 of 30) |
+| promise_backed | 32 | 100% (32 of 32) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 5) | 20% (6 of 30) |
 | verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 5) | no data (n = 0) |
 | spoken_matches_committed | 32 | 100% (32 of 32) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 5) | 23% (5 of 22) |
 | transfer_kept | 32 | 100% (32 of 32) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 5) | 22% (2 of 9) |
@@ -35,7 +35,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | Expected | failed | needs_review | passed | no_content | error |
 | --- | --- | --- | --- | --- | --- |
 | failed | 14 | 0 | 0 | 0 | 0 |
-| needs_review | 1 | 12 | 0 | 0 | 0 |
+| needs_review | 0 | 13 | 0 | 0 | 0 |
 | passed | 0 | 0 | 5 | 0 | 0 |
 
 ## Cases
@@ -48,7 +48,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-booking-never-confirmed | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-result-error-body-with-http-ok | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-result-failed | constructed | mutation | yes | failed | failed | yes |
-| mut-booking-result-missing | constructed | mutation | no | needs_review | failed | no |
+| mut-booking-result-missing | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-result-success-removed | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-tool-removed-from-transcript | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-tool-renamed-undescribed | constructed | mutation | yes | needs_review | needs_review | yes |

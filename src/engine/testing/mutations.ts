@@ -440,10 +440,7 @@ export const MUTATIONS: readonly Mutation[] = [
  * Mutations whose case the engine does not yet get right: id to one line saying why. Each is written unlocked, and
  * the lead files an issue. Empty means every mutation passes.
  */
-export const KNOWN_FAILURES: Readonly<Record<string, string>> = {
-  "mut-booking-result-missing":
-    "promise_backed says violated (the booking had not finished) when the booking call has no result anywhere in the record, though a missing result proves nothing and transfer_kept calls the same case unverified.",
-};
+export const KNOWN_FAILURES: Readonly<Record<string, string>> = {};
 
 /**
  * Gap codes the engine never puts in a report for a Retell record, and why. A Retell record is Tier 1: no backend

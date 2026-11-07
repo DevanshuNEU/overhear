@@ -16,6 +16,7 @@ import {
   REASONS,
   describeGap,
   errorReason,
+  fillText,
   formatTime,
   promisePassedText,
   promiseViolatedText,
@@ -86,7 +87,7 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
     return softenForMissingTools(ev, violated({ why: later ? "attempted_later" : "not_attempted", kind }), "promise_backed");
   }
 
-  if (backing.some((c) => c.resultSeq === null || c.resultSeq > seq)) return violated({ why: "unfinished", kind });
+  if (backing.some((c) => c.resultSeq !== null && c.resultSeq > seq)) return violated({ why: "unfinished", kind });
   const failed = backing.find((c) => c.ok === false);
   if (failed) {
     // A tool the policy doesn't describe, run after the failure, may have been a retry that worked.
@@ -96,6 +97,12 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
       return { ...base, did: seqs, result: "unverified", text: unverifiedText("promise_backed", [unknownToolCause(retry.tools, kind)]), gaps: [] };
     }
     return violated({ why: "failed", kind, error: errorReason(failed.result) });
+  }
+  // A call with no result at all is a hole in the record, not a late answer: nothing shows how it ended.
+  const unanswered = backing.find((c) => c.resultSeq === null);
+  if (unanswered) {
+    const cause = { missing: fillText(REASONS.change_no_result.missing, { tool: unanswered.tool, kind }), fix: REASONS.change_no_result.fix };
+    return { ...base, result: "unverified", text: unverifiedText("promise_backed", [cause]), gaps: [] };
   }
   const unknown = backing.find((c) => c.ok === null);
   if (unknown) {

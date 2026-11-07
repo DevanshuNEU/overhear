@@ -225,10 +225,18 @@ describe("promise_backed", () => {
       expect(r.finding.did).toEqual([1, 3]);
     });
 
-    it("a change that never returned is violated the same way", () => {
+    it("a change whose result is missing from the record is unverified, not violated", () => {
       const r = run(ev([call("tc_1", "book_appointment"), agent(BOOKED, 40)]));
-      expect(r.finding.text).toMatch(/The booking hadn't finished yet\.$/);
-      expect(r.finding.did).toEqual([1]);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding).toEqual({
+        result: "unverified",
+        text: "Couldn't check promises backed by the system: the book_appointment call has no result in the record, so we couldn't tell whether the booking went through.",
+        said: [2],
+        did: [1],
+        asked: [],
+        gaps: [],
+        fields: [],
+      });
     });
 
     it("a result that came after the claim is unfinished even when it failed", () => {
@@ -542,8 +550,8 @@ describe("promise_backed", () => {
 
     it("a change attempted but never answered counts as attempted for a kindless claim", () => {
       const r = run(ev([call("tc_1", "book_appointment"), agent("You're all set.", 20)]));
-      expect(r.out.result).toBe("violated");
-      expect(r.finding.text).toMatch(/The booking hadn't finished yet\.$/);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toMatch(/the book_appointment call has no result in the record/);
     });
 
     it("a change tool the policy gives no kind backs a claim of any kind", () => {
