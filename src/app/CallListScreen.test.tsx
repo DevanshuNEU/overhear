@@ -372,16 +372,32 @@ describe("when the pull is done", () => {
 
 describe("choosing how many to check", () => {
   it("offers 25, 50 and 100, with the current one pressed, and starts a new pull of the one chosen", async () => {
-    const server = fakeServer([done([passedRow(1)])]);
+    // The server holds every poll after the click until the test lets go, so the "finding" state is on screen when
+    // it is asserted. Without the hold, a pull that finishes at once could skip past it.
+    const finished = done([passedRow(1)]);
+    let hold: Promise<void> | null = null;
+    let release: () => void = () => {};
+    const server = fakeServer([finished], {
+      "GET /api/pulls/pull_1": async () => {
+        if (hold) await hold;
+        return new Response(JSON.stringify(finished), { status: 200 });
+      },
+    });
     renderList();
     await findRow("call_1");
     const group = screen.getByRole("group", { name: LIST_WORDS.choiceLabel });
     expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["25", "50", "100"]);
     expect(within(group).getByRole("button", { name: "25" })).toHaveAttribute("aria-pressed", "true");
+    hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     fireEvent.click(within(group).getByRole("button", { name: "100" }));
     await waitFor(() => expect(server.count("POST", "/api/pulls")).toBe(2));
     expect(server.calls.filter((c) => c.url === "/api/pulls").map((c) => c.body)).toEqual([{ n: 25 }, { n: 100 }]);
-    expect(h1()).toHaveTextContent("Finding your last 100 calls");
+    await waitFor(() => expect(h1()).toHaveTextContent("Finding your last 100 calls"));
+    release();
+    await waitFor(() => expect(h1()).not.toHaveTextContent("Finding your last 100 calls"));
+    await findRow("call_1");
   });
 
   it("cannot be changed while calls are being checked", async () => {

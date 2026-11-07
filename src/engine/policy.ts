@@ -86,14 +86,46 @@ function hasDemoSlots(payload: unknown): boolean {
 
 /**
  * Role rules, in order; the first rule that matches wins (old plan Task 5). A rule matches when the name has one of
- * its words, or when the name ends in a booking noun and the word right before that noun is one of its noun verbs
- * ("make_booking", "delete_appointment"). Anything between verb and noun ("add_note_to_booking",
- * "set_reminder_for_appointment") or after the noun ("add_booking_note") is a side tool and gets no role from this
- * path. The noun verbs mean nothing as a change without the noun.
+ * its words, or when the name ends in a booking noun and the word right before that noun, or right before one filler
+ * word that sits before the noun, is one of its noun verbs ("make_booking", "delete_appointment", "make_a_booking",
+ * "set_up_appointment"). Anything else between verb and noun ("add_note_to_booking", "set_reminder_for_appointment")
+ * or after the noun ("add_booking_note") is a side tool and gets no role from this path. The noun verbs mean nothing
+ * as a change without the noun. A name that acts on a side noun (a callback, a reminder, a note, a preference, a
+ * follow-up) is never a change, whatever verb it uses: "book_callback" does not book anything.
  */
 type RoleRule = { words: string[]; withNoun?: string[]; role: Pick<ToolPolicy, "role" | "kind"> };
 
 const BOOKING_NOUNS = new Set(["booking", "bookings", "appointment", "appointments", "reservation", "reservations"]);
+
+/** The one word allowed between a noun verb and its booking noun: "make_a_booking", "set_up_appointment". */
+const FILLERS = new Set(["a", "an", "the", "new", "my", "up"]);
+
+/**
+ * What a side tool acts on. A name with one of these never reads as a change; it may still read as a lookup.
+ *
+ * Known case: a tool that does both, such as create_booking_with_notes, book_appointment_with_reminder or
+ * cancel_appointment_and_callback, has a side noun, so it reads as a side tool and the engine says it could not check
+ * it. That is the safe direction: a booking left unchecked is needs_review, never a false Failed. The rule is not
+ * widened to catch these.
+ */
+const SIDE_NOUNS = new Set(["callback", "callbacks", "reminder", "reminders", "note", "notes", "preference", "preferences", "follow", "followup", "followups"]);
+
+/** What a follow-up can be of and still be a booking: "book_follow_up_appointment", "create_follow_up_visit". */
+const FOLLOW_UP_BOOKABLE = new Set([...BOOKING_NOUNS, "visit", "visits", "slot", "slots"]);
+
+/**
+ * Whether the name acts on a side noun, counting "call_back" as "callback". "follow" and "followup" are side words
+ * only when the next word (past one "up" after "follow") is not something bookable: a follow-up call is a side tool,
+ * a follow-up appointment is a booking.
+ */
+function hasSideNoun(list: string[]): boolean {
+  return list.some((w, i) => {
+    if (w === "call" && list[i + 1] === "back") return true;
+    if (!SIDE_NOUNS.has(w)) return false;
+    const next = w === "follow" && list[i + 1] === "up" ? i + 2 : i + 1;
+    return !(w.startsWith("follow") && FOLLOW_UP_BOOKABLE.has(list[next]));
+  });
+}
 
 const ROLE_RULES: RoleRule[] = [
   { words: ["verify", "authenticate", "identify"], role: { role: "verify" } },
@@ -120,9 +152,14 @@ function nameWords(name: string): string[] {
 export function roleFor(name: string): Pick<ToolPolicy, "role" | "kind"> | null {
   const list = nameWords(name);
   const words = new Set(list);
-  // The verb of a "verb + booking noun" name is the word right before the noun, which is the last word.
-  const verb = list.length >= 2 && BOOKING_NOUNS.has(list[list.length - 1]) ? list[list.length - 2] : undefined;
-  const rule = ROLE_RULES.find((r) => r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb)));
+  // The verb of a "verb + booking noun" name is the word right before the noun, which is the last word, or the word
+  // before one filler word that sits before the noun.
+  const nounLast = list.length >= 2 && BOOKING_NOUNS.has(list[list.length - 1]);
+  const verb = !nounLast ? undefined : FILLERS.has(list[list.length - 2]) && list.length >= 3 ? list[list.length - 3] : list[list.length - 2];
+  const side = hasSideNoun(list);
+  const rule = ROLE_RULES.find(
+    (r) => !(side && r.role.role === "change") && (r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb))),
+  );
   return rule ? { ...rule.role } : null;
 }
 
