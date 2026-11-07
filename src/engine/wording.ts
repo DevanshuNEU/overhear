@@ -4,6 +4,7 @@
 import { CONTRACT_TITLE } from "@/report/labels";
 import type { ChangeKind, ContractId, Evidence, Gap, GapCode } from "@/report/schema";
 import { isPlaceholder } from "./placeholder";
+import type { ZoneDoubt } from "./spoken";
 
 /** The detail an evidence gap carries, by code. Codes are added as the engine learns to raise them. */
 export const GAP_DETAIL = {
@@ -83,7 +84,41 @@ export const REASONS = {
     fix: "Export the call with its tool results, or add a backend log with --actions.",
   },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
+  zone_unsure: {
+    missing: "the agent said {said}, and the {kind} is {matched} {matchedWhere}, which is {primary} {primaryWhere}, so we couldn't tell which {what} the caller meant",
+    fix: "Name the agent's time zone in its policy.",
+  },
 } satisfies Record<string, GapText>;
+
+/** Where a committed time was read, in the zone_unsure sentence. */
+const ZONE_WORDS: Record<"here" | "utc" | "offset", string> = {
+  here: "where this check ran",
+  utc: "UTC",
+  offset: "at the booking's own offset",
+};
+
+/** What the zone_unsure sentence calls the field, by its type. */
+const ZONE_WHAT: Record<"date" | "time" | "datetime", string> = { date: "date", time: "time", datetime: "date and time" };
+
+/**
+ * The unverified cause for a spoken date or time that fits the committed value only in a plausible zone other than
+ * the one the check ran in: it says what was said, what the value is in each zone, and why that is not enough.
+ */
+export function zoneUnsureCause(slots: { said: string; kind?: ChangeKind; type: "date" | "time" | "datetime"; doubt: ZoneDoubt }): GapText {
+  const { doubt } = slots;
+  const values: Record<string, string> = {
+    said: slots.said,
+    kind: kindWord(slots.kind),
+    matched: doubt.matched,
+    matchedWhere: ZONE_WORDS[doubt.matchedWhere],
+    primary: doubt.primary,
+    primaryWhere: ZONE_WORDS[doubt.primaryWhere],
+    what: ZONE_WHAT[slots.type],
+  };
+  // One pass, so a spoken value that holds braces is never read as a slot.
+  const fill = (text: string) => text.replace(/\{(\w+)\}/g, (whole, name: string) => values[name] ?? whole);
+  return { missing: fill(REASONS.zone_unsure.missing), fix: REASONS.zone_unsure.fix };
+}
 
 /** Tool names for a sentence: "a", "a and b", "a, b and c". */
 function nameList(names: string[]): string {

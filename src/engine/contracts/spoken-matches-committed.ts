@@ -11,6 +11,10 @@
 // cancellation straight before a booking is not asked for its own claim; the booking's confirmation covers a
 // reschedule.
 //
+// A policy with no zone (inferred) reads a committed time in the zone the check ran in, and a spoken date or time
+// that differs there but fits another plausible zone (UTC, or the slot's own offset) is unverified, with the zone
+// named, never violated. A preset zone is read in that zone only.
+//
 // Nothing is violated on shaky evidence. Only a field that was spoken AND resolved AND different is violated. A
 // required field that is unresolved, or resolved but never said, is unverified, and so is any gap that touches the
 // claim or the change, or ordering none. A committed value Retell scrubbed, or that is an object or a list, is
@@ -22,8 +26,8 @@
 // code in a finding only when the evidence holds that gap.
 import type { Detection, FieldCheck, Finding, GapCode } from "@/report/schema";
 import { committedDetails, type FieldType, type ToolUse } from "../committed";
-import { REASONS, describeGap, fillText, spokenPassedText, spokenViolatedText, unverifiedText, type GapText } from "../wording";
-import { fieldCheck, type MatchContext } from "../spoken";
+import { REASONS, describeGap, fillText, spokenPassedText, spokenViolatedText, unverifiedText, zoneUnsureCause, type GapText } from "../wording";
+import { fieldCheckZoned, type MatchContext, type ZoneDoubt } from "../spoken";
 import { gapsTouching, worst, type Contract, type ContractContext } from "./common";
 
 type Details = ReturnType<typeof committedDetails>;
@@ -63,6 +67,8 @@ interface Row {
   required: boolean;
   /** The values of the sentences that differ from what was committed. */
   wrong: string[];
+  /** Set when the words fit the committed value only in another plausible zone: what was said, and the two readings. */
+  zone?: { doubt: ZoneDoubt; said: string[] };
 }
 
 function judge(ctx: ContractContext, change: ToolUse, details: Details, window: Detection[], unordered: boolean): Finding {
@@ -103,7 +109,10 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
   const causes: GapText[] = [...gapCauses];
   const codes: GapCode[] = [...gapCodes];
   for (const r of rows) {
-    if (r.check.status === "unresolved") {
+    if (r.zone) {
+      const type = r.check.type as "date" | "time" | "datetime";
+      causes.push(zoneUnsureCause({ said: r.zone.said.join(" or "), kind, type, doubt: r.zone.doubt }));
+    } else if (r.check.status === "unresolved") {
       causes.push(describeGap({ code: "unresolved_committed_detail", field: r.check.field, kind, tool: change.tool }));
       // Cite the code only when the evidence holds that gap, whatever the pipeline added.
       if (ev.gaps.some((g) => g.code === "unresolved_committed_detail" && g.field === r.check.field && g.seqs.includes(change.callSeq))) {
@@ -153,17 +162,25 @@ function fieldRows(details: Details, sentences: string[], match: MatchContext): 
   const rows: Row[] = [];
   for (const [field, type] of Object.entries(details.types) as [string, FieldType][]) {
     const committed = Object.hasOwn(details.fields, field) ? details.fields[field] : undefined;
-    const checks = sentences.map((s) => fieldCheck(field, type, s, committed, match));
+    const zoned = sentences.map((s) => fieldCheckZoned(field, type, s, committed, match));
+    const checks = zoned.map((z) => z.check);
     const values = [...new Set(checks.flatMap((c) => c.values))];
     const wrong = [...new Set(checks.filter((c) => c.status === "differs").flatMap((c) => c.values))];
+    // A sentence that fits only another plausible zone is a doubt, not a difference: it loses to a sentence that
+    // differs or matches, and it beats a sentence that says nothing.
+    const doubt = zoned.find((z) => z.zone !== undefined);
     const status: FieldCheck["status"] = checks.some((c) => c.status === "differs")
       ? "differs"
       : checks.some((c) => c.status === "match")
         ? "match"
-        : checks[0].status;
+        : doubt
+          ? "unresolved"
+          : checks[0].status;
     const needed = required.has(field);
     if (!needed && status === "unresolved" && values.length === 0) continue;
-    rows.push({ check: { ...checks[0], values, status }, required: needed, wrong });
+    const zone = status === "unresolved" && doubt?.zone ? { doubt: doubt.zone, said: doubt.check.values } : undefined;
+    // The doubt's own sentence carries the committed value the check read; every sentence reads the same one.
+    rows.push({ check: { ...(doubt && status === "unresolved" ? doubt.check : checks[0]), values, status }, required: needed, wrong, zone });
   }
   // A field the change needs that the policy never defined has no value anywhere: it can only be unresolved.
   for (const field of details.required) {
