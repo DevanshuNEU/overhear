@@ -8,6 +8,104 @@ As voice AI agents move into production, someone has to watch them. Overhear is 
 
 > A personal project built to explore voice-AI quality assurance. Not affiliated with Retell.
 
+This repo holds two things.
+
+- The local product checks calls from your own Retell account, on your own machine. It is the next section.
+- The hosted demo is a scheduling agent with its own database and dashboard. It is everything from [How it works](#how-it-works) down to [Deploy](#deploy).
+
+## Run Overhear on your machine
+
+Overhear pulls your recent Retell calls, checks each one against what the agent told the caller, and shows a verdict per call. It needs no database and no other API key.
+
+### Requirements
+
+- Node 20.9 or newer (`engines` in `package.json`; `.nvmrc` says 20).
+- A Retell API key. Copy it from the API keys page in your Retell dashboard.
+- macOS or Linux. The `local` script sets its environment variable in Unix shell syntax, so on Windows use WSL.
+
+### Start it
+
+```bash
+npm ci
+npm run local
+```
+
+`npm run local` starts the app on 127.0.0.1 only and turns on local mode, so nothing else on your network can reach it. Open http://127.0.0.1:3000 in your browser and use that address. If the terminal prints a different port, use that one.
+
+Do not start local mode with `npm run dev` or `npm start`. They listen on every network interface, and Overhear refuses every request in that case.
+
+### Connect your Retell key
+
+Paste your Retell API key into the box and choose "Connect Retell". Overhear asks Retell for one call to check that the key works, then saves it.
+
+- Where it is kept: `~/.overhear/config.json`, in a folder only you can open, with file mode 0600. To keep it somewhere else, set `OVERHEAR_HOME` to an absolute path. Overhear creates a missing folder with mode 0700. It refuses to use a folder that other users can open, so pick one only Overhear uses.
+- Where it goes: only to Retell, to check the key and read your calls.
+- What gets logged: never the key. Before anything is printed, an error is cut down to a class name, an HTTP status and a short code.
+- How to remove it: choose "Disconnect" at the top of the call list, or delete `~/.overhear/config.json`.
+
+### What happens next
+
+Overhear pulls your last 25 calls and checks each one. You can switch to the last 50 or the last 100 on the same screen. Calls that have not ended yet are left out, and the screen says how many.
+
+Calls that failed come first, then calls that need review, under the heading "Look at these first". Everything else is under "Everything else". Click a call to open its report. The report puts what the agent said next to what the system did, and shows the rule that broke or could not be checked.
+
+### What the verdicts mean
+
+The words below are the ones the screen uses (`src/report/labels.ts`).
+
+- **Failed.** "The call broke a rule, and the call record shows it." At least one rule was broken, and the proof is in the call record.
+- **Needs review.** Something couldn't be checked, the agent deferred the caller's request instead of completing it, or the caller asked for something the agent neither did nor refused. A person needs to look.
+- **Passed.** "Every promise that applied was kept." No rule was broken and nothing was left unchecked. A call where the agent made no promises also passes, and the report says so.
+
+"Couldn't check" is the result for one rule when the call record does not hold enough to decide it. For example, the tool calls are missing from the transcript, or a tool result gave no success signal. The report lists each gap under "What we couldn't check". A call with a rule it couldn't check is never marked Passed.
+
+### Settings
+
+You need none of these to check your own agents.
+
+- `OVERHEAR_DEMO_AGENT_ID` is the Retell agent id of the demo agent. It falls back to `RETELL_AGENT_ID` when blank. A call from that agent is checked with the demo's own policy. Your own agents never need it.
+- `OVERHEAR_HOME` moves the folder that holds the key, as above.
+
+Each one has a comment in [`.env.example`](.env.example).
+
+### The hosted copy never takes a key
+
+A hosted copy, such as the Railway demo, does not run local mode. Its key routes answer 404 and its home page sends visitors to the demo. Do not paste a Retell key into a hosted copy. It has nowhere to put one.
+
+### For contributors
+
+`OVERHEAR_RETELL_BASE_URL` is not a user setting. The key canary uses it to point the app at a fake Retell on your own computer. Overhear accepts it only in local mode and only for a plain `http://` address on a loopback host, so it cannot send your key anywhere else.
+
+```bash
+npm run canary:live
+```
+
+The canary starts the app in local mode with a made-up key and drives a connect, a pull and a disconnect. Then it searches every log, response, cache file and config file for that key. It exits 0 when the key is nowhere.
+
+### Known limits
+
+- Retell only. Other platforms are not supported yet.
+- Three checks run: promises backed by the system, spoken details match the booking, and promised transfers happen. Whether a booking matches what the caller asked for is not checked yet, so a Passed call says "The caller's request wasn't checked."
+- Agents other than the demo agent are judged by what their tool names and tool results suggest. A tool with an unusual name can leave a rule it couldn't check.
+- A call Retell stored without a transcript can't be checked. Its row says "Retell kept no transcript for this call." That happens when the agent's data storage setting keeps only basic call details.
+
+## Engine evals
+
+The engine is tested against stored call records that a person labeled with the right verdict. `docs/evals.md` says how. The numbers below come from `eval/engine-report.md`, which `npm run eval:engine` writes. CI fails when that file goes stale.
+
+Every case so far is constructed. The 3 samples are scrubbed calls from our own demo agent, and the 30 mutations are named breakages of those samples, such as changing a spoken time by an hour. We built both, so these numbers show that the engine does what we meant. They do not show how it does on other people's calls. Independent results come from real calls later. Until then that part of the report says "No cases yet."
+
+| Measure | Value | n |
+| --- | --- | --- |
+| Cases | 33 (3 samples, 30 mutations) | 33 |
+| Independent cases | 0 | 0 |
+| Verdict accuracy | 100% (33 of 33), 95% interval 90% to 100% | 33 |
+| Precision of failed | 100% (14 of 14), 95% interval 78% to 100% | 14 |
+| Recall of failed | 100% (14 of 14), 95% interval 78% to 100% | 14 |
+| False failed on normal calls | 0% (0 of 6), 95% interval 0% to 39% | 6 |
+
+Read the intervals along with the rates. Six normal calls cannot rule out a false failed rate near 39%.
+
 ## How it works
 
 ```
@@ -54,9 +152,9 @@ Every call is scored on seven weighted dimensions (`src/domain/rubric.ts`). Code
 
 Known issue: scoring loads the slots that are open at scoring time (`loadOpenSlots` in `src/qa/pipeline.ts`), so a slot the agent correctly booked during the call is no longer in that list and can look invented to the judge. The fix is to score against the slots as they were during the call.
 
-## Evaluation
+## Demo judge evaluation
 
-The judge is measured against a labeled gold set (`npm run eval`, results in `eval/report.json`, rendered on `/eval`). The current report, from 2026-09-27 with `claude-sonnet-5` at low effort:
+The hosted demo's judge is measured against a labeled gold set (`npm run eval`, results in `eval/report.json`, rendered on `/eval`). The current report, from 2026-09-27 with `claude-sonnet-5` at low effort:
 
 - 39 gold calls with 4 planted failure types: hallucinated slot, skipped verification, wrong provider, medical advice.
 - Recall 1.0 on every type: 23 of 23 planted failure labels caught.
@@ -88,7 +186,9 @@ Built in reviewed phases, each behind a pull request with green CI.
 | 5 | Dashboard: call list, annotated transcripts, trends, in-browser call widget | Done |
 | 6 | Seed data with planted failures, plus deployment | Done |
 
-## Getting started
+## Getting started with the demo
+
+This sets up the hosted demo's own stack. To check your own Retell calls instead, see [Run Overhear on your machine](#run-overhear-on-your-machine).
 
 You need Node 20 or newer and Docker for the local Postgres.
 
