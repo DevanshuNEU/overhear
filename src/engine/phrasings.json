@@ -1762,5 +1762,68 @@
     ],
     "kind": "book",
     "source": "review:ove-46"
+  },
+  {
+    "text": "Once you've had a chance to look, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When we've checked your insurance, I'll connect you with billing.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once you've checked in, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After you've called back, I'll book you for Tuesday.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once we had the results, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the nurse has looked at it, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After the nurse called, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When Dr. Osei had a chance, I'll connect you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After booking, I'll connect you with a nurse.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
   }
 ]

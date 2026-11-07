@@ -274,22 +274,26 @@ const LEADING_WAIT = new RegExp(
   "i",
 );
 
-// A wait clause about something already done: "When I checked", "When you called earlier", "After checking".
-const PAST_WAIT = /\b(?:checked|called|asked|spoke|looked|was|were|did|had)\b/i;
+// A "when" clause about something already done, a subject then a simple past verb: "When I checked", "When you called
+// earlier". An auxiliary ("when we've checked") or another subject ("when the nurse looked") is still a wait.
+const PAST_WAIT = /^\s*(?:i|you|we)\s+(?:checked|called|asked|spoke|looked|was|were|did)\b/i;
 
 /**
  * What a transfer or intention starting at a position is worth. A leading wait clause stays a wait however many
  * commas it has ("Once Dr. Osei, our nurse, is back, I'll transfer you"), because a false deferral costs less than a
- * missed claim. It is finished in two cases: the claim is introduced by ", so" ("..., so I'll book you"), or the
- * wait verb is past or about something done ("When I checked", "After checking").
+ * missed claim. It is finished in three cases: the claim is introduced by ", so" ("..., so I'll book you"), the wait is
+ * "when" plus I, you or we and a simple past verb ("When I checked"), or the wait is "after" plus an -ing word
+ * ("After checking"). "Once" and "after" with a subject never count as finished.
  */
 function claimAt(s: string, at: number, end: number): "claim" | "deferral" | "maybe" {
   const prefix = s.slice(0, at);
   const m = LEADING_WAIT.exec(prefix);
   if (m) {
     const clause = prefix.slice(m[0].length);
-    const head = clause.split(",")[0];
-    const finished = /,\s*so\s*$/i.test(prefix) || PAST_WAIT.test(head) || (/after$/i.test(m[0]) && /^\s*\w+ing\b/i.test(clause));
+    const finished =
+      /,\s*so\s*$/i.test(prefix) ||
+      (/when$/i.test(m[0]) && PAST_WAIT.test(clause)) ||
+      (/after$/i.test(m[0]) && /^\s*\w+ing\b/i.test(clause));
     if (!finished) return "deferral";
   }
   return claimTail(s, end);
