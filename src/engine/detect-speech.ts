@@ -265,13 +265,28 @@ function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
 }
 
 // A sentence that opens with a wait clause: "Once the system is back, I'll connect you", "When a nurse is free I'll
-// transfer you". "Now that", "since", "because" and "so" state a fact or a reason, and "before we hang up" promises the
-// claim during this call, so none of them are in the list.
-const LEADING_WAIT = /^\s*(?:(?:and|so|okay|ok|alright|all right|sure|great|perfect|thanks|thank you)[,.!]?\s+)*(?:once|after|when|whenever|as soon as|until)\b/i;
+// transfer you". "Now that", "since", "because" and "so" state a fact or a reason, "before we hang up" promises the
+// claim during this call, and "until" means act now in the meantime, so none of them are in the list. Idioms that open
+// with a wait word but wait for nothing ("once again", "after all", "when it comes to", "as soon as possible") are out too.
+const WAIT_FILLER = "(?:and|so|okay|ok|alright|all right|right|sure|great|perfect|thanks|thank you|um|uh|well|actually)";
+const LEADING_WAIT = new RegExp(
+  `^\\s*(?:${WAIT_FILLER}[,.!]?\\s+)*(?:once(?! (?:again|more)\\b)|after(?! all\\b)|whenever|when(?! it comes to\\b)|as soon as(?! possible\\b))\\b`,
+  "i",
+);
 
-/** What a transfer or intention at a position is worth: a leading wait clause before it makes it a deferral. */
+/**
+ * What a transfer or intention starting at a position is worth. A wait clause that runs straight into it ("Once the
+ * system is back, I'll ...": no other comma, so or but in between) makes it a deferral. A finished time clause
+ * followed by a separate clause ("When I checked, Tuesday was open, so I'll book you") does not.
+ */
 function claimAt(s: string, at: number, end: number): "claim" | "deferral" | "maybe" {
-  return LEADING_WAIT.test(s.slice(0, at)) ? "deferral" : claimTail(s, end);
+  const prefix = s.slice(0, at);
+  const m = LEADING_WAIT.exec(prefix);
+  if (m) {
+    const clause = prefix.slice(m[0].length).replace(/,?\s*$/, "");
+    if (!/[,;]|\b(?:so|but)\b/i.test(clause)) return "deferral";
+  }
+  return claimTail(s, end);
 }
 
 function lastIndexOf(re: RegExp, s: string): number {
@@ -281,7 +296,7 @@ function lastIndexOf(re: RegExp, s: string): number {
 }
 
 /** A chained transfer ("... and then put you through") that follows a first-person, un-negated, unconditional clause. */
-function chainedTransfer(s: string): { at: number; end: number } | null {
+function chainedTransfer(s: string): { at: number; end: number; lead: number } | null {
   const m = matchOf(TRANSFER_CHAIN, s);
   if (!m) return null;
   const before = s.slice(0, m.at);
@@ -291,7 +306,7 @@ function chainedTransfer(s: string): { at: number; end: number } | null {
   if (from < 0) return null;
   if (lead >= 0 && CHAIN_BLOCK_RE.test(before.slice(from))) return null;
   if (NEGATED.test(before.trimEnd()) || notAClaim(s, m.at)) return null;
-  return m;
+  return { ...m, lead: from };
 }
 
 function matchOf(re: RegExp, s: string): { at: number; end: number } | null {
@@ -314,9 +329,9 @@ function primary(s: string): Hit[] {
   if (OFFER_CAN.test(s)) return [{ cls: "offer", at: firstAt(s, OFFER_CAN) }];
   const out: Hit[] = [];
   let waits = -1;
-  const transfer = matchOf(TRANSFER, s) ?? chainedTransfer(s);
+  const transfer: { at: number; end: number; lead?: number } | null = matchOf(TRANSFER, s) ?? chainedTransfer(s);
   if (transfer) {
-    const tail = claimAt(s, transfer.at, transfer.end);
+    const tail = claimAt(s, transfer.lead ?? transfer.at, transfer.end);
     if (tail === "claim") out.push({ cls: "transfer", at: transfer.at });
     else if (tail === "deferral") waits = transfer.at;
   } else if (TRANSFER_DONE.test(s)) {
