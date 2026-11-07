@@ -7,7 +7,11 @@
 // The whole flow runs twice: once with a `key_...` key, and once with a key that has no `key_` prefix, because
 // redact() strips anything shaped like `key_...` and the test must not pass on that alone. The search looks for
 // the key in plain text, hex and base64 (at every byte alignment, so a key inside a longer encoded string is
-// found too), as Basic auth (`user:key` in base64), and as any 8-character window of the key or its marker.
+// found too), as Basic auth (`user:key` in base64), and as any 8-character window of the key or its marker
+// (the forms are in canary-forms.ts).
+//
+// This calls the route handlers directly and never runs Next. `npm run canary:live` (scripts/canary-live.ts) runs
+// the same search against a real `next dev`, which adds Next's request log, error overlay and .next/ cache.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
