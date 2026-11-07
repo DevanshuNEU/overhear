@@ -2,6 +2,7 @@
 // samples; the engine replaces `sampleSource` and nothing else changes. Whatever a source returns is
 // checked against the schema here, so a report that does not validate never reaches a screen.
 import { CallReportSchema, type CallReport } from "./schema";
+import { isLocalMode } from "@/pull/local";
 import { SAMPLE_REPORTS } from "./samples";
 
 export type ReportLookup =
@@ -17,14 +18,22 @@ export const sampleSource: ReportSource = async (callId) => SAMPLE_REPORTS.find(
 const DEMO_STATES_FLAG = "OVERHEAR_DEMO_STATES";
 
 /**
- * The samples, plus the demo states when OVERHEAR_DEMO_STATES=1 outside production. Read on every call, so a
- * test can turn it on. The demo fixtures load only then, so a fault in them cannot reach a real run.
+ * The samples, then the demo states when OVERHEAR_DEMO_STATES=1 outside production, then, in local mode only, the
+ * engine's reports from the pull. Read on every call, so a test can turn each on. The demo fixtures and the pull
+ * load only then, so a fault in them cannot reach a run that does not use them, and a hosted copy never touches
+ * Retell.
  */
 const defaultSource: ReportSource = async (callId) => {
   const sample = await sampleSource(callId);
-  if (sample !== undefined || process.env[DEMO_STATES_FLAG] !== "1" || process.env.NODE_ENV === "production") return sample;
-  const { demoSource } = await import("./demo-states");
-  return demoSource(callId);
+  if (sample !== undefined) return sample;
+  if (process.env[DEMO_STATES_FLAG] === "1" && process.env.NODE_ENV !== "production") {
+    const { demoSource } = await import("./demo-states");
+    const demo = await demoSource(callId);
+    if (demo !== undefined) return demo;
+  }
+  if (!isLocalMode()) return undefined;
+  const { pullSource } = await import("@/pull/report-source");
+  return pullSource(callId);
 };
 
 /**
