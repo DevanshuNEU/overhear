@@ -1201,5 +1201,63 @@
       "offer"
     ],
     "source": "review:ove-43"
+  },
+  {
+    "text": "Your appointment is already booked.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're already confirmed for Tuesday.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your appointment is already cancelled.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me book that and connect you.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book that, then connect you with a nurse.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book that and transfer you.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Would you like me to book that and connect you?",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:ove-43"
   }
 ]

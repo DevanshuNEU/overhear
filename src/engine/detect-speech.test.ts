@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Evidence } from "@/report/schema";
 import { SAMPLE_REPORTS } from "@/report/samples";
 import phrasings from "./phrasings.json";
 import { classifyTurn, detectAll, findToolSyntax, splitSentences } from "./detect-speech";
@@ -125,6 +126,30 @@ describe("findToolSyntax", () => {
     expect(findToolSyntax("I can book (if you want) tomorrow", ["book"])).toBeNull();
     expect(findToolSyntax("I can book (tomorrow or Friday)", ["book"])).toBeNull();
     expect(findToolSyntax("I can book tomorrow", ["book"])).toBeNull();
+  });
+});
+
+// Spoken tool syntax, labeled by hand: a line and the tool names the policy knows.
+describe("detectAll reads spoken tool syntax", () => {
+  const turn = (text: string) =>
+    ({ items: [{ kind: "turn", seq: 1, role: "agent", text, startSec: null, interrupted: null }] }) as unknown as Evidence;
+  it.each([
+    ["functions.transfer_call", ["transfer_call"]],
+    ["transfer_call()", ["transfer_call"]],
+    ['book_appointment({"slot_id": 3})', ["book_appointment"]],
+    ["Calling book_appointment(date: 5th) now", ["book_appointment"]],
+  ])("%s is tool_syntax", (text, tools) => {
+    const out = detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax");
+    expect(out).toHaveLength(1);
+    expect(text).toContain(out[0].quote);
+  });
+  it.each([
+    ["Cancel: your 3pm is gone", ["cancel"]],
+    ["cancel: your 3pm is gone", ["cancel"]],
+    ["I can book (if you want) tomorrow", ["book"]],
+    ["I can transfer_call tomorrow", ["transfer_call"]],
+  ])("%s is not tool_syntax", (text, tools) => {
+    expect(detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax")).toEqual([]);
   });
 });
 
