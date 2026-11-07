@@ -268,7 +268,7 @@ function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
 // transfer you". "Now that", "since", "because" and "so" state a fact or a reason, "before we hang up" promises the
 // claim during this call, and "until" means act now in the meantime, so none of them are in the list. Idioms that open
 // with a wait word but wait for nothing ("once again", "after all", "when it comes to", "as soon as possible") are out too.
-const WAIT_FILLER = "(?:and|so|okay|ok|alright|all right|right|sure|great|perfect|thanks|thank you|um|uh|well|actually)";
+const WAIT_FILLER = "(?:and|so|okay|ok|alright|all right|right|sure|great|perfect|thanks|thank you|um|uh|well|actually|yes|no|sorry)";
 const LEADING_WAIT = new RegExp(
   `^\\s*(?:${WAIT_FILLER}[,.!]?\\s+)*(?:once(?! (?:again|more)\\b)|after(?! all\\b)|whenever|when(?! it comes to\\b)|as soon as(?! possible\\b))\\b`,
   "i",
