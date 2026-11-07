@@ -26,8 +26,9 @@ describe("threadsOf", () => {
 
   it("makes a thread of a review reason, and of each gap", () => {
     const reason = threadsOf(needsReviewSample);
-    expect(reason).toHaveLength(1);
+    expect(reason).toHaveLength(2);
     expect(reason[0]).toMatchObject({ anchor: "reason-0", seqs: [4, 7, 9], railed: true, result: "unverified", label: "Unanswered request" });
+    expect(reason[1]).toMatchObject({ anchor: "reason-1", seqs: [12], railed: true, result: "unverified" });
     // An unverified-result reason repeats its rule's finding, so it makes no thread of its own.
     expect(threadsOf(unverifiedSample).filter((t) => t.anchor.startsWith("reason-"))).toEqual([]);
     const gaps = threadsOf(unverifiedSample).filter((t) => t.anchor.startsWith("gap-"));

@@ -4,7 +4,7 @@
   "platform": "retell",
   "verdict": "needs_review",
   "notes": [],
-  "headline": "The caller asked for something the agent neither did nor refused.",
+  "headline": "The agent deferred the caller's request instead of completing it.",
   "reasons": [
     {
       "kind": "unanswered_request",
@@ -13,6 +13,13 @@
         4,
         7,
         9
+      ]
+    },
+    {
+      "kind": "deferral",
+      "text": "At 0:37 the agent said it could help once the system was back online. It put the request off and no booking followed.",
+      "seqs": [
+        12
       ]
     }
   ],
@@ -52,7 +59,7 @@
     },
     {
       "seq": 12,
-      "cls": "offer",
+      "cls": "deferral",
       "quote": "Please try again shortly, or I can help once it’s back online",
       "source": "code"
     },

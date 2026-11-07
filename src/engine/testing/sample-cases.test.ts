@@ -56,26 +56,26 @@ describe("sampleCases", () => {
     });
   });
 
-  it("expects passed for the needs-review sample: M1 has no request source", () => {
+  it("expects needs_review for the needs-review sample: the agent deferred", () => {
     expect(byId["sample-needs-review"].expect).toEqual({
-      verdict: "passed",
+      verdict: "needs_review",
       contracts: { promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable", committed_matches_request: "not_run" },
     });
   });
 
-  // The override above is only right while these hold: the sample needs review solely because of a request a model
-  // found, and no code-run contract applies. If the sample changes, this fails and the override is looked at again.
-  it("the needs-review override rests only on the model-found request", () => {
+  // The case rests on two reasons: a deferral that code finds, and a request a model found. If the sample
+  // changes, this fails and the expectation above is looked at again.
+  it("the needs-review case rests on a deferral and the model-found request, with no code-run contract applying", () => {
     const view = m1View(needsReviewSample);
     expect(view.verdict).toBe("needs_review");
     expect(view.requestSource).toBe("llm");
-    expect(view.reasons.map((r) => r.kind)).toEqual(["unanswered_request"]);
+    expect(view.reasons.map((r) => r.kind)).toEqual(["unanswered_request", "deferral"]);
     expect(view.results.filter((r) => r.contract !== "committed_matches_request").map((r) => r.result)).toEqual([
       "not_applicable",
       "not_applicable",
       "not_applicable",
     ]);
-    expect(view.detections.map((d) => d.cls)).not.toContain("deferral");
+    expect(view.detections.map((d) => d.cls)).toContain("deferral");
   });
 
   it("follows m1View for the samples M1 can reproduce", () => {

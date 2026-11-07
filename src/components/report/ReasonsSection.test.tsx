@@ -4,9 +4,12 @@ import { ReasonsSection } from "./ReasonsSection";
 import { needsReviewSample, passedSample } from "@/report/samples";
 import { unverifiedSample } from "@/report/demo-states";
 
+// The sample has two reasons, a request nobody answered and a deferral. Most tests read the first alone.
+const requestOnly = { ...needsReviewSample, reasons: [needsReviewSample.reasons[0]] };
+
 describe("ReasonsSection", () => {
   it("says why the call needs review, with the caller's request and what the system did", () => {
-    render(<ReasonsSection report={needsReviewSample} />);
+    render(<ReasonsSection report={requestOnly} />);
     const section = screen.getByRole("region", { name: "Why it needs review" });
     const reason = within(section).getByRole("article");
     expect(reason).toHaveTextContent("At 0:11 the caller asked to book an appointment.");
@@ -19,7 +22,7 @@ describe("ReasonsSection", () => {
   });
 
   it("does not set up a said column when the reason rests on no agent words", () => {
-    const { container } = render(<ReasonsSection report={needsReviewSample} />);
+    const { container } = render(<ReasonsSection report={requestOnly} />);
     expect(container.querySelector('[class*="md:grid-cols-2"]')).toBeNull();
     expect(screen.queryByRole("group", { name: "Said" })).not.toBeInTheDocument();
   });
@@ -44,20 +47,28 @@ describe("ReasonsSection", () => {
     expect(within(reason).queryByRole("group")).not.toBeInTheDocument();
   });
 
+  it("names the deferral as its own reason, citing the agent's words", () => {
+    render(<ReasonsSection report={needsReviewSample} />);
+    const reasons = screen.getAllByRole("article");
+    expect(reasons).toHaveLength(2);
+    expect(reasons[1]).toHaveTextContent("At 0:37 the agent said it could help once the system was back online.");
+    expect(within(reasons[1]).getByRole("link", { name: "Show in the call" })).toHaveAttribute("href", "#item-12");
+  });
+
   it("is absent when the call needs no review", () => {
     const { container } = render(<ReasonsSection report={passedSample} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("goes straight to the evidence for the reason the lead already said", () => {
-    render(<ReasonsSection report={needsReviewSample} leadReason={0} />);
+    render(<ReasonsSection report={requestOnly} leadReason={0} />);
     const reason = screen.getByRole("article");
-    expect(within(reason).getByText(needsReviewSample.reasons[0].text)).toHaveClass("sr-only");
+    expect(within(reason).getByText(requestOnly.reasons[0].text)).toHaveClass("sr-only");
     expect(within(reason).getByRole("group", { name: "Asked" })).toBeInTheDocument();
   });
 
   it("puts the link to the call after the evidence when the sentence above it is hidden, not alone under the heading", () => {
-    render(<ReasonsSection report={needsReviewSample} leadReason={0} />);
+    render(<ReasonsSection report={requestOnly} leadReason={0} />);
     const reason = screen.getByRole("article");
     const link = within(reason).getByRole("link", { name: "Show in the call" });
     const did = within(reason).getByRole("group", { name: "Did" });
@@ -65,7 +76,7 @@ describe("ReasonsSection", () => {
   });
 
   it("keeps the link under the sentence when the sentence is shown", () => {
-    render(<ReasonsSection report={needsReviewSample} />);
+    render(<ReasonsSection report={requestOnly} />);
     const reason = screen.getByRole("article");
     const link = within(reason).getByRole("link", { name: "Show in the call" });
     const asked = within(reason).getByRole("group", { name: "Asked" });
