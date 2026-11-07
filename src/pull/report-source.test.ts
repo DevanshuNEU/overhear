@@ -225,10 +225,8 @@ describe("pullSource", () => {
     );
     return { started, release };
   }
-  const until = async (done: () => boolean) => {
-    for (let i = 0; i < 200 && !done(); i++) await new Promise((r) => setImmediate(r));
-    expect(done()).toBe(true);
-  };
+  // Time-based, not a count of ticks: reading the key file for each open takes longer on a busy machine.
+  const until = (done: () => boolean) => vi.waitFor(() => expect(done()).toBe(true), { timeout: 10_000, interval: 5 });
 
   it("a fetch still queued at Disconnect sends nothing, with the old key or any other", async () => {
     const ids = Array.from({ length: 7 }, () => uid("queued"));
