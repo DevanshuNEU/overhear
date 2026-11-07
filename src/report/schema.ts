@@ -226,7 +226,7 @@ export const FieldCheckSchema = z.strictObject({
   type: z.enum(FIELD_TYPES),
   from: z.enum(["spoken", "requested"]),
   values: z.array(z.string()), // as spoken or requested, in display form
-  committed: z.string().nullable(), // null when it could not be resolved
+  committed: z.string().nullable(), // null when it could not be resolved; when unresolved for a time zone doubt, it names the candidate readings
   status: z.enum(["match", "differs", "not_spoken", "unresolved"]),
 }).refine((f) => !(f.committed === null && f.status === "match"), {
   path: ["status"],

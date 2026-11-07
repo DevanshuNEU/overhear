@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { FindingBlock } from "./FindingBlock";
+import { ZONE_UNCLEAR_LABEL } from "@/report/labels";
 import type { Detection, Evidence, Finding } from "@/report/schema";
 
 const evidence: Evidence = {
@@ -71,6 +72,19 @@ describe("FindingBlock", () => {
     // A requested value is labelled as requested, a spoken one as spoken.
     expect(within(table).getByText("Requested: Dr. Lee")).toBeInTheDocument();
     expect(within(table).getByText("Spoken: Tuesday")).toBeInTheDocument();
+  });
+
+  it("labels an unresolved row that names its readings as a time zone doubt, not a missing value", () => {
+    setup({
+      ...finding,
+      result: "unverified",
+      fields: [{ field: "time", type: "time", from: "spoken", values: ["7 PM"], committed: "2:00 PM here or 7:00 PM UTC", status: "unresolved" }],
+    });
+    const table = screen.getByRole("table");
+    expect(within(table).getByText(ZONE_UNCLEAR_LABEL)).toBeInTheDocument();
+    expect(ZONE_UNCLEAR_LABEL).toBe("Time zone unclear");
+    expect(within(table).getByText("2:00 PM here or 7:00 PM UTC")).toBeInTheDocument();
+    expect(within(table).queryByText("Couldn't resolve")).not.toBeInTheDocument();
   });
 
   it("leaves out the lanes a finding does not use", () => {

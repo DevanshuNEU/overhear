@@ -18,6 +18,7 @@ vi.mock("./check", async (importOriginal) => {
 });
 
 const opts = { tz: "UTC" };
+const ny = "America/New_York";
 const isPreset = (policy: unknown) => isDeepStrictEqual(policy, preset);
 
 describe("analyzeRetellCall", () => {
@@ -145,6 +146,20 @@ describe("analyzeRetellCall", () => {
       expect(sourceOf(out)).toBe("inferred");
       expect(verdictOf(out)).not.toBe("failed");
       expect(out.kind === "report" && out.report.results.find((c) => c.contract === "transfer_kept")?.result).toBe("unverified");
+    });
+
+    // OVE-49: another agent has no policy zone, so the machine's zone is only one plausible reading of its slots.
+    it("a correct call from another agent is not Failed in a zone that is not the one it spoke in", () => {
+      const out = analyzeRetellCall(withAgent(toRetell(passedSample.evidence), "agent_x"), { tz: ny, demoAgentId: "agent_demo" });
+      expect(sourceOf(out)).toBe("inferred");
+      expect(verdictOf(out)).not.toBe("failed");
+      if (out.kind === "report") {
+        const spoken = out.report.results.find((c) => c.contract === "spoken_matches_committed")!;
+        expect(spoken.result).toBe("unverified");
+      }
+      // The demo agent's own call keeps its preset zone: nothing to second-guess.
+      const demo = analyzeRetellCall(withAgent(toRetell(passedSample.evidence), "agent_demo"), { tz: ny, demoAgentId: "agent_demo" });
+      expect(verdictOf(demo)).toBe("passed");
     });
 
     it("a call with no agent id behaves as before, with or without a demo agent configured", () => {

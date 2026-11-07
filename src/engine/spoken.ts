@@ -41,6 +41,27 @@ export interface MatchContext {
 
 export type MatchResult = "match" | "differs" | "not_spoken";
 
+/** The zone a committed value was read in: where the check ran, UTC, or the offset the value itself carries. */
+export type ZoneWhere = "here" | "utc" | "offset";
+
+/** A claim that fits the committed value only in a plausible zone other than the one the check read first (OVE-49). */
+export interface ZoneDoubt {
+  /** The committed value in the zone the claim fits. */
+  matched: string;
+  matchedWhere: ZoneWhere;
+  /** The committed value in the zone the check read it in first. */
+  primary: string;
+  primaryWhere: ZoneWhere;
+}
+
+/** How the words match a committed value read in one plausible zone, and the value as that reading shows it. */
+export interface ReadingMatch {
+  where: ZoneWhere;
+  status: MatchResult;
+  /** The committed value in this reading, as display text. Empty for a type that has no zones. */
+  shown: string;
+}
+
 // ---------- Calendar arithmetic in whole days ----------
 
 const DAY_MS = 86_400_000;
@@ -734,18 +755,62 @@ function compareTime(s: Scan, committed: string): Compared {
   return times.length > 0 && !s.timeIncomplete ? "differs" : "none";
 }
 
-function matchDateTime(type: "date" | "time" | "datetime", text: string, committed: unknown, ctx: MatchContext): MatchResult {
-  if (typeof committed !== "string") return "not_spoken";
-  const local = toLocal(committed, ctx.tz, ctx.policyTz);
+/** One reading of a committed value's wall-clock date and time, the zone it is in, and the call's day counted there. */
+interface Reading {
+  where: ZoneWhere;
+  at: { date?: string; time?: string };
+  /** The call's date in this reading's zone, in days since 1970-01-01, or null when the call has no start. */
+  today: (callStartMs: number | null) => number | null;
+}
+
+/**
+ * The ways a committed value can be read. The first is the check's own reading (toLocal). With no policy zone, a
+ * value with a zone designator has one more plausible reading: UTC wall time for a value ending in Z or +00:00, and
+ * the machine's zone for a value with its own non-zero offset, which toLocal reads as written. A value with no
+ * designator is already wall time. A preset zone has no other reading. A reading that equals the first is dropped.
+ */
+function readings(value: string, tz: string, policyTz: boolean): Reading[] {
+  const inZone = (zone: string) => (ms: number | null) => callDay(ms, zone);
+  const first: Reading = { where: "here", at: toLocal(value, tz, policyTz), today: inZone(tz) };
+  const m = policyTz ? null : DATETIME.exec(value.trim());
+  if (!m || m[7] === undefined) return [first];
+  const offsetMin = m[7].toUpperCase() === "Z" ? 0 : offsetMinutes(m[7]);
+  let other: Reading;
+  if (offsetMin === 0) {
+    other = { where: "utc", at: toLocal(value, "UTC", true), today: inZone("UTC") };
+  } else {
+    // The slot's own offset is the first reading. Intl has no zone for an offset, so its day is counted by hand.
+    first.where = "offset";
+    first.today = (ms) => (ms === null || !Number.isFinite(ms) ? null : Math.floor((ms + offsetMin * 60_000) / DAY_MS));
+    other = { where: "here", at: toLocal(value, tz, true), today: inZone(tz) };
+  }
+  const same = other.at.date === first.at.date && other.at.time === first.at.time;
+  return same ? [first] : [first, other];
+}
+
+function matchReading(type: "date" | "time" | "datetime", s: Scan, reading: Reading, ctx: MatchContext): MatchResult {
+  const local = reading.at;
   const needDate = type !== "time";
   const needTime = type !== "date";
   if ((needDate && !local.date) || (needTime && !local.time)) return "not_spoken";
-  const s = scan(text);
-  const date = needDate ? compareDate(s, local.date!, callDay(ctx.callStartMs, ctx.tz)) : "match";
+  const date = needDate ? compareDate(s, local.date!, reading.today(ctx.callStartMs)) : "match";
   const time = needTime ? compareTime(s, local.time!) : "match";
   if (date === "differs" || time === "differs") return "differs";
   if (date === "match" && time === "match") return "match";
   return "not_spoken";
+}
+
+function showReading(type: "date" | "time" | "datetime", at: Reading["at"]): string {
+  const date = at.date && type !== "time" ? formatDate(at.date) : null;
+  const time = at.time && type !== "date" ? formatTime(at.time) : null;
+  return [date, time].filter(Boolean).join(" at ");
+}
+
+/** The date and time together, one reading at a time: the check's own reading first, then any other plausible one. */
+function matchDateTime(type: "date" | "time" | "datetime", text: string, committed: unknown, ctx: MatchContext): ReadingMatch[] {
+  if (typeof committed !== "string") return [{ where: "here", status: "not_spoken", shown: "" }];
+  const s = scan(text);
+  return readings(committed, ctx.tz, ctx.policyTz).map((r) => ({ where: r.where, status: matchReading(type, s, r, ctx), shown: showReading(type, r.at) }));
 }
 
 const TITLES = /^(?:dr|doctor|mr|mrs|ms|miss|mx|prof|professor|nurse)\.?\s+/i;
@@ -847,21 +912,31 @@ function matchNumber(text: string, committed: unknown): string | null {
  * differ only when another provider from the call is named. string, number, money and id never differ in M1.
  */
 export function matchField(type: FieldType, text: string, committed: unknown, ctx: MatchContext): MatchResult {
-  if (committed === null || committed === undefined || isPlaceholder(committed)) return "not_spoken";
+  return matchReadings(type, text, committed, ctx)[0].status;
+}
+
+/**
+ * matchField in every plausible zone (OVE-49). The first result is matchField's own. With no policy zone, a date or
+ * time with a zone designator has a second reading (see readings); every other value has one. The caller decides
+ * how the readings combine across a claim: this never mixes one field in one zone with another in a second.
+ */
+export function matchReadings(type: FieldType, text: string, committed: unknown, ctx: MatchContext): ReadingMatch[] {
+  const one = (status: MatchResult): ReadingMatch[] => [{ where: "here", status, shown: "" }];
+  if (committed === null || committed === undefined || isPlaceholder(committed)) return one("not_spoken");
   switch (type) {
     case "date":
     case "time":
     case "datetime":
       return matchDateTime(type, text, committed, ctx);
     case "name":
-      return matchName(text, committed, ctx).status;
+      return one(matchName(text, committed, ctx).status);
     case "id":
-      return matchId(text, committed) ? "match" : "not_spoken";
+      return one(matchId(text, committed) ? "match" : "not_spoken");
     case "string":
-      return matchString(text, committed) ? "match" : "not_spoken";
+      return one(matchString(text, committed) ? "match" : "not_spoken");
     case "number":
     case "money":
-      return matchNumber(text, committed) ? "match" : "not_spoken";
+      return one(matchNumber(text, committed) ? "match" : "not_spoken");
   }
 }
 
@@ -964,10 +1039,20 @@ function committedDisplay(type: FieldType, value: unknown, ctx: MatchContext): s
  * redaction placeholder or unreadable for its type is "unresolved" with committed null; it is never compared.
  */
 export function fieldCheck(field: string, type: FieldType, text: string, committed: unknown, ctx: MatchContext): FieldCheck {
+  return fieldCheckZoned(field, type, text, committed, ctx).check;
+}
+
+/**
+ * fieldCheck, plus the result in every plausible zone. The check is always the first reading's; the contract decides
+ * whether a claim can be read in another zone, so one zone is used for the whole claim. Empty readings when the
+ * committed value can't be used.
+ */
+export function fieldCheckZoned(field: string, type: FieldType, text: string, committed: unknown, ctx: MatchContext): { check: FieldCheck; readings: ReadingMatch[] } {
   let values = spokenValues(type, text, ctx);
   const shown = committedDisplay(type, committed, ctx);
-  if (shown === null) return { field, type, from: "spoken", values, committed: null, status: "unresolved" };
-  const status = matchField(type, text, committed, ctx);
+  if (shown === null) return { check: { field, type, from: "spoken", values, committed: null, status: "unresolved" }, readings: [] };
+  const readings = matchReadings(type, text, committed, ctx);
+  const status = readings[0].status;
   if (values.length === 0) {
     const said =
       type === "name" ? matchName(text, committed, ctx).said
@@ -977,5 +1062,5 @@ export function fieldCheck(field: string, type: FieldType, text: string, committ
       : null;
     if (said) values = [said];
   }
-  return { field, type, from: "spoken", values, committed: shown, status };
+  return { check: { field, type, from: "spoken", values, committed: shown, status }, readings };
 }

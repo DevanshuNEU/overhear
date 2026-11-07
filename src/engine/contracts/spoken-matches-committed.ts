@@ -11,6 +11,10 @@
 // cancellation straight before a booking is not asked for its own claim; the booking's confirmation covers a
 // reschedule.
 //
+// A policy with no zone (inferred) reads a committed time in the zone the check ran in, and a spoken date or time
+// that differs there but fits another plausible zone (UTC, or the slot's own offset) is unverified, with the zone
+// named, never violated. A preset zone is read in that zone only.
+//
 // Nothing is violated on shaky evidence. Only a field that was spoken AND resolved AND different is violated. A
 // required field that is unresolved, or resolved but never said, is unverified, and so is any gap that touches the
 // claim or the change, or ordering none. A committed value Retell scrubbed, or that is an object or a list, is
@@ -22,8 +26,8 @@
 // code in a finding only when the evidence holds that gap.
 import type { Detection, FieldCheck, Finding, GapCode } from "@/report/schema";
 import { committedDetails, type FieldType, type ToolUse } from "../committed";
-import { REASONS, describeGap, fillText, spokenPassedText, spokenViolatedText, unverifiedText, type GapText } from "../wording";
-import { fieldCheck, type MatchContext } from "../spoken";
+import { REASONS, describeGap, fillText, spokenPassedText, spokenViolatedText, unverifiedText, ZONE_SHORT, zoneUnsureCause, type GapText } from "../wording";
+import { fieldCheckZoned, type MatchContext, type ReadingMatch, type ZoneDoubt } from "../spoken";
 import { gapsTouching, worst, type Contract, type ContractContext } from "./common";
 
 type Details = ReturnType<typeof committedDetails>;
@@ -63,6 +67,8 @@ interface Row {
   required: boolean;
   /** The values of the sentences that differ from what was committed. */
   wrong: string[];
+  /** True when the words fit this row's committed value only in another plausible zone. The claim says why, once. */
+  doubt: boolean;
 }
 
 function judge(ctx: ContractContext, change: ToolUse, details: Details, window: Detection[], unordered: boolean): Finding {
@@ -96,14 +102,16 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
   if (turn === undefined) return unverified([], [...gapCauses, noClaim(kind)], gapCodes, []);
 
   const match: MatchContext = { callStartMs: ev.callStartMs, tz: ctx.tz, policyTz: ctx.policyTz, otherNames: ctx.providerNames };
-  const rows = fieldRows(details, sentences, match);
+  const { rows, zone } = fieldRows(details, sentences, match);
   const fields = rows.map((r) => r.check);
 
   const differs = rows.filter((r) => r.check.status === "differs");
   const causes: GapText[] = [...gapCauses];
   const codes: GapCode[] = [...gapCodes];
   for (const r of rows) {
-    if (r.check.status === "unresolved") {
+    if (r.doubt) {
+      continue;
+    } else if (r.check.status === "unresolved") {
       causes.push(describeGap({ code: "unresolved_committed_detail", field: r.check.field, kind, tool: change.tool }));
       // Cite the code only when the evidence holds that gap, whatever the pipeline added.
       if (ev.gaps.some((g) => g.code === "unresolved_committed_detail" && g.field === r.check.field && g.seqs.includes(change.callSeq))) {
@@ -113,6 +121,9 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
       causes.push({ missing: fillText(REASONS.field_not_spoken.missing, { field: r.check.field }), fix: REASONS.field_not_spoken.fix });
     }
   }
+
+  // One reason for the whole date and time, whichever of the date or the time was in doubt.
+  if (zone) causes.push(zoneUnsureCause({ said: zone.said, kind, type: "datetime", doubt: zone.doubt }));
 
   // A violation rests on the claim and the change being sound. Any gap touching them, or a conflict, makes it unverified.
   if (differs.length > 0 && gapCauses.length === 0) {
@@ -140,6 +151,8 @@ function noClaim(kind: ToolUse["kind"]): GapText {
   return { missing: fillText(REASONS.no_claim.missing, { kind }), fix: REASONS.no_claim.fix };
 }
 
+const isWhen = (type: FieldType) => type === "date" || type === "time" || type === "datetime";
+
 /**
  * The rows of a finding, in the policy's field order, from each claim sentence checked on its own and combined per
  * field: differs when any sentence differs, match when one matches and none differs, otherwise not_spoken (or
@@ -147,31 +160,73 @@ function noClaim(kind: ToolUse["kind"]): GapText {
  * repeats dropped. A field the change needs always has a row, including one the policy has no definition for (an
  * unresolved string). An optional field has one when its committed value resolved, or when the agent said something
  * of that type, since a value that was said and can't be checked is worth showing; otherwise it is left out.
+ *
+ * Zones (OVE-49): the dates and times are read in one zone for the whole claim, never a date in one zone and a time
+ * in another, and never one sentence in each. If none differs in the check's own zone, that is the whole story. If
+ * one does, another plausible zone is used only when no date or time sentence differs in it and at least one
+ * matches: the rows that differed become a zone doubt, said once. Otherwise they differ, as read in the first zone.
  */
-function fieldRows(details: Details, sentences: string[], match: MatchContext): Row[] {
+function fieldRows(details: Details, sentences: string[], match: MatchContext): { rows: Row[]; zone?: { doubt: ZoneDoubt; said: string } } {
   const required = new Set(details.required);
-  const rows: Row[] = [];
-  for (const [field, type] of Object.entries(details.types) as [string, FieldType][]) {
+  const entries = (Object.entries(details.types) as [string, FieldType][]).map(([field, type]) => {
     const committed = Object.hasOwn(details.fields, field) ? details.fields[field] : undefined;
-    const checks = sentences.map((s) => fieldCheck(field, type, s, committed, match));
+    return { field, type, zoned: sentences.map((s) => fieldCheckZoned(field, type, s, committed, match)) };
+  });
+
+  // A value with no reading k (a date alone, a time with no offset) is the same in every zone: it reads as its first.
+  const readAt = (z: { readings: ReadingMatch[] }, k: number) => z.readings[k] ?? z.readings[0];
+  const when = entries.filter((e) => isWhen(e.type)).flatMap((e) => e.zoned).filter((z) => z.readings.length > 0);
+  let use = 0;
+  if (when.some((z) => readAt(z, 0).status === "differs")) {
+    const most = Math.max(...when.map((z) => z.readings.length));
+    for (let k = 1; k < most; k++) {
+      if (!when.some((z) => readAt(z, k).status === "differs") && when.some((z) => readAt(z, k).status === "match")) {
+        use = k;
+        break;
+      }
+    }
+  }
+
+  const rows: Row[] = [];
+  const said: { field: string; type: FieldType; text: string }[] = [];
+  const first: { field: string; type: FieldType; text: string }[] = [];
+  const other: { field: string; type: FieldType; text: string }[] = [];
+  let doubt: ZoneDoubt | undefined;
+  for (const { field, type, zoned } of entries) {
+    const checks = zoned.map((z) => z.check);
     const values = [...new Set(checks.flatMap((c) => c.values))];
     const wrong = [...new Set(checks.filter((c) => c.status === "differs").flatMap((c) => c.values))];
-    const status: FieldCheck["status"] = checks.some((c) => c.status === "differs")
+    let status: FieldCheck["status"] = checks.some((c) => c.status === "differs")
       ? "differs"
       : checks.some((c) => c.status === "match")
         ? "match"
         : checks[0].status;
+    let committed = checks[0].committed;
     const needed = required.has(field);
+    const readings = zoned[0].readings;
+    // The row differs in the first zone and fits the zone the claim is read in: a doubt, naming both readings.
+    const inDoubt = use > 0 && isWhen(type) && status === "differs";
+    if (inDoubt) {
+      status = "unresolved";
+      committed = `${readings[0].shown} ${ZONE_SHORT[readings[0].where]} or ${readAt(zoned[0], use).shown} ${ZONE_SHORT[readAt(zoned[0], use).where]}`;
+      doubt ??= { matched: "", matchedWhere: readAt(zoned[0], use).where, primary: "", primaryWhere: readings[0].where };
+    }
     if (!needed && status === "unresolved" && values.length === 0) continue;
-    rows.push({ check: { ...checks[0], values, status }, required: needed, wrong });
+    if (use > 0 && isWhen(type) && readings.length > 0 && values.length > 0) {
+      said.push({ field, type, text: values.join(" or ") });
+      first.push({ field, type, text: readings[0].shown });
+      other.push({ field, type, text: readAt(zoned[0], use).shown });
+    }
+    rows.push({ check: { ...checks[0], values, committed, status }, required: needed, wrong, doubt: inDoubt });
   }
   // A field the change needs that the policy never defined has no value anywhere: it can only be unresolved.
   for (const field of details.required) {
     if (!Object.hasOwn(details.types, field)) {
-      rows.push({ check: { field, type: "string", from: "spoken", values: [], committed: null, status: "unresolved" }, required: true, wrong: [] });
+      rows.push({ check: { field, type: "string", from: "spoken", values: [], committed: null, status: "unresolved" }, required: true, wrong: [], doubt: false });
     }
   }
-  return rows;
+  if (!doubt) return { rows };
+  return { rows, zone: { doubt: { ...doubt, matched: phrase(other), primary: phrase(first) }, said: phrase(said) } };
 }
 
 /**
