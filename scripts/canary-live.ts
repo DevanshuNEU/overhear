@@ -19,8 +19,11 @@
 //
 // CANARY_INJECT_LEAK=1 proves the search bites. It makes the run leak on purpose, from this script alone (nothing
 // in the app changes): the fake lists a call whose id is the key, which the app shows in its pull answers and call
-// screen, a request carries the key in its URL, which Next logs, and the script drops the key into a file under
-// .next/ and one under OVERHEAR_HOME. The run must then exit 1, naming those places.
+// screen, a request carries the key in its URL, which Next logs and traces and its 404 page shows, a trailing-slash
+// request makes Next redirect with the key in a Location header, and the script drops the key into a file under
+// .next/ and one under OVERHEAR_HOME (planted while connected). The run must then find the key in every search place
+// (EXPECTED_PLACES) and exit 1; a place it misses is a search nobody has seen fail, and the run exits 2. The files
+// it leaves under .next/ are removed on every way out.
 //
 // Local only: both servers bind 127.0.0.1, the key is made up, and nothing here reaches the network.
 import { type ChildProcess, spawn } from "node:child_process";
@@ -199,6 +202,13 @@ async function stopFake() {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 }
 
+// Files an injected run leaves under .next/ (ignored by version control, but they hold the made-up key): the one the
+// script plants and Next's own trace, which records the probe request's URL. Removed on every way out of the script.
+const INJECTED_FILES = [path.join(NEXT_DIR, "canary-injected-leak.txt"), path.join(NEXT_DIR, "dev", "trace")];
+function removeInjectedFiles() {
+  if (INJECT) for (const file of INJECTED_FILES) fs.rmSync(file, { force: true });
+}
+
 /** Stops everything and removes the temporary folder. Safe to call twice, and from a signal. */
 async function cleanup() {
   if (cleaned) return;
@@ -206,12 +216,14 @@ async function cleanup() {
   await stopApp();
   killAppGroup("SIGKILL"); // anything Next left in its group
   await stopFake();
+  removeInjectedFiles();
   if (root) fs.rmSync(root, { recursive: true, force: true });
 }
 
 // Last-resort, synchronous: runs when the process is leaving whatever happened above.
 process.on("exit", () => {
   killAppGroup("SIGKILL");
+  removeInjectedFiles();
   if (root) fs.rmSync(root, { recursive: true, force: true });
 });
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
@@ -266,14 +278,15 @@ function call(method: string, urlPath: string, opts: { body?: string; json?: boo
       res.on("end", () => {
         const body = Buffer.concat(chunks).toString("utf8");
         const lines = res.rawHeaders.reduce<string[]>((acc, v, i) => (i % 2 === 0 ? [...acc, `${v}: ${res.rawHeaders[i + 1]}`] : acc), []);
-        responses.push({ name: `the response to ${method} ${opts.tag ?? urlPath.replace(KEY, "[probe]")}`, text: `${res.statusCode}\n${lines.join("\n")}\n${body}` });
+        const name = `the response to ${method} ${opts.tag ?? urlPath.replace(KEY, "[probe]")}`;
+        responses.push({ name: `${name} (headers)`, text: `${res.statusCode}\n${lines.join("\n")}` }, { name: `${name} (body)`, text: body });
         // A request that waits on Retell is over, so an answer it did not use must not reach the next step. Pulls
         // keep asking Retell after they answer; settledPull drains for them.
         if (!urlPath.startsWith("/api/pulls")) drain();
         resolve({ status: res.statusCode ?? 0, headers: res.headers, body });
       });
     });
-    req.on("timeout", () => req.destroy(new Error(`${method} ${urlPath} timed out`)));
+    req.on("timeout", () => req.destroy(new Error(`${method} ${opts.tag ?? "a request"} timed out`)));
     req.on("error", reject);
     if (opts.body !== undefined) req.write(opts.body);
     req.end();
@@ -283,7 +296,14 @@ function call(method: string, urlPath: string, opts: { body?: string; json?: boo
 const expectStatus = (reply: Reply, status: number, what: string) => {
   if (reply.status !== status) throw new HarnessError(`${what}: expected ${status}, got ${reply.status}`);
 };
-const json = (reply: Reply): Record<string, unknown> => JSON.parse(reply.body) as Record<string, unknown>;
+const json = (reply: Reply): Record<string, unknown> => {
+  try {
+    return JSON.parse(reply.body) as Record<string, unknown>;
+  } catch {
+    // The parser's message quotes a slice of the body, so it is not passed on.
+    throw new HarnessError(`an answer that should be JSON is not (status ${reply.status})`);
+  }
+};
 
 type Progress = { phase: string; rows: { callId: string; state: string }[]; error?: { code: string } };
 
@@ -334,6 +354,9 @@ async function drive(appPort: number) {
   if ((fs.statSync(configFile()).mode & 0o077) !== 0) throw new HarnessError("config.json is open to other users");
   expectStatus(await call("GET", "/api/connect"), 200, "reading the connection");
 
+  // Injected run: a file beside config.json, so the search of OVERHEAR_HOME while connected has something to find.
+  if (INJECT) fs.writeFileSync(path.join(root, "store", "injected-leak.log"), `retry with ${KEY}\n`);
+
   // While connected, nothing but config.json under OVERHEAR_HOME may hold the key.
   const midHome = search.inTree(path.join(root, "store"), "OVERHEAR_HOME while connected", isConfig);
   summary.push(`home while connected: ${midHome.length === 0 ? "only config.json holds the key" : "found elsewhere"}`);
@@ -379,12 +402,16 @@ async function drive(appPort: number) {
   summary.push("refetch and unknown call screens: Retell 404, 401, 429, 500 and a dropped connection");
 
   if (INJECT) {
-    // The key in a URL: Next writes every request path to its output.
+    // The key in a URL: Next writes every request path to its output and its trace, and the 404 page shows it.
     await call("GET", `/probe/${KEY}`, { tag: "/probe/[key]" });
-    // And the key in files, where the search looks: .next/ and OVERHEAR_HOME.
-    fs.writeFileSync(path.join(NEXT_DIR, "canary-injected-leak.txt"), `debug dump ${Buffer.from(KEY).toString("base64")}\n`);
-    fs.writeFileSync(path.join(root, "store", "injected-leak.log"), `retry with ${KEY}\n`);
-    summary.push("CANARY_INJECT_LEAK=1: a call listed under the key's name, the key in a URL, a file under .next/ and one under OVERHEAR_HOME");
+    // With a trailing slash Next redirects to the path without it, which puts the key in a Location header.
+    const redirect = await call("GET", `/probe/${KEY}/`, { tag: "/probe/[key]/" });
+    if (typeof redirect.headers.location !== "string" || !redirect.headers.location.includes(KEY)) {
+      throw new HarnessError("the injected redirect did not put the key in a Location header, so the header search is untested");
+    }
+    // And the key in a file under .next/, where the search looks. (The OVERHEAR_HOME file is planted after connect.)
+    fs.writeFileSync(INJECTED_FILES[0], `debug dump ${Buffer.from(KEY).toString("base64")}\n`);
+    summary.push("CANARY_INJECT_LEAK=1: a call listed under the key's name, the key in a URL and a redirect header, files under .next/ and OVERHEAR_HOME");
   }
 
   // Disconnect.
@@ -399,6 +426,18 @@ async function drive(appPort: number) {
   summary.push(`the fake Retell was sent the key as a Bearer header ${bearerRequests} times, and every answer echoed it back`);
   return summary;
 }
+
+/** What an injected run must find, one entry per search place. A place the injection does not reach is a search nobody has seen fail. */
+const EXPECTED_PLACES: { name: string; matches: (place: string) => boolean }[] = [
+  { name: "the dev server's output", matches: (p) => p === "the dev server's stdout and stderr" },
+  { name: "a response body", matches: (p) => p.startsWith("the response to ") && p.endsWith("(body)") },
+  { name: "a response header", matches: (p) => p.startsWith("the response to ") && p.endsWith("(headers)") },
+  { name: "what the fake Retell was sent", matches: (p) => p.startsWith("what the fake Retell was sent") },
+  { name: "a file under .next/", matches: (p) => p === ".next/canary-injected-leak.txt" },
+  { name: ".next/dev/trace", matches: (p) => p === ".next/dev/trace" },
+  { name: "OVERHEAR_HOME while connected", matches: (p) => p.startsWith("OVERHEAR_HOME while connected/") },
+  { name: "OVERHEAR_HOME after the run", matches: (p) => p.startsWith("OVERHEAR_HOME/") },
+];
 
 /** Findings from before the server stopped. */
 const pending: Finding[] = [];
@@ -487,6 +526,11 @@ async function main(): Promise<number> {
   log(
     `searched: ${responses.length} responses, ${retellSeen.length} requests the fake Retell saw, ${output.length} bytes of server output, ${nextFiles} files under .next/, OVERHEAR_HOME`,
   );
+  if (INJECT) {
+    // Every place the search covers must be shown able to fail, or a clean real run proves nothing about it.
+    const missing = EXPECTED_PLACES.filter((e) => ![...places.keys()].some(e.matches)).map((e) => e.name);
+    if (missing.length > 0) throw new HarnessError(`the injected leak was not found in: ${missing.join("; ")}. Those searches are untested.`);
+  }
   if (places.size === 0) {
     log("CLEAN: the key was not found anywhere.");
     return 0;
@@ -502,8 +546,9 @@ main()
     process.exit(code);
   })
   .catch(async (err) => {
-    // An error message here never holds the key: HarnessError messages are built from fixed text and status codes.
-    log(`FAILED: ${err instanceof Error ? err.message : "unknown error"}`);
+    // Only a HarnessError's message is printed: it is built from fixed text, tags and status codes, never from a body,
+    // a parser's message or a URL. Anything else (a socket error, a bug) is named by its type alone.
+    log(`FAILED: ${err instanceof HarnessError ? err.message : `unexpected ${err instanceof Error ? err.name : "failure"} (no detail printed, it could quote a URL)`}`);
     await cleanup();
     process.exit(2);
   });

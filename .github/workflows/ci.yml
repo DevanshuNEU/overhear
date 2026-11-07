@@ -4,6 +4,8 @@ on:
     branches: [master]
   push:
     branches: [master]
+permissions:
+  contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -40,12 +42,29 @@ jobs:
       - run: npm ci
       - name: The key is nowhere in a real run
         run: npm run canary:live
-      - name: The search finds a deliberate leak
+      - name: The search finds a deliberate leak in every place
         run: |
           set +e
-          CANARY_INJECT_LEAK=1 npm run canary:live
+          CANARY_INJECT_LEAK=1 npm run canary:live > inject.log 2>&1
           code=$?
+          cat inject.log
           if [ "$code" -ne 1 ]; then
             echo "expected exit 1 (leak found) from the injected run, got $code"
             exit 1
           fi
+          # Exit 1 already means the script saw every expected place; this names them again, so a script change
+          # that quietly drops one fails here.
+          for place in \
+            "the dev server's stdout and stderr" \
+            "(body)" \
+            "(headers)" \
+            "what the fake Retell was sent" \
+            ".next/canary-injected-leak.txt" \
+            ".next/dev/trace" \
+            "OVERHEAR_HOME while connected/" \
+            "OVERHEAR_HOME/injected-leak.log"; do
+            if ! grep -F -- "  - " inject.log | grep -qF -- "$place"; then
+              echo "the injected run did not name: $place"
+              exit 1
+            fi
+          done

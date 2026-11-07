@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeKey } from "./key-store";
-import { checkKey, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
+import { BASE_URL_REFUSED, checkKey, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
 
 const KEY = "key_SOURCETEST0123456789abcdef";
 
@@ -61,7 +61,7 @@ describe("makeRetell", () => {
     expect(makeRetell(KEY, { baseURL: "http://127.0.0.1:1" }).baseURL).toBe("http://127.0.0.1:1");
   });
 
-  it("refuses an override that is not a plain loopback http origin", () => {
+  it("in local mode, throws for an override that is not a plain loopback http origin, never falling back to Retell", () => {
     vi.stubEnv("OVERHEAR_LOCAL", "1");
     const refused = [
       "https://127.0.0.1:4555",
@@ -79,17 +79,37 @@ describe("makeRetell", () => {
       "http://192.168.0.2:4555",
       "ftp://127.0.0.1",
       "127.0.0.1:4555",
-      "",
+      "not a url",
     ];
     for (const value of refused) {
       vi.stubEnv("OVERHEAR_RETELL_BASE_URL", value);
-      expect(localRetellBase(), value).toBeNull();
-      expect(makeRetell(KEY).baseURL, value).toBe(RETELL_API_BASE);
+      expect(() => localRetellBase(), value).toThrow(BASE_URL_REFUSED);
+      expect(() => makeRetell(KEY), value).toThrow(BASE_URL_REFUSED);
     }
     for (const value of ["http://localhost:9", "http://[::1]:9", "http://127.0.0.1"]) {
       vi.stubEnv("OVERHEAR_RETELL_BASE_URL", value);
       expect(localRetellBase(), value).not.toBeNull();
     }
+    // The message holds neither the value (it may carry a password) nor the key.
+    vi.stubEnv("OVERHEAR_RETELL_BASE_URL", "http://user:hunter2@attacker.example");
+    try {
+      makeRetell(KEY);
+      expect.unreachable();
+    } catch (err) {
+      const text = String((err as Error).message) + String((err as Error).stack);
+      expect(text).not.toContain("hunter2");
+      expect(text).not.toContain("attacker");
+      expect(text).not.toContain(KEY);
+    }
+    // An empty value is the same as unset (a bare `VAR=` line in .env).
+    vi.stubEnv("OVERHEAR_RETELL_BASE_URL", "");
+    expect(localRetellBase()).toBeNull();
+    expect(makeRetell(KEY).baseURL).toBe(RETELL_API_BASE);
+    // A hosted copy ignores a bad value instead of throwing.
+    vi.stubEnv("OVERHEAR_LOCAL", "");
+    vi.stubEnv("OVERHEAR_RETELL_BASE_URL", "https://attacker.example");
+    expect(localRetellBase()).toBeNull();
+    expect(makeRetell(KEY).baseURL).toBe(RETELL_API_BASE);
   });
 
   it("sends the key only as a Bearer header, never in the URL", async () => {
