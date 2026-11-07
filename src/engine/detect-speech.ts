@@ -332,14 +332,14 @@ export function findToolSyntax(text: string, toolNames: string[]): string | null
   for (const name of toolNames) {
     if (name === "") continue;
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // A name with _ or . ("transfer_call") is never a spoken word, so any "(" after it is tool syntax. A plain
+    // A name with _ or . ("transfer_call") is never a spoken word, so any "(" or ":" after it is tool syntax. A plain
     // word ("book") needs argument-like content: braces, a quoted string, or key: value / key=value with one
     // token value. "book (if you want) tomorrow" and "book (tomorrow: 9am or Friday)" are just speech.
     const identifier = /[_.]/.test(name);
     const arg = "[\\w-]+\\s*[:=]\\s*[^\\s,)]+\\s*[,)]";
     const quoted = "([\"'`])[^)]*?\\1";
     const args = `\\(\\s*(?:\\{|\\[|${quoted}|${arg})`;
-    const call = identifier ? `\\b${escaped}\\s*\\(` : `\\b${escaped}\\s*${args}|\\b${escaped}\\(\\s*\\)`;
+    const call = identifier ? `\\b${escaped}\\s*[(:]` : `\\b${escaped}\\s*${args}|\\b${escaped}\\(\\s*\\)`;
     const m = new RegExp(`${call}|\\b${escaped}\\s*\\{|\\bfunctions?\\.${escaped}\\b`).exec(text);
     if (m) return m[0];
   }
