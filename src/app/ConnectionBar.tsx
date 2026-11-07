@@ -41,7 +41,7 @@ export function ConnectionBar({ location, beforeDisconnect, onDisconnected }: Pr
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <p className="text-[13px] text-report-muted">
             {LIST_WORDS.connected} {LIST_WORDS.keySavedIn}{" "}
-            <span className="break-all font-mono tabular-nums">{location}</span>.
+            <span data-mono className="break-all font-mono tabular-nums">{location}</span>.
           </p>
           <button
             type="button"

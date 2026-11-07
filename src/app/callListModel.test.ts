@@ -13,11 +13,11 @@ describe("countRows", () => {
 });
 
 describe("splitRows", () => {
-  it("puts failed, then needs review, then calls that did not load on top, each in the listed order", () => {
+  it("puts failed, then needs review on top, each in the listed order, and leaves calls that did not load where they were listed", () => {
     const rows = [report("p1", "passed"), row("e1", { state: "error" }), report("r1", "needs_review"), row("w1"), report("f1", "failed"), report("f2", "failed"), row("n1", { state: "no_content" })];
     const { attention, rest } = splitRows(rows);
-    expect(attention.map((r) => r.callId)).toEqual(["f1", "f2", "r1", "e1"]);
-    expect(rest.map((r) => r.callId)).toEqual(["p1", "w1", "n1"]);
+    expect(attention.map((r) => r.callId)).toEqual(["f1", "f2", "r1"]);
+    expect(rest.map((r) => r.callId)).toEqual(["p1", "e1", "w1", "n1"]);
   });
 });
 

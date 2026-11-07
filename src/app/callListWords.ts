@@ -12,7 +12,7 @@ export const LIST_WORDS = {
   stopped: (done: number, listed: number) => `Stopped after ${done} of ${listed} calls.`,
   stoppedNext: "The calls already checked are below.",
   failedHeadline: (failed: number, total: number) => `${failed} of ${total} ${total === 1 ? "call" : "calls"} failed.`,
-  doneNext: (total: number) => `Your last ${calls(total)}, checked against what the agent told the caller.`,
+  doneNext: "Each one is checked against what the agent told the caller.",
   noCalls: "No calls yet in this Retell account.",
   noCallsNext: "Calls appear here once your agent has taken one.",
   noFinished: "No finished calls yet.",
@@ -44,7 +44,7 @@ export const LIST_WORDS = {
   tryAgain: "Try again",
   retry: "Retry",
   retrying: "Retrying",
-  choiceLabel: "Calls to check",
+  choiceLabel: "Check the last",
   progressLabel: "Calls checked",
 
   // The list.

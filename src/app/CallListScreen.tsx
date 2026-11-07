@@ -79,7 +79,7 @@ function headlineFor(progress: PullProgress | null, counts: Counts, requested: n
       return { lead: counts.total === 0 ? LIST_WORDS.couldntList : LIST_WORDS.couldntFinish, next: progress.error ? PULL_ERROR_MESSAGE[progress.error.code] : undefined };
     case "done":
       if (counts.total === 0) return progress.skipped > 0 ? { lead: LIST_WORDS.noFinished, next: LIST_WORDS.noFinishedNext } : { lead: LIST_WORDS.noCalls, next: LIST_WORDS.noCallsNext };
-      return { lead: LIST_WORDS.failedHeadline(counts.failed, counts.total), next: LIST_WORDS.doneNext(counts.total) };
+      return { lead: LIST_WORDS.failedHeadline(counts.failed, counts.total), next: LIST_WORDS.doneNext };
   }
 }
 
@@ -292,6 +292,8 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
   const { attention, rest } = splitRows(rows);
   const settled = !active;
   const processed = counts.total - counts.pending;
+  // Calls with no transcript, and (once the pull is over) calls it never reached: nothing was checked for any of them.
+  const notChecked = counts.noContent + (settled ? counts.pending : 0);
   const pause = waitingUntil !== null && isActive(progress) ? LIST_WORDS.slowDown(secondsLeft(waitingUntil, clock)) : null;
 
   const renderRows = (list: typeof rows) =>
@@ -353,14 +355,17 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
                 <Count label={VERDICT_LABEL.failed} n={counts.failed} tone="critical" />
                 <Count label={VERDICT_LABEL.needs_review} n={counts.needsReview} tone="warning" />
                 <Count label={VERDICT_LABEL.passed} n={counts.passed} />
-                {counts.noContent > 0 ? <Count label={RESULT_LABEL.not_run} n={counts.noContent} /> : null}
+                {notChecked > 0 ? <Count label={RESULT_LABEL.not_run} n={notChecked} /> : null}
                 {counts.errored > 0 ? <Count label={LIST_WORDS.couldntLoad} n={counts.errored} tone="warning" /> : null}
               </div>
             ) : (
               <span />
             )}
             <div className="flex flex-wrap items-center gap-3">
-              <div role="group" aria-label={LIST_WORDS.choiceLabel} className="flex overflow-hidden rounded-md border border-report-line-strong bg-report-surface">
+              <span id="count-label" className="text-[13px] text-report-muted">
+                {LIST_WORDS.choiceLabel}
+              </span>
+              <div role="group" aria-labelledby="count-label" className="flex overflow-hidden rounded-md border border-report-line-strong bg-report-surface">
                 {CHOICES.map((n) => (
                   <button
                     key={n}
@@ -398,7 +403,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
           </div>
 
           {rows.length > 0 ? (
-            <div className="mt-6 max-w-[960px]">
+            <div className="-mx-3 mt-6 max-w-[984px]">
               {attention.length > 0 ? (
                 <>
                   <h2 className="mb-1 px-3 text-sm font-semibold">{LIST_WORDS.attentionHeading}</h2>
@@ -418,7 +423,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
             </div>
           ) : null}
 
-          {progress && progress.skipped > 0 ? <p className={`mt-4 text-[13px] text-report-muted ${rows.length > 0 ? "px-3" : ""}`}>{LIST_WORDS.skipped(progress.skipped)}</p> : null}
+          {progress && progress.skipped > 0 ? <p className="mt-4 text-[13px] text-report-muted">{LIST_WORDS.skipped(progress.skipped)}</p> : null}
         </main>
       </div>
     </div>

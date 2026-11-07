@@ -205,6 +205,8 @@ describe("while calls are checked", () => {
     // A call that was never checked says so, and says nothing else.
     expect(within(rowFor(3)).getByText(RESULT_LABEL.not_run)).toBeInTheDocument();
     expect(rowFor(3).querySelector("a")).toBeNull();
+    // The summary counts the two it never reached, so its numbers add up to the total.
+    expect(screen.getByLabelText(LIST_WORDS.summaryLabel)).toHaveTextContent(`2 ${RESULT_LABEL.not_run}`);
     expect(screen.queryByRole("button", { name: LIST_WORDS.stop })).toBeNull();
     expect(screen.getByRole("button", { name: LIST_WORDS.checkAgain })).toBeEnabled();
   });

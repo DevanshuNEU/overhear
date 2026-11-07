@@ -28,16 +28,15 @@ export function countRows(rows: PullRow[]): Counts {
   return counts;
 }
 
-/** Where a row sorts among those that need a look: failed first, then needs review, then calls that did not load. Null for the rest. */
+/** Where a row sorts among those that need a look: failed first, then needs review. Null for the rest. A call that did not load keeps its place and its Retry. */
 function attentionRank(row: PullRow): number | null {
-  if (row.state === "error") return 2;
   if (row.state !== "report") return null;
   if (row.verdict === "failed") return 0;
   if (row.verdict === "needs_review") return 1;
   return null;
 }
 
-/** Rows that need a look go first, in rank order; every other row keeps the order Retell listed them in (newest first). */
+/** Failed and needs-review rows go first, in rank order; every other row keeps the order Retell listed them in (newest first). */
 export function splitRows(rows: PullRow[]): { attention: PullRow[]; rest: PullRow[] } {
   const ranked = rows.map((row, index) => ({ row, index, rank: attentionRank(row) }));
   const attention = ranked.filter((r) => r.rank !== null).sort((a, b) => (a.rank as number) - (b.rank as number) || a.index - b.index);
