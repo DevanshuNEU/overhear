@@ -141,6 +141,8 @@ describe("detectAll reads spoken tool syntax", () => {
     ["Calling transfer_call(billing) now", ["transfer_call"]],
     ["book_appointment(3)", ["book_appointment"]],
     ["book_appointment: date=5th", ["book_appointment"]],
+    ['transfer_call: "billing"', ["transfer_call"]],
+    ["transfer_call: 3", ["transfer_call"]],
     ["transfer_call ()", ["transfer_call"]],
     ['book("Monday")', ["book"]],
     ["book(date=Monday)", ["book"]],
@@ -156,6 +158,7 @@ describe("detectAll reads spoken tool syntax", () => {
     ["I can transfer_call tomorrow", ["transfer_call"]],
     ["I'll book ('cause you asked) tomorrow", ["book"]],
     ["I can book (tomorrow: 9am or Friday)", ["book"]],
+    ["The transfer_call: that's the tool", ["transfer_call"]],
   ])("%s is not tool_syntax", (text, tools) => {
     expect(detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax")).toEqual([]);
   });

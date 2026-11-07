@@ -1408,5 +1408,68 @@
       null
     ],
     "source": "review:ove-43"
+  },
+  {
+    "text": "I'll transfer you tomorrow when the office opens.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for 9am tomorrow when the doctor approves.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll cancel it Monday when the office opens.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for Monday when the system is back up.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll never check and book you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me not check and cancel it.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me know when you're ready and book it.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll send a link so you can cancel and book online.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll give you a number to call and book.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll see if there's a slot and book you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me know if you'd like to cancel and book.",
+    "classes": [],
+    "source": "review:ove-43"
   }
 ]
