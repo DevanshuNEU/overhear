@@ -284,4 +284,59 @@ describe("startPull", () => {
     await whenSettled(id);
     expect(f.seen.length).toBeGreaterThan(before);
   });
+
+  it("a late 429 on the listing does not restore waitingUntil on a cancelled pull", async () => {
+    const f = fake(ids(3), { list: () => json(429, {}, { "retry-after": "30" }) });
+    const id = startPull({ n: 3, analyze, ...tune(f), sleep: () => new Promise<void>(() => {}) });
+    for (let i = 0; i < 200 && f.seen.length === 0; i++) await new Promise((r) => setImmediate(r));
+    expect(f.seen).toHaveLength(1);
+    cancelPull(id);
+    await whenSettled(id);
+    const p = getProgress(id)!;
+    expect(p.phase).toBe("cancelled");
+    expect(p.waitingUntil).toBeNull();
+  });
+
+  it("a cancelled older pull cannot overwrite a newer pull's outcome for the same call", async () => {
+    const base = fake(ids(1));
+    let release: () => void = () => {};
+    const hold = new Promise<void>((r) => (release = r));
+    let gets = 0;
+    const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("list-calls")) return base.fn(input, init);
+      const mine = ++gets;
+      if (mine === 1) await hold;
+      return json(200, { call_id: "call_0", tag: mine === 1 ? "older" : "newer" });
+    }) as typeof fetch;
+    const tagged = (raw: unknown): Outcome => {
+      const r = raw as { call_id: string; tag: string };
+      return { kind: "report", report: { ...SAMPLE_REPORTS[0], callId: r.call_id, headline: r.tag } };
+    };
+    const t = { ...tune(base), fetch: fn };
+    const older = startPull({ n: 1, analyze: tagged, ...t });
+    for (let i = 0; i < 200 && gets === 0; i++) await new Promise((r) => setImmediate(r));
+    cancelPull(older);
+    const newer = startPull({ n: 1, analyze: tagged, ...t });
+    await whenSettled(newer);
+    const headline = () => {
+      const o = getOutcome("call_0")?.outcome;
+      return o?.kind === "report" ? o.report.headline : o?.kind;
+    };
+    expect(headline()).toBe("newer");
+    release();
+    await whenSettled(older);
+    expect(headline()).toBe("newer");
+    expect(getProgress(newer)!.rows[0].headline).toBe("newer");
+  });
+
+  it("a 401 on a get-call stores an error outcome that agrees with the row", async () => {
+    const f = fake(ids(3), { get: () => json(401, {}) });
+    const { p } = await pull(f, 3);
+    expect(p.phase).toBe("failed");
+    expect(p.error?.code).toBe("bad_key");
+    const errored = p.rows.filter((r) => r.state === "error");
+    expect(errored.length).toBeGreaterThan(0);
+    for (const row of errored) expect(getOutcome(row.callId)?.outcome.kind).toBe("error");
+    expect(p.failed).toBe(errored.length);
+  });
 });

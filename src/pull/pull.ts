@@ -140,6 +140,8 @@ async function run(state: PullState, opts: { n: number; analyze: Analyze; key?: 
     jitter: opts.jitter ?? defaultJitter,
     now: opts.now,
     onWait: (until: number | null) => {
+      // A late 429 must not put a wait back on a pull that is already cancelled.
+      if (state.cancelled) return;
       progress.waitingUntil = until;
     },
   };
@@ -169,7 +171,9 @@ async function run(state: PullState, opts: { n: number; analyze: Analyze; key?: 
 
   const settle = (index: number, outcome: Outcome | null) => {
     const meta = calls[index];
+    // The call may belong to a newer pull by now (the same call listed again): then this pull must not write over it.
     const entry = store.calls.get(meta.callId);
+    if (entry && entry.pullId !== progress.id) return;
     if (entry) entry.outcome = outcome;
     applyRow(progress, index, rowFor(meta, outcome));
   };
@@ -184,7 +188,7 @@ async function run(state: PullState, opts: { n: number; analyze: Analyze; key?: 
       if (r.error.code === "bad_key") {
         // The key stopped working mid-pull. The pull ends as failed below; finished outcomes stay.
         keyLost = true;
-        applyRow(progress, i, { ...rowFor(calls[i], null), state: "error" });
+        settle(i, { kind: "error", callId: calls[i].callId, message: PULL_ERROR_MESSAGE.bad_key });
         return;
       }
       settle(i, { kind: "error", callId: calls[i].callId, message: "Could not fetch this call from Retell." });
