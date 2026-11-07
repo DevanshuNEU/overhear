@@ -471,7 +471,7 @@ describe("the connection bar", () => {
 describe("the words", () => {
   it("has no em dash, en dash or straight quote in any string it says", () => {
     const strings = Object.values(LIST_WORDS).flatMap((v) => (typeof v === "function" ? [v(1 as never, 1 as never), v(2 as never, 2 as never)].map(String) : [v]));
-    for (const s of strings) expect(s, s).not.toMatch(/[–—"']/);
+    for (const s of strings) expect(s, s).not.toMatch(/[\u2013\u2014"']/);
   });
 
   it("never prints the call times in the browser’s own language when a zone is given", async () => {
