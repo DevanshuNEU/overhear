@@ -57,9 +57,15 @@ describe("the connect screen, empty", () => {
     expect(facts).toHaveTextContent(CONNECT_WORDS.removeValue);
   });
 
-  it("masks the field and keeps it out of password managers and spell check", () => {
+  it("masks the field with CSS, not type password, so the browser never offers to save the key", () => {
     render(<ConnectScreen stored={false} location={LOCATION} />);
-    expect(field()).toHaveAttribute("type", "password");
+    expect(field()).not.toHaveAttribute("type", "password");
+    expect(field()).toHaveAttribute("type", "text");
+    expect(field().className).toContain("[-webkit-text-security:disc]");
+    expect(field()).toHaveAttribute("data-1p-ignore");
+    expect(field()).toHaveAttribute("data-lpignore", "true");
+    expect(field()).toHaveAttribute("autocapitalize", "off");
+    expect(field()).toHaveAttribute("autocorrect", "off");
     expect(field()).toHaveAttribute("autocomplete", "off");
     expect(field()).toHaveAttribute("spellcheck", "false");
   });

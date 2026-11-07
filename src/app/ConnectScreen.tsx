@@ -172,7 +172,7 @@ export function ConnectScreen({ stored, location, storeError }: Props) {
                 <input
                   ref={field}
                   id="retell-key"
-                  type="password"
+                  type="text"
                   readOnly={checking}
                   autoFocus
                   autoComplete="off"
@@ -183,7 +183,7 @@ export function ConnectScreen({ stored, location, storeError }: Props) {
                   data-lpignore="true"
                   aria-invalid={failure?.tone === "critical" ? true : undefined}
                   aria-describedby={failure ? "retell-key-hint retell-key-problem" : "retell-key-hint"}
-                  className={`min-h-11 min-w-0 flex-1 rounded-md border bg-report-surface px-3 font-mono text-sm read-only:text-report-ink-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent ${
+                  className={`[-webkit-text-security:disc] min-h-11 min-w-0 flex-1 rounded-md border bg-report-surface px-3 font-mono text-sm read-only:text-report-ink-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent ${
                     failure?.tone === "critical" ? "border-report-critical" : "border-report-line-strong"
                   }`}
                 />
