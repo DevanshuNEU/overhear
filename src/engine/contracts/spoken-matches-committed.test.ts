@@ -114,6 +114,7 @@ function run(input: Evidence, policy: Policy = PRESET, addGaps = true): Run {
   const ctx: ContractContext = {
     ev: evidence,
     policy,
+    policySource: "preset",
     tz: "UTC",
     policyTz: true,
     detections: detectAll(evidence, Object.keys(policy.tools)),
@@ -545,6 +546,7 @@ describe("spoken_matches_committed", () => {
         const out = spokenMatchesCommitted({
           ev: evidence,
           policy,
+          policySource: "preset",
           tz: sample.timezone,
           policyTz: policy.timezone !== undefined,
           detections: detectAll(evidence, Object.keys(policy.tools)),

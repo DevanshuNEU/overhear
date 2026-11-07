@@ -69,6 +69,19 @@ export const REASONS = {
     missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the {kind}",
     fix: "Add {tool} to the policy.",
   },
+  unknown_transfer_tool: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether it was the transfer",
+    fix: "Add {tool} to the policy.",
+  },
+  unknown_transfer_tools: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the transfer",
+    fix: "Add {tool} to the policy.",
+  },
+  no_transfer_tool: { missing: "no transfer tool is known for this agent", fix: "Add the agent's transfer tool to the policy." },
+  transfer_no_result: {
+    missing: "the {tool} call has no result and nothing else in the record shows the caller was connected",
+    fix: "Export the call with its tool results, or add a backend log with --actions.",
+  },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
 } satisfies Record<string, GapText>;
 
@@ -84,6 +97,13 @@ function nameList(names: string[]): string {
 export function unknownToolCause(tools: string[], kind?: ChangeKind): GapText {
   const text = tools.length === 1 ? REASONS.unknown_tool : REASONS.unknown_tools;
   const slots = { tool: nameList(tools), kind };
+  return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
+}
+
+/** The unverified cause for a transfer claim with no transfer attempt while the call used tools the policy does not describe. */
+export function unknownTransferToolCause(tools: string[]): GapText {
+  const text = tools.length === 1 ? REASONS.unknown_transfer_tool : REASONS.unknown_transfer_tools;
+  const slots = { tool: nameList(tools) };
   return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
 }
 
@@ -226,6 +246,11 @@ export function spokenPassedText(spoken: string): string {
 export function transferViolatedText(time: string, reason: "not_attempted" | "failed"): string {
   const why = reason === "not_attempted" ? "No transfer was attempted" : "The transfer failed";
   return `At ${time} the agent said it was transferring the caller. ${why}.`;
+}
+
+/** transfer_kept, passed. Not in 6.8: the samples are the contract for it. */
+export function transferPassedText(time: string): string {
+  return `At ${time} the agent said it was transferring the caller. The transfer went through.`;
 }
 
 /** transfer_kept, violated: the agent read a tool command out loud. */

@@ -20,8 +20,10 @@ import {
   spokenPassedText,
   spokenViolatedText,
   toolSyntaxText,
+  transferPassedText,
   transferViolatedText,
   unknownToolCause,
+  unknownTransferToolCause,
   unverifiedText,
   verifiedViolatedText,
   withFix,
@@ -62,6 +64,9 @@ describe("wording", () => {
       spokenPassedText("a"),
       transferViolatedText("0:10", "failed"),
       transferViolatedText("0:10", "not_attempted"),
+      transferPassedText("0:10"),
+      ...Object.values(unknownTransferToolCause(["a", "b"])),
+      ...Object.values(unknownTransferToolCause(["a"])),
       toolSyntaxText("0:10", "q"),
       requestViolatedText("a", "b"),
       ...Object.values(unknownToolCause(["a", "b", "c"], "book")),
@@ -139,6 +144,7 @@ describe("wording", () => {
       expect(spokenPassedText("Friday at 3 PM")).toBe("The agent confirmed Friday at 3 PM. That is what was committed.");
       expect(transferViolatedText("4:00", "not_attempted")).toBe("At 4:00 the agent said it was transferring the caller. No transfer was attempted.");
       expect(transferViolatedText("4:00", "failed")).toBe("At 4:00 the agent said it was transferring the caller. The transfer failed.");
+      expect(transferPassedText("4:00")).toBe("At 4:00 the agent said it was transferring the caller. The transfer went through.");
       expect(toolSyntaxText("4:00", "transfer_call(")).toBe('At 4:00 the agent read out a tool command: "transfer_call(".');
       expect(requestViolatedText("Friday", "Monday")).toBe("The caller asked for Friday. The agent committed Monday.");
     });

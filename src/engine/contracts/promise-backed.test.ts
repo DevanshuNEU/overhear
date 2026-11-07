@@ -99,6 +99,7 @@ function run(input: Evidence, policy: Policy = PRESET): Run {
   const ctx: ContractContext = {
     ev: evidence,
     policy,
+    policySource: "preset",
     tz: "UTC",
     policyTz: true,
     detections: detectAll(evidence, Object.keys(policy.tools)),
