@@ -1,17 +1,19 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { CONNECT_MESSAGE } from "@/pull/labels";
 import { KeyStoreError } from "@/pull/key-store";
 import { CONNECT_WORDS } from "./ConnectScreen";
 import Home, { dynamic } from "./page";
 
-vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<object>()), useRouter: () => ({ refresh: () => {} }) }));
 const hasKey = vi.fn<() => Promise<boolean>>();
 vi.mock("@/pull/key-store", async (importOriginal) => ({ ...(await importOriginal<object>()), hasKey: () => hasKey() }));
 
 const ORIGINAL = process.env.OVERHEAR_LOCAL;
 
 afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  window.sessionStorage.clear();
   hasKey.mockReset();
   if (ORIGINAL === undefined) delete process.env.OVERHEAR_LOCAL;
   else process.env.OVERHEAR_LOCAL = ORIGINAL;
@@ -50,11 +52,15 @@ describe("/", () => {
     expect(screen.getByLabelText(CONNECT_WORDS.fieldLabel)).toBeInTheDocument();
   });
 
-  it("shows connected in local mode when a key is saved", async () => {
+  it("shows the call list in local mode when a key is saved, and starts a pull of the last 25", async () => {
     process.env.OVERHEAR_LOCAL = "1";
     hasKey.mockResolvedValue(true);
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
     render(await Home());
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(CONNECT_WORDS.connectedHeadline);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Finding your last 25 calls");
+    expect(screen.queryByLabelText(CONNECT_WORDS.fieldLabel)).toBeNull();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/pulls", expect.objectContaining({ method: "POST" })));
   });
 
   it("says why when the key store refuses to open", async () => {

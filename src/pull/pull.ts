@@ -6,11 +6,14 @@
 // The analyzer is a parameter, so this file does not depend on the engine.
 import { randomUUID } from "node:crypto";
 import type { Outcome } from "@/engine/types";
-import type { Verdict } from "@/report/schema";
+import { answerOf } from "@/components/report/answer";
+import type { CallReport, Verdict } from "@/report/schema";
 import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError } from "./pool";
+import { PULL_ERROR_MESSAGE, type PullErrorCode } from "./labels";
 import { logSafe } from "./redact";
 import { getCall, listCalls, readStoredKey, type CallMeta, type RetellOptions } from "./retell-source";
 
+export { PULL_ERROR_MESSAGE, type PullErrorCode };
 export type PullId = string;
 export type Analyze = (raw: unknown) => Outcome;
 
@@ -21,9 +24,9 @@ export type PullRow = {
   state: "pending" | "report" | "no_content" | "error";
   verdict?: Verdict;
   headline?: string;
+  /** The sentence the call's report leads with (answerOf, the same one the call screen shows). Absent for a passed call. */
+  lead?: string;
 };
-
-export type PullErrorCode = "bad_key" | "rate_limited" | "network" | "retell_down";
 
 export type PullProgress = {
   id: PullId;
@@ -36,13 +39,6 @@ export type PullProgress = {
   waitingUntil: number | null;
   rows: PullRow[];
   error?: { code: PullErrorCode; message: string };
-};
-
-export const PULL_ERROR_MESSAGE: Record<PullErrorCode, string> = {
-  bad_key: "Retell did not accept the stored key.",
-  rate_limited: "Retell is limiting requests. Try again in a minute.",
-  network: "Could not reach Retell.",
-  retell_down: "Retell is having trouble right now.",
 };
 
 export type PullTuning = RetellOptions & {
@@ -69,10 +65,22 @@ function errorCode(code: string): PullErrorCode {
   return code === "bad_key" || code === "rate_limited" || code === "retell_down" ? code : "network";
 }
 
+/** The report's lead sentence, from the one function the call screen uses. A report it cannot read a lead from has none. */
+function leadOf(report: CallReport): string | undefined {
+  try {
+    return answerOf(report)?.text;
+  } catch {
+    return undefined;
+  }
+}
+
 function rowFor(meta: CallMeta, outcome: Outcome | null): PullRow {
   const base = { callId: meta.callId, startedAt: meta.startedAt, durationMs: meta.durationMs };
   if (outcome === null) return { ...base, state: "pending" };
-  if (outcome.kind === "report") return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline };
+  if (outcome.kind === "report") {
+    const lead = leadOf(outcome.report);
+    return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline, ...(lead ? { lead } : {}) };
+  }
   return { ...base, state: outcome.kind };
 }
 
@@ -214,6 +222,18 @@ export function getOutcome(callId: string): { meta: CallMeta; outcome: Outcome |
   const entry = getStore().calls.get(callId);
   if (!entry) return null;
   return { meta: { ...entry.meta }, outcome: entry.outcome ?? { kind: "pending" } };
+}
+
+/**
+ * Stops every pull that is running, then drops all pulls and the calls they kept (reports and the rows that point at
+ * them). Used by Disconnect: the key and what it fetched leave memory together. A request already in flight finishes,
+ * but nothing it returns is stored, because the call is no longer in the store.
+ */
+export function clearPulls(): void {
+  const store = getStore();
+  for (const id of [...store.pulls.keys()]) cancelPull(id);
+  store.pulls.clear();
+  store.calls.clear();
 }
 
 /** Stops new requests, shows the cancelled phase at once and wakes workers in a 429 pause. Outcomes already stored stay. */

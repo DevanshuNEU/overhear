@@ -24,3 +24,13 @@ export const LOCAL_REFUSAL = {
   /** A body over the size limit. */
   tooLarge: "That is too long to be a Retell API key.",
 } as const;
+
+export type PullErrorCode = "bad_key" | "rate_limited" | "network" | "retell_down";
+
+/** What a pull that stopped says, by cause. The call list shows these as they are. */
+export const PULL_ERROR_MESSAGE: Record<PullErrorCode, string> = {
+  bad_key: "Retell did not accept the stored key.",
+  rate_limited: "Retell is limiting requests. Try again in a minute.",
+  network: "Could not reach Retell.",
+  retell_down: "Retell is having trouble right now.",
+};

@@ -97,7 +97,8 @@ describe("pull routes", () => {
     await whenSettled(id);
     const res = await refetch(post("/api/calls/c1/refetch"), ctx("c1"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ callId: "c1", state: "error" });
+    // The record holds no transcript, so the real engine says no_content.
+    expect(await res.json()).toEqual({ callId: "c1", state: "no_content" });
     expect((await refetch(post("/api/calls/zzz/refetch"), ctx("zzz"))).status).toBe(404);
   });
 
