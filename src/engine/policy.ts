@@ -1,6 +1,6 @@
 // The policy (spec 6.5): which tool does what, where success and committed details live, and which contracts run.
 //
-// Every call gets one. The demo agent gets its preset, presets/northwind-clinic.json. Any other agent gets a policy
+// Every call gets one. The demo agent gets its preset, presets/northwind-clinic.json, chosen by its Retell agent id. Any other agent gets a policy
 // inferred from its tool names and the shapes of its tool calls and results. Inference uses the scheduling pack and
 // leaves the time zone unset, so the caller's zone applies (6.5). The preset names UTC: the demo stores slots in UTC.
 import { CONTRACT_IDS, PolicySchema, type ContractId, type Evidence, type Policy } from "@/report/schema";
@@ -36,29 +36,45 @@ export function toolPolicy(policy: Policy, name: string): ToolPolicy | undefined
 }
 
 /**
- * The policy for one call, and where it came from. The preset applies only when the call looks like the demo agent
- * by more than its tool names, which are common: it has at least one tool call, every tool it calls is in the
- * preset, every lookup result that did not fail has the demo's shape (result.slots, each with a startsAt), and at
- * least one result shows the demo: such a lookup result, or another preset tool's result in the demo's shape, never
- * a tool name alone. A lookup result
- * the platform says failed says nothing about whose agent this is, so it is neutral (see isDemoAgent).
- *
- * Later work: key the preset by Retell agent id instead of by shape. The evidence carries no agent id today, so the
- * shape is the best signal M1 has.
+ * Who the call's agent is, as far as the caller knows. The evidence does not carry it: the adapter reads agentId from
+ * the record, and the caller (never the engine) says which agent is the demo's.
  */
-export function policyFor(ev: Evidence): { policy: Policy; source: "preset" | "inferred" } {
-  if (isDemoAgent(ev)) return { policy: structuredClone(NORTHWIND), source: "preset" };
+export type AgentRef = {
+  /** The Retell agent id the record carries; null or missing when it carries none. */
+  agentId?: string | null;
+  /** The demo agent's id, when the caller has one. Empty counts as none. */
+  demoAgentId?: string;
+};
+
+/**
+ * The policy for one call, and where it came from. The preset is the only policy that can mark an unkept transfer
+ * promise Failed, so it goes only to the demo agent.
+ *
+ * A call that carries an agent id is decided by the id: the preset when it equals demoAgentId, an inferred policy
+ * otherwise (including when no demoAgentId is set), whatever its results look like. A call with no agent id, such as
+ * the scrubbed samples, falls back to the shape rule: it must look like the demo agent by more than its tool names,
+ * which are common (see isDemoShaped).
+ */
+export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: "preset" | "inferred" } {
+  const { agentId, demoAgentId } = agent;
+  const isDemo = agentId ? demoAgentId !== undefined && demoAgentId !== "" && agentId === demoAgentId : isDemoShaped(ev);
+  if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset" };
   return { policy: inferPolicy(ev), source: "inferred" };
 }
 
 /**
+ * The shape rule, for a call with no agent id. The preset applies only when the call has at least one tool call,
+ * every tool it calls is in the preset, every lookup result that did not fail has the demo's shape (result.slots,
+ * each with a startsAt), and at least one result shows the demo: such a lookup result, or another preset tool's
+ * result in the demo's shape, never a tool name alone.
+ *
  * A lookup result the platform says failed is neutral: it says nothing about whose agent this is, so it neither
  * counts for the demo nor against it. The call still needs one positive sign, and a sign is what a result says,
  * never a tool's name (names are too common): a lookup answered in the demo's slot shape, or another preset tool's
  * result in the shape the demo gives it. A call whose only evidence is a failed lookup, or a call with no result in
  * the demo's shape, stays inferred.
  */
-function isDemoAgent(ev: Evidence): boolean {
+function isDemoShaped(ev: Evidence): boolean {
   const calls = ev.items.flatMap((it) => (it.kind === "tool_call" ? [it] : []));
   if (calls.length === 0 || !calls.every((c) => toolPolicy(NORTHWIND, c.name))) return false;
   const nameOf = new Map(calls.map((c) => [c.id, c.name]));

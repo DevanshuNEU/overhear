@@ -16,7 +16,10 @@ import { GAP_DETAIL } from "../wording";
 export type TranscriptSource = "transcript_with_tool_calls" | "scrubbed_transcript_with_tool_calls" | "transcript_object";
 
 /** Evidence and the transcript it was read from, or no_content with the reason. */
-export type Adapted = { kind: "evidence"; evidence: Evidence; source: TranscriptSource } | Extract<Outcome, { kind: "no_content" }>;
+export type Adapted =
+  // agentId is the record's Retell agent id, or null. It stays out of the evidence, so the stored report does not change.
+  | { kind: "evidence"; evidence: Evidence; source: TranscriptSource; agentId: string | null }
+  | Extract<Outcome, { kind: "no_content" }>;
 
 type Rec = Record<string, unknown>;
 type CallFields = Evidence["callFields"];
@@ -63,7 +66,7 @@ export function fromRetell(raw: unknown): Adapted {
     items: readItems(call[source] as unknown[]),
     gaps: withTools ? [] : [{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }],
   };
-  return { kind: "evidence", evidence, source };
+  return { kind: "evidence", evidence, source, agentId: isId(call.agent_id) ? call.agent_id : null };
 }
 
 /** The call record itself, out of a webhook or custom-function body when it is wrapped in one. */

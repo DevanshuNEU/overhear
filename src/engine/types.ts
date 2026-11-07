@@ -23,6 +23,12 @@ export class InputError extends Error {
 export interface EngineOptions {
   /** IANA time zone for spoken dates and times when the agent's policy names none, such as "America/New_York". */
   tz: string;
+  /**
+   * The Retell agent id of the demo agent, when the caller has one. A call that carries an agent id gets the demo's
+   * preset only when its id equals this; with none set, it never does. A call with no agent id is judged by the
+   * shape of its results. The engine reads no environment, so the caller passes it in.
+   */
+  demoAgentId?: string;
 }
 
 /**
