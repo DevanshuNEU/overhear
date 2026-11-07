@@ -8,9 +8,11 @@ import { randomUUID } from "node:crypto";
 import type { Outcome } from "@/engine/types";
 import type { Verdict } from "@/report/schema";
 import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError } from "./pool";
+import { PULL_ERROR_MESSAGE, type PullErrorCode } from "./labels";
 import { logSafe } from "./redact";
 import { getCall, listCalls, readStoredKey, type CallMeta, type RetellOptions } from "./retell-source";
 
+export { PULL_ERROR_MESSAGE, type PullErrorCode };
 export type PullId = string;
 export type Analyze = (raw: unknown) => Outcome;
 
@@ -23,8 +25,6 @@ export type PullRow = {
   headline?: string;
 };
 
-export type PullErrorCode = "bad_key" | "rate_limited" | "network" | "retell_down";
-
 export type PullProgress = {
   id: PullId;
   phase: "listing" | "fetching" | "done" | "cancelled" | "failed";
@@ -36,13 +36,6 @@ export type PullProgress = {
   waitingUntil: number | null;
   rows: PullRow[];
   error?: { code: PullErrorCode; message: string };
-};
-
-export const PULL_ERROR_MESSAGE: Record<PullErrorCode, string> = {
-  bad_key: "Retell did not accept the stored key.",
-  rate_limited: "Retell is limiting requests. Try again in a minute.",
-  network: "Could not reach Retell.",
-  retell_down: "Retell is having trouble right now.",
 };
 
 export type PullTuning = RetellOptions & {
