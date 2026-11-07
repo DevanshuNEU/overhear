@@ -22,10 +22,9 @@ import { verdictFor } from "./verdict";
 export interface CheckOptions extends EngineOptions {
   /**
    * Where the policy came from (policyFor). Only a preset describes every tool its agent has, so only a preset can
-   * show that a call the record lacks was never made. Left out, the policy is treated as inferred: the engine then
-   * never claims a violation it cannot prove.
+   * show that a call the record lacks was never made. Required, so no caller gets a source it did not choose.
    */
-  policySource?: "preset" | "inferred";
+  policySource: "preset" | "inferred";
 }
 
 /** The contracts M1 can run. committed_matches_request waits for a request source, so it has no entry. */
@@ -41,12 +40,14 @@ export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): 
   const toolNames = [...new Set([...Object.keys(policy.tools), ...evidence.items.flatMap((it) => (it.kind === "tool_call" ? [it.name] : []))])];
   const detections = detectAll(evidence, toolNames);
   const changeList = changes(evidence, policy);
-  for (const change of changeList) evidence.gaps.push(...committedDetails(evidence, policy, change).gaps);
+  // Only a change that worked has details a finding can cite (spoken_matches_committed reads just those), so a
+  // failed or unsettled change adds no gap: it would show a reader something nothing rests on.
+  for (const change of changeList.filter((c) => c.ok === true)) evidence.gaps.push(...committedDetails(evidence, policy, change).gaps);
 
   const ctx: ContractContext = {
     ev: evidence,
     policy,
-    policySource: opts.policySource ?? "inferred",
+    policySource: opts.policySource,
     tz: policy.timezone ?? opts.tz,
     policyTz: policy.timezone !== undefined,
     detections,

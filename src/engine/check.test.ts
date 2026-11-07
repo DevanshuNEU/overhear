@@ -117,11 +117,6 @@ describe("checkCall", () => {
       expect(r.results.find((c) => c.contract === "transfer_kept")?.result).toBe("unverified");
       expect(r.verdict).toBe("needs_review");
     });
-
-    it("with no source given, it is treated as inferred: it never claims a violation it cannot prove", () => {
-      const r = parsed(checkCall(e(), PRESET, { tz: "UTC" }));
-      expect(r.results.find((c) => c.contract === "transfer_kept")?.result).toBe("unverified");
-    });
   });
 
   it("ignores a kindless claim with no change", () => {
@@ -166,6 +161,20 @@ describe("checkCall", () => {
       expect(spoken.findings.flatMap((f) => f.gaps)).toContain("unresolved_committed_detail");
       expect(r.verdict).toBe("needs_review");
       expect(r.reasons.map((x) => `${x.kind}:${x.contract}`)).toEqual(["unverified_result:spoken_matches_committed"]);
+    });
+
+    // No finding can cite a failed change's details (spoken_matches_committed reads only changes that worked), so a
+    // gap for them would show a reader something nothing rests on.
+    it("a failed booking of an unknown slot adds no unresolved_committed_detail gap", () => {
+      const e = ev([
+        caller("Book me for Friday.", 1),
+        ...tool("tc_1", "check_availability", { date: "2026-11-06" }, { slots: [slot("2026-11-06T14:00:00Z")] }),
+        call("tc_2", "book_appointment", { slotId: "no_such_slot", patientId: "p1" }),
+        result("tc_2", { error: "slot taken" }, false),
+        agent("Sorry, that didn't go through.", 20),
+      ]);
+      const r = parsed(checkCall(e, PRESET, { tz: "UTC", policySource: "preset" }));
+      expect(r.evidence.gaps.filter((g) => g.code === "unresolved_committed_detail")).toEqual([]);
     });
 
     it("keeps a gap from resolveOk: a result that says nothing about success", () => {

@@ -6,6 +6,7 @@ import { CallReportSchema } from "@/report/schema";
 import { SAMPLE_REPORTS, failedSample, passedSample } from "@/report/samples";
 import { analyzeRetellCall } from "./analyze";
 import * as check from "./check";
+import { ev, type ItemSpec } from "./testing/build";
 import { toRetell } from "./testing/retell";
 
 // checkCall is the real one unless a test says otherwise.
@@ -41,6 +42,31 @@ describe("analyzeRetellCall", () => {
     const other = analyzeRetellCall(renamed, opts);
     expect(demo.kind === "report" && demo.report.verdict).toBe("failed");
     expect(other.kind === "report" && other.report.verdict).toBe("needs_review");
+  });
+
+  // The clinic's zone is UTC in the preset. A lookup that errored before a retry must not cost the call its preset,
+  // or a caller's own zone would be applied to slots the demo stores in UTC and a kept booking would read as broken.
+  it("a retry after an errored lookup keeps the preset, so the caller's zone does not apply", () => {
+    const turn = (role: "agent" | "caller", text: string, startSec: number): ItemSpec => ({ kind: "turn", role, text, startSec, interrupted: null });
+    const raw = toRetell(
+      ev([
+        turn("caller", "Book me for Friday.", 1),
+        { kind: "tool_call", id: "tc_1", name: "check_availability", args: {} },
+        { kind: "tool_result", id: "tc_1", ok: null, platformOk: false, payload: "HTTP 500: Request failed" },
+        { kind: "tool_call", id: "tc_2", name: "check_availability", args: {} },
+        { kind: "tool_result", id: "tc_2", ok: null, platformOk: true, payload: { slots: [{ id: "slot_1", providerName: "Dr. Priya Nair", startsAt: "2026-11-06T14:00:00Z" }] } },
+        { kind: "tool_call", id: "tc_3", name: "book_appointment", args: { slotId: "slot_1", patientId: "p1" } },
+        { kind: "tool_result", id: "tc_3", ok: null, platformOk: true, payload: { ok: true } },
+        turn("agent", "You're booked for Friday, November 6 at 2:00 p.m. with Dr. Priya Nair.", 30),
+      ]),
+    );
+    const out = analyzeRetellCall(raw, { tz: "America/New_York" });
+    expect(out.kind).toBe("report");
+    if (out.kind === "report") {
+      expect(out.report.verdict).toBe("passed");
+      expect(out.report.timezone).toBe("UTC");
+      expect(out.report.policy.tools).toHaveProperty("verify_patient");
+    }
   });
 
   it("handles a call with no turns", () => {

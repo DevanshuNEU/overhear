@@ -80,7 +80,8 @@ describe("goldens", () => {
 
     // The record's only tool call is a lookup that errored, which says nothing about whose agent this is (policyFor),
     // so the raw record gets an inferred policy and the demo preset is not used. Nothing in this call depends on the
-    // policy, so the report is the same except for the policy it lists.
+    // policy, so the report is the same except for the policy it lists and the time zone it reads in: an inferred
+    // policy names none, so the caller's zone applies (UTC here, the preset's own zone too).
     it("through analyzeRetellCall gives the same report, under the policy inferred from the record", () => {
       const out = analyzed(needsReviewSample);
       expect(Object.keys(out.policy.tools)).toEqual(["check_availability"]);

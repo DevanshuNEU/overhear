@@ -38,8 +38,9 @@ export function toolPolicy(policy: Policy, name: string): ToolPolicy | undefined
 /**
  * The policy for one call, and where it came from. The preset applies only when the call looks like the demo agent
  * by more than its tool names, which are common: it has at least one tool call, every tool it calls is in the
- * preset, and every lookup result has the demo's shape (result.slots, each with a startsAt). A lookup result that
- * is an error says nothing about whose agent this is, so it does not count as the demo's shape either.
+ * preset, every lookup result that did not fail has the demo's shape (result.slots, each with a startsAt), and at
+ * least one thing shows the demo: such a lookup result, or a call to a tool that is not a lookup. A lookup result
+ * the platform says failed says nothing about whose agent this is, so it is neutral (see isDemoAgent).
  *
  * Later work: key the preset by Retell agent id instead of by shape. The evidence carries no agent id today, so the
  * shape is the best signal M1 has.
@@ -49,11 +50,18 @@ export function policyFor(ev: Evidence): { policy: Policy; source: "preset" | "i
   return { policy: inferPolicy(ev), source: "inferred" };
 }
 
+/**
+ * A lookup result the platform says failed is neutral: it says nothing about whose agent this is, so it neither
+ * counts for the demo nor against it. The call still needs one positive sign, a lookup answered in the demo's shape
+ * or a call to a tool only the preset names, so a call whose only evidence is a failed lookup stays inferred.
+ */
 function isDemoAgent(ev: Evidence): boolean {
   const calls = ev.items.flatMap((it) => (it.kind === "tool_call" ? [it] : []));
   if (calls.length === 0 || !calls.every((c) => toolPolicy(NORTHWIND, c.name))) return false;
   const lookups = new Set(calls.filter((c) => toolPolicy(NORTHWIND, c.name)?.role === "lookup").map((c) => c.id));
-  return ev.items.every((it) => it.kind !== "tool_result" || !lookups.has(it.id) || hasDemoSlots(it.payload));
+  const answered = ev.items.flatMap((it) => (it.kind === "tool_result" && lookups.has(it.id) && it.platformOk !== false ? [it] : []));
+  if (!answered.every((it) => hasDemoSlots(it.payload))) return false;
+  return answered.length > 0 || calls.some((c) => !lookups.has(c.id));
 }
 
 /** The demo's availability answer: { slots: [{ startsAt: "..." }, ...] }. */
