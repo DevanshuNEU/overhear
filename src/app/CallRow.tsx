@@ -45,8 +45,14 @@ function Verdict({ row, settled }: { row: PullRow; settled: boolean }) {
 
 function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; retryFailed: boolean }) {
   if (row.state === "report") {
+    // The sentence the call screen leads with says what went wrong; a passed call has none and keeps its short line.
     const quiet = row.verdict === "passed";
-    return <span className={`text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>{row.headline}</span>;
+    const text = row.lead ?? row.headline;
+    return (
+      <span title={text} className={`block truncate text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>
+        {text}
+      </span>
+    );
   }
   if (row.state === "no_content") return <span className="text-sm leading-snug text-report-ink-2">{LIST_WORDS.noTranscript}</span>;
   if (row.state === "error") {
@@ -70,7 +76,7 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
       <span className="justify-self-end sm:justify-self-start">
         <Verdict row={row} settled={settled} />
       </span>
-      <span className="col-span-3 sm:col-span-1">
+      <span className="col-span-3 min-w-0 sm:col-span-1">
         <Line row={row} settled={settled} retryFailed={retryFailed} />
       </span>
       {linked ? (

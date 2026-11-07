@@ -6,7 +6,8 @@
 // The analyzer is a parameter, so this file does not depend on the engine.
 import { randomUUID } from "node:crypto";
 import type { Outcome } from "@/engine/types";
-import type { Verdict } from "@/report/schema";
+import { answerOf } from "@/components/report/answer";
+import type { CallReport, Verdict } from "@/report/schema";
 import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError } from "./pool";
 import { PULL_ERROR_MESSAGE, type PullErrorCode } from "./labels";
 import { logSafe } from "./redact";
@@ -23,6 +24,8 @@ export type PullRow = {
   state: "pending" | "report" | "no_content" | "error";
   verdict?: Verdict;
   headline?: string;
+  /** The sentence the call's report leads with (answerOf, the same one the call screen shows). Absent for a passed call. */
+  lead?: string;
 };
 
 export type PullProgress = {
@@ -62,10 +65,22 @@ function errorCode(code: string): PullErrorCode {
   return code === "bad_key" || code === "rate_limited" || code === "retell_down" ? code : "network";
 }
 
+/** The report's lead sentence, from the one function the call screen uses. A report it cannot read a lead from has none. */
+function leadOf(report: CallReport): string | undefined {
+  try {
+    return answerOf(report)?.text;
+  } catch {
+    return undefined;
+  }
+}
+
 function rowFor(meta: CallMeta, outcome: Outcome | null): PullRow {
   const base = { callId: meta.callId, startedAt: meta.startedAt, durationMs: meta.durationMs };
   if (outcome === null) return { ...base, state: "pending" };
-  if (outcome.kind === "report") return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline };
+  if (outcome.kind === "report") {
+    const lead = leadOf(outcome.report);
+    return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline, ...(lead ? { lead } : {}) };
+  }
   return { ...base, state: outcome.kind };
 }
 

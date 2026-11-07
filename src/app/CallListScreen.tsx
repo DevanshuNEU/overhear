@@ -403,7 +403,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
           </div>
 
           {rows.length > 0 ? (
-            <div className="-mx-3 mt-6 max-w-[984px]">
+            <div className="-mx-3 mt-6">
               {attention.length > 0 ? (
                 <>
                   <h2 className="mb-1 px-3 text-sm font-semibold">{LIST_WORDS.attentionHeading}</h2>

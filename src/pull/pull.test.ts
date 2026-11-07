@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Outcome } from "@/engine/types";
-import { SAMPLE_REPORTS } from "@/report/samples";
+import { answerOf } from "@/components/report/answer";
+import { SAMPLE_REPORTS, failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { activePullId, cancelPull, getOutcome, getProgress, MAX_PULLS, retryCall, startPull, whenSettled } from "./pull";
 
 const KEY = "key_PULLTEST0123456789abcdef";
@@ -338,5 +339,24 @@ describe("startPull", () => {
     expect(errored.length).toBeGreaterThan(0);
     for (const row of errored) expect(getOutcome(row.callId)?.outcome.kind).toBe("error");
     expect(p.failed).toBe(errored.length);
+  });
+});
+
+describe("a row's lead sentence", () => {
+  it("is the report's answer for a failed or needs-review call, and absent for a passed one", async () => {
+    const reports: Record<string, Outcome> = {
+      f: { kind: "report", report: { ...failedSample, callId: "f" } },
+      r: { kind: "report", report: { ...needsReviewSample, callId: "r" } },
+      p: { kind: "report", report: { ...passedSample, callId: "p" } },
+    };
+    const f = fake(["f", "r", "p"]);
+    const id = startPull({ n: 3, analyze: (raw) => reports[(raw as { call_id: string }).call_id], ...tune(f) });
+    await whenSettled(id);
+    const rows = Object.fromEntries(getProgress(id)!.rows.map((row) => [row.callId, row]));
+    expect(rows.f.lead).toBe(answerOf(failedSample)!.text);
+    expect(rows.f.lead).not.toBe(failedSample.headline);
+    expect(rows.r.lead).toBe(answerOf(needsReviewSample)!.text);
+    expect(rows.p.lead).toBeUndefined();
+    expect(rows.p.headline).toBe(passedSample.headline);
   });
 });

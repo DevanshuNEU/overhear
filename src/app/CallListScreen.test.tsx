@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { PullProgress, PullRow } from "@/pull/pull";
 import { PULL_ERROR_MESSAGE } from "@/pull/labels";
+import { answerOf } from "@/components/report/answer";
 import { RESULT_LABEL, VERDICT_LABEL, headlineFor } from "@/report/labels";
+import { failedSample, needsReviewSample } from "@/report/samples";
 import { CallListScreen } from "./CallListScreen";
 import { LIST_WORDS } from "./callListWords";
 import { CONNECT_WORDS } from "./ConnectScreen";
@@ -18,8 +20,11 @@ const PASSED_LINE = headlineFor("passed", [], []);
 function row(i: number, patch: Partial<PullRow> = {}): PullRow {
   return { callId: `call_${i}`, startedAt: T0 - i * HOUR, durationMs: 161_000, state: "pending", ...patch };
 }
-const failedRow = (i: number) => row(i, { state: "report", verdict: "failed", headline: FAILED_LINE });
-const reviewRow = (i: number) => row(i, { state: "report", verdict: "needs_review", headline: REVIEW_LINE });
+// The lead is what the call screen leads with (answerOf), so each failed call says what went wrong in its own words.
+const FAILED_LEAD = answerOf(failedSample)!.text;
+const REVIEW_LEAD = answerOf(needsReviewSample)!.text;
+const failedRow = (i: number) => row(i, { state: "report", verdict: "failed", headline: FAILED_LINE, lead: FAILED_LEAD });
+const reviewRow = (i: number) => row(i, { state: "report", verdict: "needs_review", headline: REVIEW_LINE, lead: REVIEW_LEAD });
 const passedRow = (i: number) => row(i, { state: "report", verdict: "passed", headline: PASSED_LINE });
 const noContentRow = (i: number) => row(i, { state: "no_content" });
 const errorRow = (i: number) => row(i, { state: "error" });
@@ -262,8 +267,31 @@ describe("when the pull is done", () => {
     expect(failed).toHaveTextContent("Nov 6, 14:42");
     expect(failed).toHaveTextContent("2 min 41 s");
     expect(failed).toHaveTextContent(VERDICT_LABEL.failed);
-    expect(failed).toHaveTextContent(FAILED_LINE);
+    expect(failed).toHaveTextContent(FAILED_LEAD);
     expect(rowFor(2)).toHaveTextContent(VERDICT_LABEL.needs_review);
+    expect(rowFor(2)).toHaveTextContent(REVIEW_LEAD);
+  });
+
+  it("says what went wrong in the call's own words, not the verdict's generic line, in one line with the whole lead on hover", async () => {
+    fakeServer([done([failedRow(1), passedRow(2)])]);
+    renderList();
+    await findRow("call_1");
+    expect(FAILED_LEAD).not.toBe(FAILED_LINE);
+    expect(rowFor(1)).not.toHaveTextContent(FAILED_LINE);
+    const lead = within(rowFor(1)).getByText(FAILED_LEAD);
+    expect(lead).toHaveAttribute("title", FAILED_LEAD);
+    expect(lead.className).toContain("truncate");
+    // A passed call keeps its short quiet line.
+    const quiet = within(rowFor(2)).getByText(PASSED_LINE);
+    expect(quiet.className).toContain("truncate");
+    expect(quiet.className).toContain("text-report-muted");
+  });
+
+  it("falls back to the headline for a report that has no lead", async () => {
+    fakeServer([done([row(1, { state: "report", verdict: "failed", headline: FAILED_LINE })])]);
+    renderList();
+    await findRow("call_1");
+    expect(rowFor(1)).toHaveTextContent(FAILED_LINE);
   });
 
   it("encodes an odd call id in the link", async () => {
