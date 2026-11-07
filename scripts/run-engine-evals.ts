@@ -2,11 +2,14 @@
 // eval/engine-report.json and eval/engine-report.md. Both are committed; a test fails when they are stale.
 //
 // --write-sample-cases first rewrites the three sample cases from src/report/samples (testing/sample-cases.ts).
+// --write-mutation-cases rewrites the mutation cases from the three samples (testing/mutations.ts). Run it after the
+// samples or the mutations change; it writes the samples first when both flags are given.
 //
 // It exits 0 when cases fail: the report says so, and CI gates on the tests (locks, freshness), not on this.
 import fs from "node:fs";
 import path from "node:path";
 import { engine, engineLabel } from "@/engine/eval/engine";
+import { mutationCases } from "@/engine/testing/mutations";
 import { sampleCases } from "@/engine/testing/sample-cases";
 import { REPORT_JSON, REPORT_MD, REPO_ROOT, freshReport, writeCase } from "./engine-evals/io";
 
@@ -14,6 +17,10 @@ try {
   if (process.argv.includes("--write-sample-cases")) {
     for (const c of sampleCases()) writeCase(c);
     console.log("wrote the sample cases");
+  }
+  if (process.argv.includes("--write-mutation-cases")) {
+    for (const c of mutationCases()) writeCase(c);
+    console.log("wrote the mutation cases");
   }
   const { report, json, md } = freshReport(engine, engineLabel(engine));
   fs.writeFileSync(path.join(REPO_ROOT, REPORT_JSON), json);

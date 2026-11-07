@@ -45,6 +45,16 @@ To change a locked case's verdict on purpose, edit `expect.verdict` in the same 
 
 The three sample cases (`sample-*`) are made from the scrubbed samples in `src/report/samples/` by `src/engine/testing/sample-cases.ts`. After a sample changes, run `npm run eval:engine -- --write-sample-cases`. The needs-review sample expects `passed` for now: it needs review only because a model found an unanswered request, and M1 has no request source. It changes to `needs_review` when request sources land.
 
+## Mutations
+
+A mutation is a deliberate breakage of a sample call with the verdict it must produce: delete the booking before "you're booked", flip its result to a failure, change the spoken time by an hour, add a transfer claim with no transfer. The product's first rule (never call a call passed or failed on evidence that does not prove it) becomes a test that runs on every change.
+
+Mutations are code, not new data: `src/engine/testing/mutations.ts` holds each one as a small named edit of a sample's record, with the expected verdict and contract results written from the rules, never copied from the engine. `npm run eval:engine -- --write-mutation-cases` writes them to `eval/engine/cases/mut-*.json`, and a test fails when a file differs from the code. They are `source: "mutation"`, locked, and never independent, so they land in the constructed section of the report. Their numbers show the engine does what we meant on calls we built, not how it does in the world.
+
+`src/engine/testing/mutations.test.ts` also checks coverage: every contract the engine runs has a mutation that changes its result, the suite has violated and unverified cases for each, and every gap code is either produced by a mutation or listed in `GAP_CODES_NOT_EMITTED` with the reason the engine never emits it. A new gap code or contract fails that test until it gets a mutation.
+
+A mutation the engine gets wrong is not bent to pass. It goes in `KNOWN_FAILURES` with one line saying why, its case is written unlocked, and the report shows it failing until the engine is fixed. The test then insists it still fails, so the entry is removed when the bug is.
+
 ## What each number means
 
 Every rate shows k of n and a Wilson 95% interval. A rate with n = 0 is "no data", never 0% or 100%.

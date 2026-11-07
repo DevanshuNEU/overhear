@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "mut-transfer-added-and-worked",
+  "source": "mutation",
+  "independent": false,
+  "platform": "retell",
+  "locked": true,
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "A transfer tool call that succeeds is added after the agent's transfer claim. The call is read as another agent's (the tool is not one of the demo's), and the claim is now backed by a transfer that worked." },
+  "derivedFrom": "sample-failed",
+  "expect": { "verdict": "passed", "contracts": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "passed", "committed_matches_request": "not_run" } },
+  "record": {
+    "call_id": "call_mut_transfer_added_and_worked",
+    "agent_version": 0,
+    "call_status": "ended",
+    "start_timestamp": 1790205241776,
+    "call_type": "web_call",
+    "disconnection_reason": "user_hangup",
+    "duration_ms": 161403,
+    "call_analysis": { "call_successful": true, "call_summary": "Sofia Alvarez booked a general appointment with Dr. Priya Nair for September 24, 2026 at 9:00 AM after asking about an ear concern. The agent verified her identity, confirmed the booking, and said it would transfer her to a nurse for guidance about the ear issue.", "user_sentiment": "Positive", "in_voicemail": false },
+    "transcript_with_tool_calls": [
+      {
+        "role": "agent",
+        "content": "Thanks for calling Northwind Family Clinic, this is Riley - how can I help you today?",
+        "words": [{ "word": "Thanks", "start": 1.352, "end": 1.352 }]
+      },
+      {
+        "role": "user",
+        "content": "Hey. So my name is Sofia. I would like to book an appointment ",
+        "words": [{ "word": "Hey.", "start": 6.148, "end": 6.148 }]
+      },
+      {
+        "role": "user",
+        "content": "with whatever the available doctor is. ",
+        "words": [{ "word": "with", "start": 13.298, "end": 13.298 }]
+      },
+      {
+        "role": "user",
+        "content": "So can you let me know? ",
+        "words": [{ "word": "So", "start": 18.997999999999998, "end": 18.997999999999998 }]
+      },
+      {
+        "role": "agent",
+        "content": "I can ",
+        "words": [{ "word": "I", "start": 22.55, "end": 22.55 }]
+      },
+      { "role": "tool_call_invocation", "tool_call_id": "tc_01", "name": "check_availability", "arguments": "{\"execution_message\":\"Let me pull up our open appointment slots for you.\"}" },
+      {
+        "role": "agent",
+        "content": "help ",
+        "words": [{ "word": "help", "start": 22.84, "end": 22.84 }]
+      },
+      { "role": "tool_call_result", "tool_call_id": "tc_01", "content": "{\"slots\":[{\"id\":\"00000000-0000-4000-8000-000000000001\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-11-14T10:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000003\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-11-12T13:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000005\",\"providerId\":\"00000000-0000-4000-8000-000000000006\",\"providerName\":\"Dr. Miguel Torres\",\"startsAt\":\"2026-11-14T15:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000007\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-09-24T09:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000008\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-09-24T09:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000009\",\"providerId\":\"00000000-0000-4000-8000-000000000006\",\"providerName\":\"Dr. Miguel Torres\",\"startsAt\":\"2026-09-24T09:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000010\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-09-24T11:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000011\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-09-24T11:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000012\",\"providerId\":\"00000000-0000-4000-8000-000000000006\",\"providerName\":\"Dr. Miguel Torres\",\"startsAt\":\"2026-09-24T11:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000013\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-09-24T14:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000014\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-09-24T14:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000015\",\"providerId\":\"00000000-0000-4000-8000-000000000006\",\"providerName\":\"Dr. Miguel Torres\",\"startsAt\":\"2026-09-24T14:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000016\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-09-24T16:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000017\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-09-24T16:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000018\",\"providerId\":\"00000000-0000-4000-8000-000000000006\",\"providerName\":\"Dr. Miguel Torres\",\"startsAt\":\"2026-09-24T16:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000019\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-09-25T09:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000020\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-09-25T09:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000021\",\"providerId\":\"00000000-0000-4000-8000-000000000006\",\"providerName\":\"Dr. Miguel Torres\",\"startsAt\":\"2026-09-25T09:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000022\",\"providerId\":\"00000000-0000-4000-8000-000000000002\",\"providerName\":\"Dr. Amara Osei\",\"startsAt\":\"2026-09-25T11:00:00.000Z\",\"status\":\"open\"},{\"id\":\"00000000-0000-4000-8000-000000000023\",\"providerId\":\"00000000-0000-4000-8000-000000000004\",\"providerName\":\"Dr. Priya Nair\",\"startsAt\":\"2026-09-25T11:00:00.000Z\",\"status\":\"open\"}]}", "successful": true },
+      {
+        "role": "agent",
+        "content": "with that! First, let me check what's available.We have quite a few options! The soonest one is with Dr. Amara Osei on September 24th at 9:00 AM, or Dr. Priya Nair the same day at the same time. There's also Dr. Miguel Torres on the 24th at 9:00 AM. Would any of those work, or would you like a different date/time?",
+        "words": [{ "word": "with", "start": 23.003, "end": 23.003 }]
+      },
+      {
+        "role": "user",
+        "content": "What would you suggest, like, for I I have a problem with my ear. So is there any doctor that's available for that particular thing. ",
+        "words": [{ "word": "What", "start": 41.588, "end": 41.588 }]
+      },
+      {
+        "role": "agent",
+        "content": "I'm not able to recommend a specific doctor for a medical issue like that - for anything related to your ear, it'd be best to speak with a nurse who can guide you properly. I can transfer you to one after we're done here, if you'd like.\n\nIn the meantime, I can book you with any of our available providers - Dr. Osei, Dr. Nair, or Dr. Torres - since they all have general appointment slots open. Would you like me to book one of those, and then connect you with a nurse for the ear concern?",
+        "words": [{ "word": "I'm", "start": 56.083, "end": 56.083 }]
+      },
+      {
+        "role": "user",
+        "content": "Yeah. Sure. That would be great. ",
+        "words": [{ "word": "Yeah.", "start": 79.918, "end": 79.918 }]
+      },
+      {
+        "role": "user",
+        "content": "Just book it for a doctor in IO as soon as possible. ",
+        "words": [{ "word": "Just", "start": 81.598, "end": 81.598 }]
+      },
+      {
+        "role": "agent",
+        "content": "Got it - I'll book you with Dr. Amara Osei on September 24th at ",
+        "words": [{ "word": "Got", "start": 85.922, "end": 85.922 }]
+      },
+      {
+        "role": "user",
+        "content": "No. No. No. No. No. I I I I said doctor Nair. ",
+        "words": [{ "word": "No.", "start": 90.19800000000001, "end": 90.19800000000001 }]
+      },
+      {
+        "role": "agent",
+        "content": "Got it, Dr. Nair it is - September 24th at 9:00 AM. First, I just need to verify your identity. Can I get your full name and date of birth?",
+        "words": [{ "word": "Got", "start": 95.972, "end": 95.972 }]
+      },
+      {
+        "role": "user",
+        "content": "My full name is Sofia Alvarez, and my date of birth is twenty three twenty third of November nineteen ninety six. ",
+        "words": [{ "word": "My", "start": 105.168, "end": 105.168 }]
+      },
+      { "role": "tool_call_invocation", "tool_call_id": "tc_02", "name": "verify_patient", "arguments": "{\"name\":\"Sofia Alvarez\",\"dob\":\"1996-11-23\",\"execution_message\":\"Thanks Sofia, let me verify your details real quick.\"}" },
+      {
+        "role": "agent",
+        "content": "Thanks ",
+        "words": [{ "word": "Thanks", "start": 117.717, "end": 117.717 }]
+      },
+      { "role": "tool_call_result", "tool_call_id": "tc_02", "content": "{\"verified\":true,\"patientId\":\"00000000-0000-4000-8000-000000000024\"}", "successful": true },
+      {
+        "role": "agent",
+        "content": "Sofia, let me verify your details real quick.You're verified, ",
+        "words": [{ "word": "Sofia,", "start": 117.984, "end": 117.984 }]
+      },
+      { "role": "tool_call_invocation", "tool_call_id": "tc_03", "name": "book_appointment", "arguments": "{\"slotId\":\"00000000-0000-4000-8000-000000000008\",\"patientId\":\"00000000-0000-4000-8000-000000000024\",\"execution_message\":\"Booking your appointment with Dr. Nair now.\"}" },
+      {
+        "role": "agent",
+        "content": "Sofia! ",
+        "words": [{ "word": "Sofia!", "start": 120.736, "end": 120.736 }]
+      },
+      { "role": "tool_call_result", "tool_call_id": "tc_03", "content": "{\"ok\":true,\"appointmentId\":\"00000000-0000-4000-8000-000000000025\"}", "successful": true },
+      {
+        "role": "agent",
+        "content": "Now let me book that appointment with Dr. Nair for September 24th at 9:00 AM.You're all set, Sofia! Your appointment with Dr. Nair is confirmed for September 24th at 9:00 AM. I'll go ahead and connect you with a nurse now regarding your ear concern. Is there anything else I can help you with before I transfer you?",
+        "words": [{ "word": "Now", "start": 121.339, "end": 121.339 }]
+      },
+      {
+        "role": "user",
+        "content": "No. That's all. Thank you so much. ",
+        "words": [{ "word": "No.", "start": 138.93798999999999, "end": 138.93798999999999 }]
+      },
+      {
+        "role": "agent",
+        "content": "You're very welcome, Sofia! Transferring you to a nurse now - take care and feel better soon!",
+        "words": [{ "word": "You're", "start": 142.585, "end": 142.585 }]
+      },
+      { "role": "tool_call_invocation", "tool_call_id": "tc_09", "name": "transfer_call", "arguments": "{\"destination\":\"nurse_line\"}" },
+      { "role": "tool_call_result", "tool_call_id": "tc_09", "content": "{\"ok\":true}", "successful": true },
+      {
+        "role": "user",
+        "content": "Yep. They ",
+        "words": [{ "word": "Yep.", "start": 148.91799999999998, "end": 148.91799999999998 }]
+      },
+      {
+        "role": "agent",
+        "content": "Take care, Sofia! Have a great day. 👋",
+        "words": [{ "word": "Take", "start": 153.665, "end": 153.665 }]
+      }
+    ]
+  }
+}
