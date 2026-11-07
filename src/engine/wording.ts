@@ -263,6 +263,15 @@ export function requestViolatedText(requested: string, committed: string): strin
   return `The caller asked for ${requested}. The agent committed ${committed}.`;
 }
 
+/**
+ * The deferral reason (6.6): each turn where the agent put the request off, in its own words, then what that means.
+ * M1 has no request source, so it cannot say what the request was or that nothing followed it.
+ */
+export function deferralReasonText(turns: { time: string; quote: string }[]): string {
+  const said = turns.map((t) => `At ${t.time} the agent said "${t.quote}".`);
+  return [...said, "It put the request off."].join(" ");
+}
+
 /** The detail of an unknown_success gap: a tool result that says neither way whether it worked. */
 export function unknownSuccessDetail(tool: string): string {
   return `Neither the ${tool} result nor Retell says whether it worked, so anything that rests on it can't be checked.`;

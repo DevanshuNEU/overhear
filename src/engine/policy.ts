@@ -38,8 +38,10 @@ export function toolPolicy(policy: Policy, name: string): ToolPolicy | undefined
 /**
  * The policy for one call, and where it came from. The preset applies only when the call looks like the demo agent
  * by more than its tool names, which are common: it has at least one tool call, every tool it calls is in the
- * preset, and every lookup result has the demo's shape (result.slots, each with a startsAt). A lookup result that
- * is an error says nothing about whose agent this is, so it does not count as the demo's shape either.
+ * preset, every lookup result that did not fail has the demo's shape (result.slots, each with a startsAt), and at
+ * least one result shows the demo: such a lookup result, or another preset tool's result in the demo's shape, never
+ * a tool name alone. A lookup result
+ * the platform says failed says nothing about whose agent this is, so it is neutral (see isDemoAgent).
  *
  * Later work: key the preset by Retell agent id instead of by shape. The evidence carries no agent id today, so the
  * shape is the best signal M1 has.
@@ -49,11 +51,30 @@ export function policyFor(ev: Evidence): { policy: Policy; source: "preset" | "i
   return { policy: inferPolicy(ev), source: "inferred" };
 }
 
+/**
+ * A lookup result the platform says failed is neutral: it says nothing about whose agent this is, so it neither
+ * counts for the demo nor against it. The call still needs one positive sign, and a sign is what a result says,
+ * never a tool's name (names are too common): a lookup answered in the demo's slot shape, or another preset tool's
+ * result in the shape the demo gives it. A call whose only evidence is a failed lookup, or a call with no result in
+ * the demo's shape, stays inferred.
+ */
 function isDemoAgent(ev: Evidence): boolean {
   const calls = ev.items.flatMap((it) => (it.kind === "tool_call" ? [it] : []));
   if (calls.length === 0 || !calls.every((c) => toolPolicy(NORTHWIND, c.name))) return false;
-  const lookups = new Set(calls.filter((c) => toolPolicy(NORTHWIND, c.name)?.role === "lookup").map((c) => c.id));
-  return ev.items.every((it) => it.kind !== "tool_result" || !lookups.has(it.id) || hasDemoSlots(it.payload));
+  const nameOf = new Map(calls.map((c) => [c.id, c.name]));
+  const answered = ev.items.flatMap((it) => (it.kind === "tool_result" && it.platformOk !== false ? [{ tool: nameOf.get(it.id), payload: it.payload }] : []));
+  const lookups = answered.filter((r) => r.tool !== undefined && toolPolicy(NORTHWIND, r.tool)?.role === "lookup");
+  if (!lookups.every((r) => hasDemoSlots(r.payload))) return false;
+  return lookups.length > 0 || answered.some((r) => r.tool !== undefined && hasDemoResult(r.tool, r.payload));
+}
+
+/** What the demo's other tools answer: verify_patient { verified, patientId } and each change { ok }. */
+function hasDemoResult(tool: string, payload: unknown): boolean {
+  if (!isRec(payload)) return false;
+  const role = toolPolicy(NORTHWIND, tool)?.role;
+  if (role === "verify") return typeof payload.verified === "boolean" && (payload.verified !== true || typeof payload.patientId === "string");
+  if (role === "change") return typeof payload.ok === "boolean";
+  return false;
 }
 
 /** The demo's availability answer: { slots: [{ startsAt: "..." }, ...] }. */

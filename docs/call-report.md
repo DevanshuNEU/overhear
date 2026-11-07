@@ -45,6 +45,8 @@ All three are real calls on the demo agent, scrubbed:
 - Dashes in the transcript text are normalized to spaced hyphens, and one mis-transcribed name for the agent is corrected. The words are otherwise unchanged.
 - A test fails if a sample holds a link, an email, a phone number, a credential or a non-fake uuid.
 
-Until the engine exists, the findings are written by hand from the spec's rules. When it does, its output for these three calls should equal these files. The needs-review sample is a proposed reading of the rules, not a settled one: whether an error apology counts as a refusal, and which of the caller's requests is the final one, are open.
+The findings in these files were written by hand from the spec's rules. The engine's M1 output now equals the failed and passed samples, with two differences the tests spell out: M1 runs only the `scheduling` pack, so the `healthcare` pack's identity-check result and the pack name are left out of the comparison, and `committed_matches_request` is `not_run` because M1 has no request source.
+
+The needs-review sample waits for M2's request sources. M1 finds its deferral by rule, so it reads `needs_review` with a `deferral` reason, which is the verdict the file holds. It cannot find the unanswered request the file also lists, because that needs a request source, so the full file is out of reach until M2. The sample is a proposed reading of the rules, not a settled one: whether an error apology counts as a refusal, and which of the caller's requests is the final one, are open.
 
 No sample shows Tier 2 (a backend action linked by `tool_call_id`), because the backend log's timestamps are not exported yet. A test builds that shape from the passed sample instead.

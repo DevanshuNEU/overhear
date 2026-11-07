@@ -78,12 +78,6 @@ Data we built (our demo calls, mutations, scripted test calls) tells us whether 
 - **The lock** (`src/engine/eval/locks.test.ts`): a locked case whose verdict changes fails CI.
 - **Freshness** (`src/engine/eval/report-freshness.test.ts`): the report must cover the current cases and engine sources (a fingerprint of their content) and equal a fresh run. CI also runs `npm run eval:engine` and fails if the committed report differs.
 
-## Until the engine exists
+## The engine the harness runs
 
-Until Task 10 builds `analyzeRetellCall`, the harness runs a stand-in that answers every record with `engine not built yet`. The report names it, every case shows as not passing, and each lock is a todo. To run the real engine, change one line in `src/engine/eval/engine.ts`:
-
-```ts
-export { analyzeRetellCall as engine } from "../analyze";
-```
-
-A test fails once `src/engine/analyze.ts` exists and the stand-in is still in place.
+The harness runs `analyzeRetellCall`, exported as `engine` from `src/engine/eval/engine.ts`. Before the engine existed it ran a stand-in that answered every record with `engine not built yet`. A test fails if the stand-in is ever the engine again, because every number in the report would then be about it.
