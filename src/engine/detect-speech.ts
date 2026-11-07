@@ -93,7 +93,7 @@ const OFFER_CAN = new RegExp(
   "i",
 );
 const TRANSFER =
-  /(?:\b(?:i(?:'ll| will)|i(?:'m| am) going to|let me|i(?:'m| am)) (?:go ahead and )?(?:now )?(?:transfer|connect|put you through|pass you|hand you)\b|\btransferring you\b|\bconnecting you (?:to|with)\b|\bi(?:'m| am) (?:transferring|connecting)\b)/i;
+  /(?:\b(?:i(?:'ll| will)|i(?:'m| am) going to|let me|i(?:'m| am)) (?:go ahead and )?(?:now )?(?:transfer|connect|put you through|pass you|hand you)\b|\btransferring you\b|\bconnecting you (?:to|with)\b|\b(?:and|then)\s+(?:(?:i(?:'ll| will)|let me)\s+)?(?:transfer|connect|put) you\b|\bi(?:'m| am) (?:transferring|connecting)\b)/i;
 const INTENTION = new RegExp(
   [
     `\\b(?:i(?:'ll| will)|i(?:'m| am) going to|i(?:'m| am) gonna|let me|let's|i(?:'m| am) about to) (?:go ahead and |just |now )*${CHANGE_VERB}\\b`,
@@ -129,7 +129,7 @@ const COMPLETION = [
   "\\byour (?:[a-z-]+ ){0,2}(?:booking|reservation|cancell?ation|reschedul(?:e|ing)|change|update)(?: request)? (?:is|has been) (?:now |all )?(?:complete|completed|done)\\b",
   // Moves and cancellations are about the caller's change whoever the subject is.
   "\\b(?:is|are|has been|have been|'s been) (?:now )?(?:confirmed|cancel+ed|rescheduled|updated|moved|off the books)\\b",
-  `\\b${MINE}${IS} (?:now |all |already |officially )*(?:confirmed|booked${NOT_FULL}|set|cancel+ed|rescheduled|updated|moved)\\b`,
+  `\\b${MINE}${IS} (?:now |all |officially )*(?:confirmed|booked${NOT_FULL}|set|cancel+ed|rescheduled|updated|moved)\\b`,
   `\\b${MINE}${IS} (?:now |officially )+scheduled\\b`,
   "\\b(?:i|we)(?:'ve| have)? (?:now |just |already |also |gone ahead and |went ahead and )*(?:booked|cancel+ed|rescheduled|scheduled|updated|moved|changed|put you down|made (?:the|your|an?) (?:appointment|booking)|got you (?:down|in|booked|scheduled|set))\\b",
   "^\\s*(?:(?:ok(?:ay)?|great|perfect|done|verified|all set)[,.!]?\\s+)*(?:both |all )?(?:booked(?! (?:solid|up|out)\\b)|cancel+ed|rescheduled|moved|done|updated|scheduled)\\b",
@@ -170,6 +170,12 @@ function clauseAt(s: string, at: number): string {
   return s.slice(from, stops.length ? Math.min(...stops) : s.length);
 }
 
+/** The rest of the clause after a position. */
+function clauseTail(s: string, from: number): string {
+  const stops = [s.indexOf(",", from), s.indexOf(";", from)].filter((i) => i >= 0);
+  return s.slice(from, stops.length ? Math.min(...stops) : s.length);
+}
+
 const GOOD_TO_GO = /\bgood to go\b/i;
 
 /** Whether the words before a match make it conditional, negated or a question rather than a claim. */
@@ -187,6 +193,8 @@ function completions(s: string): Hit[] {
       // A match may begin with its own comma ("..., booked"), so the words before it end where the match text starts.
       const start = m.index + (m[0].length - m[0].replace(/^[,.;]\s*/, "").length);
       if (notAClaim(s, start)) continue;
+      // "already" says the calendar stood that way before: "Your appointment is already booked".
+      if (!/^(?:i|we)\b/i.test(m[0]) && /\balready\b/i.test(clauseTail(s, m.index + m[0].length))) continue;
       found.push({ at: m.index, kind: kindOf(m[0]) });
     }
   }
