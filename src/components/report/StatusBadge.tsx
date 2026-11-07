@@ -3,7 +3,7 @@ import { Check, Minus, TriangleAlert, X } from "lucide-react";
 import { RESULT_LABEL, VERDICT_LABEL } from "@/report/labels";
 import type { Result, Verdict } from "@/report/schema";
 
-type Tone = "critical" | "warning" | "calm" | "muted";
+export type Tone = "critical" | "warning" | "calm" | "muted";
 
 const TONE_CLASS: Record<Tone, string> = {
   critical: "bg-report-critical-tint text-report-critical",
@@ -28,7 +28,7 @@ export const VERDICT_TONE: Record<Verdict, Tone> = {
   passed: "calm",
 };
 
-function Badge({ tone, label }: { tone: Tone; label: string }) {
+export function Badge({ tone, label }: { tone: Tone; label: string }) {
   const Icon = TONE_ICON[tone];
   return (
     <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium ${TONE_CLASS[tone]}`}>

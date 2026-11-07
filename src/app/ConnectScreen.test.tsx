@@ -3,8 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { CONNECT_MESSAGE, LOCAL_REFUSAL } from "@/pull/labels";
 import { CONNECT_WORDS, ConnectScreen } from "./ConnectScreen";
 
-const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const onConnected = vi.fn();
 
 const KEY = "key_0123456789abcdef0123456789ab";
 const LOCATION = "~/.overhear/config.json";
@@ -18,7 +17,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   fetchMock.mockReset();
-  refresh.mockReset();
+  onConnected.mockReset();
   vi.unstubAllGlobals();
 });
 
@@ -39,7 +38,7 @@ function paste(value = KEY) {
 
 describe("the connect screen, empty", () => {
   it("asks for one thing and says the key stays on this computer and goes only to Retell", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     const h1 = screen.getByRole("heading", { level: 1 });
     expect(h1).toHaveTextContent(CONNECT_WORDS.headline);
     expect(h1).toHaveTextContent(CONNECT_WORDS.promise);
@@ -50,7 +49,7 @@ describe("the connect screen, empty", () => {
   });
 
   it("says where the key is saved and how to remove it", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     const facts = screen.getByLabelText(CONNECT_WORDS.factsLabel);
     expect(facts).toHaveTextContent(LOCATION);
     expect(facts).toHaveTextContent(CONNECT_WORDS.sentToValue);
@@ -58,7 +57,7 @@ describe("the connect screen, empty", () => {
   });
 
   it("masks the field with CSS, not type password, so the browser never offers to save the key", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     expect(field()).not.toHaveAttribute("type", "password");
     expect(field()).toHaveAttribute("type", "text");
     expect(field().className).toContain("[-webkit-text-security:disc]");
@@ -71,13 +70,13 @@ describe("the connect screen, empty", () => {
   });
 
   it("gives the field no name, so a form sent without the script puts nothing in the URL", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     expect(field()).not.toHaveAttribute("name");
     expect(field().closest("form")).toHaveAttribute("method", "post");
   });
 
   it("asks for a key when sent empty, without calling the server", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     send();
     expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.bad_request);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -85,7 +84,7 @@ describe("the connect screen, empty", () => {
   });
 
   it("treats spaces as empty", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste("   ");
     send();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -96,7 +95,7 @@ describe("checking", () => {
   it("posts the trimmed key as JSON to /api/connect, and only there", async () => {
     let release: (res: Response) => void = () => {};
     fetchMock.mockReturnValue(new Promise<Response>((resolve) => (release = resolve)));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste(`  ${KEY}\n`);
     send();
 
@@ -121,7 +120,7 @@ describe("checking", () => {
 describe("a key Retell does not accept", () => {
   it("says so, says what to do, and puts the person back in the field", async () => {
     fetchMock.mockResolvedValue(failure("bad_key", 422));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.bad_key));
@@ -129,7 +128,7 @@ describe("a key Retell does not accept", () => {
     expect(field()).toHaveAttribute("aria-invalid", "true");
     expect(field()).toHaveFocus();
     expect(screen.getByRole("button", { name: CONNECT_WORDS.connect })).toBeEnabled();
-    expect(refresh).not.toHaveBeenCalled();
+    expect(onConnected).not.toHaveBeenCalled();
   });
 
   it("says the message with a typographic apostrophe", () => {
@@ -140,7 +139,7 @@ describe("a key Retell does not accept", () => {
 describe("Retell cannot be reached", () => {
   it("says so in the server's words and keeps the pasted key so a retry needs no second paste", async () => {
     fetchMock.mockResolvedValue(failure("unreachable", 502));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.unreachable));
@@ -152,7 +151,7 @@ describe("Retell cannot be reached", () => {
 describe("other answers", () => {
   it("shows the key store's own words when it cannot save", async () => {
     fetchMock.mockResolvedValue(failure("store_failed", 500));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.store_failed));
@@ -161,7 +160,7 @@ describe("other answers", () => {
 
   it("shows the local check's refusal when it is plain text", async () => {
     fetchMock.mockResolvedValue(answer(LOCAL_REFUSAL.forbidden, 403));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(LOCAL_REFUSAL.forbidden));
@@ -169,7 +168,7 @@ describe("other answers", () => {
 
   it("never shows text it does not know, whatever the answer says", async () => {
     fetchMock.mockResolvedValue(answer({ connected: false, error: "x", message: `echoed ${KEY}` }, 500));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(CONNECT_WORDS.serverDown));
@@ -178,38 +177,36 @@ describe("other answers", () => {
 
   it("says Overhear itself cannot be reached when the request fails", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(CONNECT_WORDS.serverDown));
   });
 
   it("shows why the key store would not open, before anything is pasted", () => {
-    render(<ConnectScreen stored={false} location={LOCATION} storeError="home_unsafe" />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} storeError="home_unsafe" />);
     expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.home_unsafe);
   });
 });
 
 describe("connected", () => {
-  it("says it worked, empties the field, asks the page to refresh and says what comes next", async () => {
+  it("empties the field and hands over to the call list once Retell accepts the key", async () => {
     fetchMock.mockResolvedValue(answer({ connected: true }));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
-    const h1 = await screen.findByRole("heading", { level: 1, name: new RegExp(CONNECT_WORDS.connectedHeadline) });
-    expect(h1).toHaveTextContent(CONNECT_WORDS.connectedPromise);
-    expect(h1).toHaveFocus();
-    expect(screen.getByText(CONNECT_WORDS.connectedNext)).toBeInTheDocument();
-    expect(screen.queryByLabelText(CONNECT_WORDS.fieldLabel)).toBeNull();
-    expect(refresh).toHaveBeenCalledTimes(1);
-    // The facts about where the key lives stay on screen.
-    expect(screen.getByLabelText(CONNECT_WORDS.factsLabel)).toHaveTextContent(LOCATION);
+    await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1));
+    expect(field().value).toBe("");
   });
+});
 
-  it("opens connected when a key is already saved", () => {
-    render(<ConnectScreen stored location={LOCATION} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(CONNECT_WORDS.connectedHeadline);
-    expect(screen.queryByLabelText(CONNECT_WORDS.fieldLabel)).toBeNull();
+describe("coming back because the saved key stopped working", () => {
+  it("says Retell did not accept the key before anything is pasted, and what to do", () => {
+    render(<ConnectScreen location={LOCATION} notice="bad_key" onConnected={onConnected} />);
+    expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.bad_key);
+    expect(screen.getByRole("status")).toHaveTextContent(CONNECT_WORDS.badKeyNext);
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    expect(field()).toHaveFocus();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -218,7 +215,7 @@ describe("the key never leaves the field", () => {
   it("is not in the page, the URL or any text on screen at any step", async () => {
     window.history.replaceState(null, "", "/");
     fetchMock.mockResolvedValueOnce(failure("bad_key", 422)).mockResolvedValueOnce(answer({ connected: true }));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     expect(document.body.textContent).not.toContain(KEY);
     send();
@@ -226,7 +223,7 @@ describe("the key never leaves the field", () => {
     expect(document.body.textContent).not.toContain(KEY);
     expect(window.location.href).not.toContain(KEY);
     send();
-    await screen.findByText(CONNECT_WORDS.connectedNext);
+    await waitFor(() => expect(onConnected).toHaveBeenCalled());
     expect(document.body.innerHTML).not.toContain(KEY);
     expect(window.location.href).not.toContain(KEY);
     expect(window.location.search).toBe("");
@@ -235,7 +232,7 @@ describe("the key never leaves the field", () => {
   it("is never logged", async () => {
     const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
     fetchMock.mockResolvedValue(failure("bad_key", 422));
-    render(<ConnectScreen stored={false} location={LOCATION} />);
+    render(<ConnectScreen location={LOCATION} onConnected={onConnected} />);
     paste();
     send();
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.bad_key));
