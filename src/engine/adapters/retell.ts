@@ -11,7 +11,7 @@
 import { NOT_A_RETELL_CALL, type NoContentReason } from "@/report/labels";
 import type { Evidence, Item } from "@/report/schema";
 import { InputError, type Outcome } from "../types";
-import { GAP_TEXT } from "../wording";
+import { GAP_DETAIL } from "../wording";
 
 export type TranscriptSource = "transcript_with_tool_calls" | "scrubbed_transcript_with_tool_calls" | "transcript_object";
 
@@ -61,7 +61,7 @@ export function fromRetell(raw: unknown): Adapted {
     callFields: callFields(call),
     callStartMs: Number.isSafeInteger(call.start_timestamp) && (call.start_timestamp as number) >= 0 ? (call.start_timestamp as number) : null,
     items: readItems(call[source] as unknown[]),
-    gaps: withTools ? [] : [{ code: "missing_tool_transcript", detail: GAP_TEXT.missing_tool_transcript, seqs: [] }],
+    gaps: withTools ? [] : [{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }],
   };
   return { kind: "evidence", evidence, source };
 }
