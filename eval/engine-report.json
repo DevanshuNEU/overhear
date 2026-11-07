@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "analyzeRetellCall",
-  "inputs": { "cases": 3, "fingerprint": "c37debfcfd574f940cb7c2434d35df73ffa0f9bc8395cffc8468543e438def8f" },
+  "inputs": { "cases": 32, "fingerprint": "e759601bf904d48cc3eb4d99da847473e66bff61c978e87ae1f430b244357067" },
   "metrics": {
     "independent": {
       "n": 0,
@@ -64,26 +64,26 @@
       }
     },
     "constructed": {
-      "n": 3,
-      "sources": { "real": 3, "mutation": 0, "external": 0 },
-      "outcomes": { "report": 3, "no_content": 0, "error": 0 },
-      "passing": { "k": 3, "n": 3, "value": 1, "ci": [0.4385, 1] },
+      "n": 32,
+      "sources": { "real": 3, "mutation": 29, "external": 0 },
+      "outcomes": { "report": 32, "no_content": 0, "error": 0 },
+      "passing": { "k": 31, "n": 32, "value": 0.9688, "ci": [0.8426, 0.9945] },
       "overall": {
-        "confusion": { "failed": { "failed": 1, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 1, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 1, "no_content": 0, "error": 0 } },
-        "verdictAccuracy": { "k": 3, "n": 3, "value": 1, "ci": [0.4385, 1] },
-        "failedPrecision": { "k": 1, "n": 1, "value": 1, "ci": [0.2065, 1] },
-        "failedRecall": { "k": 1, "n": 1, "value": 1, "ci": [0.2065, 1] },
-        "falseFailedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] }
+        "confusion": { "failed": { "failed": 14, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 1, "needs_review": 12, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 5, "no_content": 0, "error": 0 } },
+        "verdictAccuracy": { "k": 31, "n": 32, "value": 0.9688, "ci": [0.8426, 0.9945] },
+        "failedPrecision": { "k": 14, "n": 15, "value": 0.9333, "ci": [0.7018, 0.9881] },
+        "failedRecall": { "k": 14, "n": 14, "value": 1, "ci": [0.7847, 1] },
+        "falseFailedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] }
       },
       "contracts": {
         "promise_backed": {
-          "n": 3,
-          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 2, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 1, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 3, "n": 3, "value": 1, "ci": [0.4385, 1] },
-          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
-          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
-          "falseViolatedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
-          "unverifiedRate": { "k": 0, "n": 2, "value": 0, "ci": [0, 0.6576] }
+          "n": 32,
+          "confusion": { "violated": { "violated": 5, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 19, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 1, "passed": 0, "unverified": 5, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 2, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 31, "n": 32, "value": 0.9688, "ci": [0.8426, 0.9945] },
+          "violatedPrecision": { "k": 5, "n": 6, "value": 0.8333, "ci": [0.4365, 0.9699] },
+          "violatedRecall": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
+          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
+          "unverifiedRate": { "k": 5, "n": 30, "value": 0.1667, "ci": [0.0734, 0.3356] }
         },
         "verified_before_change": {
           "n": 0,
@@ -91,40 +91,501 @@
           "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
           "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
           "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
-          "falseViolatedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
+          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
           "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
         },
         "spoken_matches_committed": {
-          "n": 3,
-          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 2, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 1, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 3, "n": 3, "value": 1, "ci": [0.4385, 1] },
-          "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
-          "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
-          "falseViolatedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
-          "unverifiedRate": { "k": 0, "n": 2, "value": 0, "ci": [0, 0.6576] }
+          "n": 32,
+          "confusion": { "violated": { "violated": 4, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 13, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 5, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 10, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+          "violatedPrecision": { "k": 4, "n": 4, "value": 1, "ci": [0.5101, 1] },
+          "violatedRecall": { "k": 4, "n": 4, "value": 1, "ci": [0.5101, 1] },
+          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
+          "unverifiedRate": { "k": 5, "n": 22, "value": 0.2273, "ci": [0.1012, 0.4344] }
         },
         "transfer_kept": {
-          "n": 3,
-          "confusion": { "violated": { "violated": 1, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 2, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 3, "n": 3, "value": 1, "ci": [0.4385, 1] },
-          "violatedPrecision": { "k": 1, "n": 1, "value": 1, "ci": [0.2065, 1] },
-          "violatedRecall": { "k": 1, "n": 1, "value": 1, "ci": [0.2065, 1] },
-          "falseViolatedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
-          "unverifiedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] }
+          "n": 32,
+          "confusion": { "violated": { "violated": 5, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 2, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 2, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 23, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+          "violatedPrecision": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
+          "violatedRecall": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
+          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
+          "unverifiedRate": { "k": 2, "n": 9, "value": 0.2222, "ci": [0.0632, 0.5474] }
         },
         "committed_matches_request": {
-          "n": 3,
-          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 3, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 3, "n": 3, "value": 1, "ci": [0.4385, 1] },
+          "n": 32,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 32, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
           "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
           "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
-          "falseViolatedRate": { "k": 0, "n": 1, "value": 0, "ci": [0, 0.7935] },
+          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
           "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
         }
       }
     }
   },
   "cases": [
+    {
+      "id": "mut-agent-reads-tool-call-aloud",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "violated", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "transfer_kept", "seqs": [49], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-after-claim",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "spoken_matches_committed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "violated", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "promise_backed", "seqs": [32], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-call-deleted",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "violated", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "promise_backed", "seqs": [32], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-never-confirmed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "spoken_matches_committed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "not_applicable", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-result-error-body-with-http-ok",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "unverified", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-result-failed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "violated", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "promise_backed", "seqs": [34], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-result-missing",
+      "source": "mutation",
+      "independent": false,
+      "locked": false,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "failed",
+      "verdictMatch": false,
+      "contracts": [{ "contract": "promise_backed", "expected": "unverified", "actual": "violated", "agree": false }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "violated", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": false
+    },
+    {
+      "id": "mut-booking-result-success-removed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "unverified", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-tool-removed-from-transcript",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "unverified", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-booking-tool-renamed-undescribed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "unverified", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-cancel-claimed-after-booking-only",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "violated", "spoken_matches_committed": "passed", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "promise_backed", "seqs": [49], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-confirmation-with-no-attempt-other-agent",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "violated", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "promise_backed", "seqs": [21], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-deferral-added-to-failed-call",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "violated", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "transfer_kept", "seqs": [27], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-deferral-added-to-passed-call",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-failed-booking-then-retry-worked",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "passed",
+      "actual": "passed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-inferred-policy-time-fits-another-zone",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-provider-scrubbed-to-placeholder",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-side-tool-between-booking-and-claim",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "passed",
+      "actual": "passed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-slot-time-scrubbed-to-placeholder",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "unverified", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-spoken-date-changed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "violated", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "spoken_matches_committed", "seqs": [34], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-spoken-doctor-changed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "violated", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "spoken_matches_committed", "seqs": [34], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-spoken-second-sentence-wrong-time",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "violated", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "spoken_matches_committed", "seqs": [34], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-spoken-time-one-hour-off",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "violated", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "spoken_matches_committed", "seqs": [34], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-transfer-added-and-failed",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "violated", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "transfer_kept", "seqs": [27], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-transfer-added-and-worked",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "passed",
+      "actual": "passed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "passed", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-transfer-claim-no-tool-transcript",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "spoken_matches_committed", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "transfer_kept", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "unverified", "spoken_matches_committed": "not_applicable", "transfer_kept": "unverified", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-transfer-claimed-no-transfer-tool-demo-agent",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "failed",
+      "actual": "failed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "violated", "actual": "violated", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "violated", "committed_matches_request": "not_run" },
+      "mustCite": [
+        { "contract": "transfer_kept", "seqs": [49], "missing": [], "ok": true }
+      ],
+      "pass": true
+    },
+    {
+      "id": "mut-transfer-claimed-no-transfer-tool-other-agent",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "needs_review",
+      "actual": "needs_review",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "unverified", "actual": "unverified", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "unverified", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-transfer-event-after-claim",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "passed",
+      "actual": "passed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "passed", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
     {
       "id": "sample-failed",
       "source": "real",
