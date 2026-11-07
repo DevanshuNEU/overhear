@@ -46,6 +46,13 @@ export function configPath(env: Record<string, string | undefined> = process.env
   return path.join(overhearHome(env), CONFIG_FILE);
 }
 
+/** The key file's path for a person to read: the home folder written as ~. */
+export function displayConfigPath(env: Record<string, string | undefined> = process.env): string {
+  const file = configPath(env);
+  const home = os.homedir();
+  return file.startsWith(home + path.sep) ? `~${file.slice(home.length)}` : file;
+}
+
 /** Printable ASCII with no spaces, 1 to 256 characters. Anything else is not a key and is never stored. */
 export function isKeyShaped(key: string): boolean {
   return /^[\x21-\x7e]{1,256}$/.test(key);

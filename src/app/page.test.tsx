@@ -1,18 +1,26 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { CONNECT_MESSAGE } from "@/pull/labels";
+import { KeyStoreError } from "@/pull/key-store";
+import { CONNECT_WORDS } from "./ConnectScreen";
 import Home, { dynamic } from "./page";
+
+vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<object>()), useRouter: () => ({ refresh: () => {} }) }));
+const hasKey = vi.fn<() => Promise<boolean>>();
+vi.mock("@/pull/key-store", async (importOriginal) => ({ ...(await importOriginal<object>()), hasKey: () => hasKey() }));
 
 const ORIGINAL = process.env.OVERHEAR_LOCAL;
 
 afterEach(() => {
+  hasKey.mockReset();
   if (ORIGINAL === undefined) delete process.env.OVERHEAR_LOCAL;
   else process.env.OVERHEAR_LOCAL = ORIGINAL;
 });
 
 /** The path `redirect()` was asked to go to, read from the error Next throws for it. */
-function redirectTarget(fn: () => unknown): string | null {
+async function redirectTarget(fn: () => Promise<unknown>): Promise<string | null> {
   try {
-    fn();
+    await fn();
   } catch (err) {
     const digest = (err as { digest?: unknown }).digest;
     if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT;")) return digest.split(";")[2] ?? null;
@@ -26,15 +34,41 @@ describe("/", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("redirects to /demo on a hosted copy (OVERHEAR_LOCAL unset)", () => {
+  it("redirects to /demo on a hosted copy (OVERHEAR_LOCAL unset)", async () => {
     delete process.env.OVERHEAR_LOCAL;
-    expect(redirectTarget(() => Home())).toBe("/demo");
+    expect(await redirectTarget(() => Home())).toBe("/demo");
+    expect(hasKey).not.toHaveBeenCalled();
   });
 
-  it("shows the product shell in local mode and does not redirect", () => {
+  it("asks for a key in local mode when none is saved, and does not redirect", async () => {
     process.env.OVERHEAR_LOCAL = "1";
-    expect(redirectTarget(() => Home())).toBeNull();
-    render(Home());
-    expect(screen.getByRole("heading", { level: 1, name: "Overhear" })).toBeInTheDocument();
+    hasKey.mockResolvedValue(false);
+    let page: React.ReactNode = null;
+    expect(await redirectTarget(async () => (page = await Home()))).toBeNull();
+    render(page);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(CONNECT_WORDS.headline);
+    expect(screen.getByLabelText(CONNECT_WORDS.fieldLabel)).toBeInTheDocument();
+  });
+
+  it("shows connected in local mode when a key is saved", async () => {
+    process.env.OVERHEAR_LOCAL = "1";
+    hasKey.mockResolvedValue(true);
+    render(await Home());
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(CONNECT_WORDS.connectedHeadline);
+  });
+
+  it("says why when the key store refuses to open", async () => {
+    process.env.OVERHEAR_LOCAL = "1";
+    hasKey.mockRejectedValue(new KeyStoreError("file_unsafe", "x"));
+    render(await Home());
+    expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.file_unsafe);
+  });
+
+  it("falls back to a plain failure for an error it does not know, without its detail", async () => {
+    process.env.OVERHEAR_LOCAL = "1";
+    hasKey.mockRejectedValue(new Error("boom key_secret123"));
+    render(await Home());
+    expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.store_failed);
+    expect(document.body.textContent).not.toContain("boom");
   });
 });

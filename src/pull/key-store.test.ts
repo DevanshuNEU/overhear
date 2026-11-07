@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { configPath, hasKey, KeyStoreError, overhearHome, readKey, removeKey, writeKey } from "./key-store";
+import { configPath, displayConfigPath, hasKey, KeyStoreError, overhearHome, readKey, removeKey, writeKey } from "./key-store";
 
 const KEY = "key_STORETEST0123456789abcdef";
 let home: string;
@@ -25,6 +25,12 @@ describe("where the key lives", () => {
     expect(overhearHome({})).toBe(path.join(os.homedir(), ".overhear"));
     expect(overhearHome({ OVERHEAR_HOME: "/tmp/x" })).toBe("/tmp/x");
     expect(configPath()).toBe(path.join(home, "dot-overhear", "config.json"));
+  });
+
+  it("shows the home folder as ~ for a person to read, and any other folder in full", () => {
+    expect(displayConfigPath({})).toBe("~/.overhear/config.json");
+    expect(displayConfigPath({ OVERHEAR_HOME: "/tmp/x" })).toBe("/tmp/x/config.json");
+    expect(displayConfigPath({ OVERHEAR_HOME: path.join(os.homedir(), "keys") })).toBe("~/keys/config.json");
   });
 
   it("ignores an empty or relative OVERHEAR_HOME", () => {
