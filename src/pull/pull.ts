@@ -224,6 +224,18 @@ export function getOutcome(callId: string): { meta: CallMeta; outcome: Outcome |
   return { meta: { ...entry.meta }, outcome: entry.outcome ?? { kind: "pending" } };
 }
 
+/**
+ * Stops every pull that is running, then drops all pulls and the calls they kept (reports and the rows that point at
+ * them). Used by Disconnect: the key and what it fetched leave memory together. A request already in flight finishes,
+ * but nothing it returns is stored, because the call is no longer in the store.
+ */
+export function clearPulls(): void {
+  const store = getStore();
+  for (const id of [...store.pulls.keys()]) cancelPull(id);
+  store.pulls.clear();
+  store.calls.clear();
+}
+
 /** Stops new requests, shows the cancelled phase at once and wakes workers in a 429 pause. Outcomes already stored stay. */
 export function cancelPull(id: PullId): boolean {
   const state = getStore().pulls.get(id);

@@ -2,6 +2,7 @@
 // says whether one is stored. No answer ever holds the key, any part of it, or anything Retell said.
 // Local mode only: on a hosted copy every method answers 404 (src/proxy.ts says so too). The key comes only
 // from the JSON body, never from the URL or a cookie.
+import { clearPulls } from "@/pull/pull";
 import { checkKey } from "@/pull/retell-source";
 import { hasKey, KeyStoreError, removeKey, writeKey } from "@/pull/key-store";
 import { assertLocalRequest, FRAME_HEADERS } from "@/pull/local";
@@ -102,6 +103,9 @@ export async function DELETE(request: Request): Promise<Response> {
   const refused = assertLocalRequest(request);
   if (refused) return refused;
   try {
+    // A running pull holds the key in memory, and the pulls hold what it read. Stop and drop them first, so
+    // disconnecting leaves nothing that can still reach Retell or show the account's calls.
+    clearPulls();
     await removeKey();
     return json({ connected: false });
   } catch (err) {
