@@ -381,7 +381,7 @@ describe("choosing how many to check", () => {
     fireEvent.click(within(group).getByRole("button", { name: "100" }));
     await waitFor(() => expect(server.count("POST", "/api/pulls")).toBe(2));
     expect(server.calls.filter((c) => c.url === "/api/pulls").map((c) => c.body)).toEqual([{ n: 25 }, { n: 100 }]);
-    expect(h1()).toHaveTextContent("Finding your last 100 calls");
+    await waitFor(() => expect(h1()).toHaveTextContent("Finding your last 100 calls"));
   });
 
   it("cannot be changed while calls are being checked", async () => {
