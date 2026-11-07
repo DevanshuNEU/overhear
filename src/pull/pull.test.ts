@@ -84,10 +84,10 @@ describe("startPull", () => {
     expect(p.waitingUntil).toBeNull();
   });
 
-  it("without Retry-After the waits are 1, 2, 4, 8 seconds, then that call is an error", async () => {
+  it("without Retry-After the waits are 1, 2, 4, 8 seconds, then that call is an error and the last 429 pauses 16", async () => {
     const f = fake(ids(2), { get: (id) => (id === "call_0" ? json(429, {}) : json(200, { call_id: id })) });
     const { p, id } = await pull(f, 2);
-    expect(sleeps).toEqual([1000, 2000, 4000, 8000]);
+    expect(sleeps).toEqual([1000, 2000, 4000, 8000, 16000]);
     expect(p.failed).toBe(1);
     expect(p.done).toBe(1);
     expect(getOutcome("call_0")?.outcome).toMatchObject({ kind: "error" });
