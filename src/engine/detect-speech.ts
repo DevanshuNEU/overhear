@@ -264,6 +264,15 @@ function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
   return "claim";
 }
 
+// A sentence that opens with a wait clause: "Once the system is back, I'll connect you", "When a nurse is free I'll
+// transfer you". "Now that", "since", "because" and "so" state a fact or a reason, so they are not in the list.
+const LEADING_WAIT = /^\s*(?:(?:and|so|okay|ok|alright|all right|sure|great|perfect|thanks|thank you)[,.!]?\s+)*(?:once|after|when|whenever|as soon as|until|before)\b/i;
+
+/** What a transfer or intention at a position is worth: a leading wait clause before it makes it a deferral. */
+function claimAt(s: string, at: number, end: number): "claim" | "deferral" | "maybe" {
+  return LEADING_WAIT.test(s.slice(0, at)) ? "deferral" : claimTail(s, end);
+}
+
 function lastIndexOf(re: RegExp, s: string): number {
   let at = -1;
   for (const m of s.matchAll(new RegExp(re.source, "gi"))) at = m.index;
@@ -306,7 +315,7 @@ function primary(s: string): Hit[] {
   let waits = -1;
   const transfer = matchOf(TRANSFER, s) ?? chainedTransfer(s);
   if (transfer) {
-    const tail = claimTail(s, transfer.end);
+    const tail = claimAt(s, transfer.at, transfer.end);
     if (tail === "claim") out.push({ cls: "transfer", at: transfer.at });
     else if (tail === "deferral") waits = transfer.at;
   } else if (TRANSFER_DONE.test(s)) {
@@ -314,7 +323,7 @@ function primary(s: string): Hit[] {
   }
   const intention = matchOf(INTENTION, s);
   if (intention) {
-    const tail = claimTail(s, intention.end);
+    const tail = claimAt(s, intention.at, intention.end);
     if (tail === "claim") {
       const kind = kindOf(clauseAt(s, intention.at));
       out.push({ cls: "intention", ...(kind ? { kind } : {}), at: intention.at });
