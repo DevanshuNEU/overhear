@@ -1,0 +1,234 @@
+// The speech detector: reads one agent turn at a time and says which sentences carry a spoken claim.
+// Pure, no model. A quote is the whole sentence, trimmed, with one closing . ! or ? removed, so it is
+// always an exact substring of the turn. A sentence can carry several classes. One of deferral, refusal,
+// offer, transfer or intention is chosen in that order, and a completion is always tested on top of it,
+// so "You're booked, would you like a reminder?" is a completion and an offer. Classes come out in the
+// order their words appear.
+import type { ChangeKind, Detection, Evidence, SpeechClass } from "@/report/schema";
+
+export interface SentenceClass {
+  cls: SpeechClass;
+  kind?: ChangeKind;
+  quote: string;
+}
+
+// ---------- Sentences ----------
+
+const TITLES = /(?:^|[\s("'])(?:Dr|Mr|Mrs|Ms|St|Prof|e\.g|i\.e)\.$/;
+const DAYPART = /(?:^|[\s\d])(?:a\.m|p\.m|A\.M|P\.M)\.$/;
+
+/** Splits a turn into sentences. Never splits after a title, e.g., i.e., inside A.M./P.M., or after a.m./p.m. before a lowercase word. */
+export function splitSentences(text: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  const push = (end: number) => {
+    const piece = text.slice(start, end);
+    if (piece.trim() !== "") out.push(piece);
+    start = end;
+  };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\n") {
+      push(i);
+      continue;
+    }
+    if (ch !== "." && ch !== "!" && ch !== "?") continue;
+    // Take a run of closing marks and quotes together.
+    let j = i;
+    while (j + 1 < text.length && /[.!?"'”’)]/.test(text[j + 1]) && !/\s/.test(text[j + 1])) {
+      if (text[j + 1] === "." && /[A-Z]/.test(text[j + 2] ?? "")) break;
+      j++;
+    }
+    const next = text.slice(j + 1);
+    const head = text.slice(start, i + 1);
+    const spaced = /^\s/.test(next);
+    const afterWord = next.replace(/^\s+/, "");
+    if (ch === "." && TITLES.test(head)) continue;
+    if (ch === "." && /(?:^|[\s\d])[ap]$/i.test(text.slice(start, i)) && /^m\./i.test(text.slice(i + 1))) continue; // the dot inside A.M.
+    if (ch === "." && DAYPART.test(head) && /^[a-z]/.test(afterWord)) continue;
+    if (ch === "." && /\d$/.test(text.slice(0, i)) && /^\d/.test(next)) continue; // 3.5
+    const boundary = next === "" || (spaced ? afterWord !== "" : /^[A-Z"“‘']/.test(next));
+    if (boundary || next.trim() === "") {
+      push(j + 1);
+      i = j;
+    }
+  }
+  push(text.length);
+  return out;
+}
+
+function toQuote(sentence: string): string {
+  return sentence.trim().replace(/[.!?]$/, "").trimEnd();
+}
+
+// ---------- Patterns ----------
+
+const CHANGE_VERB = "(?:book|schedule|cancel|reschedule|update|move|change|set you up|put you down)";
+const DEFERRAL =
+  /\b(?:i can help (?:you )?(?:once|when|after|later|as soon as)|get back to you|call you back|follow up with you|have (?:someone|a (?:nurse|member|staff|colleague)) (?:call|follow|reach)|someone (?:will|from)[^.]*\b(?:call|reach|follow)|(?:i'?ll|i will|let me) (?:need to )?(?:check|find out|look into)[^.]*\band (?:get back|let you know|follow up))/i;
+const REFUSAL =
+  /\b(?:i(?:'m| am) (?:not able|unable)|i (?:can(?:'|no)t|cannot|can not)|i(?:'m| am) not (?:allowed|permitted)|i(?:'m| am) sorry,? (?:but )?i (?:can(?:'|no)t|cannot)|i don'?t have (?:the ability|access) to)\b/i;
+const OFFER_IF = /\b(?:if you(?:'d| would) like|if you want|if you(?:'d| would) prefer|if that works)\b/i;
+const OFFER_Q = /\b(?:would you like|do you want|shall i|should i|want me to|can i (?:go ahead|book|schedule|cancel|transfer|connect))\b/i;
+const OFFER_CAN = new RegExp(
+  `\\bi can (?:transfer|connect|put you through|help(?= (?:you )?if\\b)|${CHANGE_VERB}(?! you with (?:any|all) of))\\b`,
+  "i",
+);
+const TRANSFER =
+  /(?:\b(?:i(?:'ll| will)|i(?:'m| am) going to|let me|i(?:'m| am)) (?:go ahead and )?(?:now )?(?:transfer|connect|put you through|pass you|hand you)\b|\btransferring you\b|\bconnecting you (?:to|with)\b|\bi(?:'m| am) (?:transferring|connecting)\b)/i;
+const INTENTION = new RegExp(
+  [
+    `\\b(?:i(?:'ll| will)|i(?:'m| am) going to|i(?:'m| am) gonna|let me|let's|i(?:'m| am) about to) (?:go ahead and |just |now )*${CHANGE_VERB}\\b`,
+    // "Let me get you booked", "Let's get your checkup booked"
+    "\\b(?:i(?:'ll| will)|let me|let's) get (?:you|your \\w+) (?:booked|scheduled|rescheduled|cancel+ed|set up)\\b",
+    // Said as it happens: "booking that now", "Booking now", "Locking in Monday at 9"
+    "(?<!\\b(?:before|after|for|about|by) )\\b(?:booking|rescheduling|cancell?ing|moving)\\b[^!?]*\\bnow\\b",
+    "^\\s*locking in\\b",
+  ].join("|"),
+  "i",
+);
+// Words that make a booking claim conditional or a question: "if you're booked", "once I've booked you".
+const CONDITIONAL = /\b(?:if|once|before|when|whenever|after|until|unless|as soon as|in case|whether)\b/i;
+const NEGATED = /(?:\bnot|\bnever|\bnothing|\bnobody|\bno one|n't)(?:\s+\w+){0,2}\s*$/i;
+const INVERTED = /^\s*(?:is|are|was|were|has|have|had|did|do|does|can|could|will|would|should|shall)\b/i;
+
+// The caller's own booking: "it", "that", "this", or "your ... appointment". "That slot", "Dr. Osei" and
+// "we're" are not, so "That slot is booked" and "Dr. Osei is booked" are about the calendar.
+const MINE =
+  "(?:it|that|this|your (?:[a-z0-9'-]+ ){0,2}(?:appointment|booking|visit|reservation|slot|checkup|check-up|consultation|follow-up|procedure|session)(?: (?:with|for|on|at) [^,;]{1,50}?)?)";
+const IS = "(?:'s been|'s|\\s+is|\\s+are|\\s+has been|\\s+have been)";
+const NOT_FULL = "(?! (?:solid|up|out)\\b)"; // "booked solid" says the calendar is full
+
+// Each pattern finds one spoken completion. A kind found in the matched words wins over the sentence.
+const COMPLETION = [
+  `\\byou(?:'re| are) (?:all set|booked${NOT_FULL}|rescheduled|confirmed|scheduled|set)\\b`,
+  // Moves and cancellations are about the caller's change whoever the subject is.
+  "\\b(?:is|are|has been|have been|'s been) (?:now )?(?:confirmed|cancel+ed|rescheduled|updated|moved|off the books)\\b",
+  `\\b${MINE}${IS} (?:now |all |already |officially )*(?:confirmed|booked${NOT_FULL}|scheduled|set|cancel+ed|rescheduled|updated|moved)\\b`,
+  "\\b(?:i|we)(?:'ve| have)? (?:now |just |already |also |gone ahead and |went ahead and )*(?:booked|cancel+ed|rescheduled|scheduled|updated|moved|changed|put you down|made (?:the|your|an?) (?:appointment|booking)|got you (?:down|in|booked|scheduled|set))\\b",
+  "^\\s*(?:(?:ok(?:ay)?|great|perfect|done|verified|all set)[,.!]?\\s+)*(?:both |all )?(?:booked(?! (?:solid|up|out)\\b)|cancel+ed|rescheduled|moved|done|updated|scheduled)\\b",
+  `(?:^|[,.]\\s*)(?:and )?(?:you(?:'re| are) )?(?:booked${NOT_FULL}|rescheduled)\\b`,
+  // "Booked you for 4pm", "and moved you": the agent is the subject only when nobody else is named.
+  "(?:^|[,;]\\s*|\\b(?:and|then)\\s+)(?:just |already |also |now )?(?:booked|moved|cancel+ed|rescheduled) (?:you|that|it|this)\\b",
+  "(?:^|[,;]\\s*|\\band\\s+)(?:just |already )?got (?:you|that|it|this) (?:booked|scheduled|all set|set)\\b",
+  "\\bi(?:'ve| have) got (?:that|it|this) (?:booked|scheduled|set)\\b",
+  "^\\s*all set for\\b",
+].map((src) => new RegExp(src, "gi"));
+
+const TRANSFER_DONE = /\bi(?:'ve| have) (?:now |just )?(?:transferred|connected|passed|handed) you\b|\bwhile i(?:'m| am)? (?:transfer|transferring|connect|connecting) you\b/i;
+
+function kindOf(s: string): ChangeKind | undefined {
+  if (/\breschedul|\bmoved?\b|\bmoving\b/i.test(s)) return "reschedule";
+  if (/\bcancel|\boff the books\b/i.test(s)) return "cancel";
+  if (/\bupdat|\bchanged?\b/i.test(s)) return "update";
+  if (
+    /\bbook|\bscheduled?\b|\bset you up\b|\bgot you (?:down|in)\b|\bput you down\b|\blocking in\b|\bconfirmed\b|\ball set\b[,\s]+(?:for|on|at|with|\d)|\b(?:it|that|appointment|booking)(?:'s|\s+is) (?:all )?set\b|\bmade (?:the|your|an?) (?:appointment|booking)\b/i.test(s)
+  ) {
+    return "book";
+  }
+  return undefined;
+}
+
+interface Hit {
+  cls: SpeechClass;
+  kind?: ChangeKind;
+  at: number;
+}
+
+/** Whether the words before a match make it conditional, negated or a question rather than a claim. */
+function notAClaim(s: string, at: number): boolean {
+  const clauseStart = Math.max(s.lastIndexOf(",", at - 1), s.lastIndexOf(";", at - 1)) + 1;
+  const before = s.slice(clauseStart, at);
+  return CONDITIONAL.test(before) || NEGATED.test(before) || INVERTED.test(before);
+}
+
+/** Every completion in the sentence, one hit per change kind found in the matched words. */
+function completions(s: string): Hit[] {
+  const found: { at: number; kind?: ChangeKind }[] = [];
+  for (const re of COMPLETION) {
+    for (const m of s.matchAll(re)) {
+      // A match may begin with its own comma ("..., booked"), so the words before it end where the match text starts.
+      const start = m.index + (m[0].length - m[0].replace(/^[,.;]\s*/, "").length);
+      if (notAClaim(s, start)) continue;
+      found.push({ at: m.index, kind: kindOf(m[0]) });
+    }
+  }
+  if (found.length === 0) return [];
+  const byKind = new Map<ChangeKind, number>();
+  for (const f of found) if (f.kind) byKind.set(f.kind, Math.min(byKind.get(f.kind) ?? Infinity, f.at));
+  if (byKind.size > 0) return [...byKind].map(([kind, at]) => ({ cls: "completion", kind, at }));
+  const at = Math.min(...found.map((f) => f.at));
+  const kind = kindOf(s);
+  return [{ cls: "completion", ...(kind ? { kind } : {}), at }];
+}
+
+const at = (re: RegExp, s: string): number => {
+  const m = re.exec(s);
+  return m ? m.index : -1;
+};
+const firstAt = (s: string, ...res: RegExp[]): number => {
+  const hits = res.map((re) => at(re, s)).filter((i) => i >= 0);
+  return hits.length ? Math.min(...hits) : 0;
+};
+
+/** The one class of speech other than completion that a sentence carries, if any. */
+function primary(s: string): Hit | null {
+  const question = /\?["”’']?$/.test(s);
+  if (DEFERRAL.test(s)) return { cls: "deferral", at: firstAt(s, DEFERRAL) };
+  if (REFUSAL.test(s)) return { cls: "refusal", at: firstAt(s, REFUSAL) };
+  if (OFFER_IF.test(s) && (OFFER_CAN.test(s) || INTENTION.test(s) || TRANSFER.test(s) || /\bi can\b/i.test(s))) {
+    const kind = kindOf(s) && INTENTION.test(s) ? kindOf(s) : undefined;
+    return { cls: "offer", ...(kind ? { kind } : {}), at: firstAt(s, OFFER_IF, OFFER_CAN, INTENTION, TRANSFER, /\bi can\b/i) };
+  }
+  if (question) return OFFER_Q.test(s) ? { cls: "offer", at: firstAt(s, OFFER_Q) } : null;
+  if (OFFER_CAN.test(s)) return { cls: "offer", at: firstAt(s, OFFER_CAN) };
+  if (TRANSFER.test(s) || TRANSFER_DONE.test(s)) return { cls: "transfer", at: firstAt(s, TRANSFER, TRANSFER_DONE) };
+  if (INTENTION.test(s)) return { cls: "intention", kind: kindOf(s), at: firstAt(s, INTENTION) };
+  return null;
+}
+
+function classesOf(sentence: string): Hit[] {
+  const s = sentence.trim().replace(/[‘’]/g, "'");
+  if (s === "") return [];
+  const hits = [...completions(s)];
+  const other = primary(s);
+  if (other) hits.push(other);
+  return hits.sort((x, y) => x.at - y.at);
+}
+
+/** One entry per sentence that carries a class, in order. */
+export function classifyTurn(text: string): SentenceClass[] {
+  const out: SentenceClass[] = [];
+  for (const sentence of splitSentences(text)) {
+    const quote = toQuote(sentence);
+    if (quote === "") continue;
+    for (const c of classesOf(sentence)) out.push({ cls: c.cls, ...(c.kind ? { kind: c.kind } : {}), quote });
+  }
+  return out;
+}
+
+/** Spoken tool syntax: a tool name read aloud, or raw function-call markup. Returns the matching text. */
+export function findToolSyntax(text: string, toolNames: string[]): string | null {
+  for (const name of toolNames) {
+    if (name === "") continue;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = new RegExp(`\\b${escaped}\\s*\\(|\\b${escaped}\\b(?=[\\s]*[:{(])|\\bfunctions?\\.${escaped}\\b`).exec(text);
+    if (m) return m[0];
+  }
+  const markup = /<\/?(?:function_calls?|tool_call|invoke)\b[^>]*>|\bfunctions\.\w+\s*\(|\{\s*"(?:name|tool|function)"\s*:/.exec(text);
+  return markup ? markup[0] : null;
+}
+
+/** Every detection in a call, from agent turns only. Each quote is an exact substring of its turn. */
+export function detectAll(ev: Evidence, toolNames: string[] = []): Detection[] {
+  const out: Detection[] = [];
+  for (const item of ev.items) {
+    if (item.kind !== "turn" || item.role !== "agent") continue;
+    for (const c of classifyTurn(item.text)) {
+      out.push({ seq: item.seq, cls: c.cls, ...(c.kind ? { kind: c.kind } : {}), quote: c.quote, source: "code" });
+    }
+    const syntax = findToolSyntax(item.text, toolNames);
+    if (syntax) out.push({ seq: item.seq, cls: "tool_syntax", quote: syntax, source: "code" });
+  }
+  return out;
+}
