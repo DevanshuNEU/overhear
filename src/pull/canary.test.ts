@@ -7,7 +7,11 @@
 // The whole flow runs twice: once with a `key_...` key, and once with a key that has no `key_` prefix, because
 // redact() strips anything shaped like `key_...` and the test must not pass on that alone. The search looks for
 // the key in plain text, hex and base64 (at every byte alignment, so a key inside a longer encoded string is
-// found too), as Basic auth (`user:key` in base64), and as any 8-character window of the key or its marker.
+// found too), as Basic auth (`user:key` in base64), and as any 8-character window of the key or its marker
+// (the forms are in canary-forms.ts).
+//
+// This calls the route handlers directly and never runs Next. `npm run canary:live` (scripts/canary-live.ts) runs
+// the same search against a real `next dev`, which adds Next's request log, error overlay and .next/ cache.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -17,64 +21,23 @@ import { DELETE, GET, POST } from "@/app/api/connect/route";
 import { proxy } from "@/proxy";
 import { NextRequest } from "next/server";
 import { configPath, hasKey, readKey, removeKey, writeKey } from "./key-store";
+import { type Canary, forms } from "./canary-forms";
 import { logSafe, safeError } from "./redact";
 import { checkKey, storedRetell } from "./retell-source";
 
 const HOST = "127.0.0.1:4100";
 const ORIGIN = `http://${HOST}`;
 
-type Canary = { label: string; key: string; marker: string };
+type LabeledCanary = Canary & { label: string };
 
-const CANARIES: Canary[] = [
+const CANARIES: LabeledCanary[] = [
   { label: "a key_ key", key: "key_CANARY9f3b7c1d2e5a", marker: "CANARY9f3b7c1d2e5a" },
   { label: "a key with no key_ prefix", key: "Zq7CANARYb4e8a1f6c3d9W", marker: "Zq7CANARYb4e8a1f6c3d9W" },
 ];
 
-/** Every 8-character window of a string. */
-function windows(text: string, size = 8): string[] {
-  return Array.from({ length: Math.max(0, text.length - size + 1) }, (_, i) => text.slice(i, i + size));
-}
-
-/**
- * The base64 text that `text` always encodes to, wherever it sits in a longer string: for each of the three byte
- * alignments, encode it behind that much padding and keep only the 4-character groups made of its own bytes.
- */
-function base64Cores(text: string): string[] {
-  return [0, 1, 2].flatMap((pad) => {
-    const bytes = Buffer.from("a".repeat(pad) + text);
-    const encoded = bytes.toString("base64");
-    const core = encoded.slice(pad === 0 ? 0 : 4, Math.floor(bytes.length / 3) * 4);
-    return [core, core.replace(/\+/g, "-").replace(/\//g, "_")];
-  });
-}
-
-/** Every form of the key the search looks for. */
-function forms({ key, marker }: Canary): string[] {
-  const hex = (s: string) => Buffer.from(s).toString("hex");
-  const b64 = (s: string) => Buffer.from(s).toString("base64");
-  return [
-    ...new Set([
-      key,
-      marker,
-      hex(key),
-      hex(marker),
-      hex(key).toUpperCase(),
-      hex(marker).toUpperCase(),
-      b64(key),
-      b64(marker),
-      ...base64Cores(key),
-      ...base64Cores(marker),
-      b64(`user:${key}`),
-      b64(`:${key}`),
-      ...windows(key),
-      ...windows(marker),
-    ]),
-  ].filter((f) => f.length >= 8);
-}
-
 type Answer = { status: number } | "network";
 
-let canary: Canary;
+let canary: LabeledCanary;
 let home: string;
 let captured: string[];
 let answers: Answer[];
