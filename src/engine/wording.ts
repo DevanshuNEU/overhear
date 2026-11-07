@@ -15,3 +15,14 @@ export function unknownSuccessDetail(tool: string): string {
 export function unknownSuccessConflictDetail(tool: string): string {
   return `Retell says the ${tool} call went through, but its result reads like an error, so whether it worked can't be checked.`;
 }
+
+/** Why a committed detail has no value to compare: no lookup offered it, or the record has it scrubbed. */
+export type UnresolvedWhy = "no_source" | "scrubbed";
+
+/** The detail of an unresolved_committed_detail gap: one detail a change committed that can't be read back. */
+export function unresolvedDetail(field: string, tool: string, why: UnresolvedWhy): string {
+  if (why === "scrubbed") {
+    return `The ${field} the ${tool} call committed is hidden by Retell's privacy setting, so it can't be compared with what the agent said.`;
+  }
+  return `The ${field} the ${tool} call committed can't be found in the record, so it can't be compared with what the agent said.`;
+}
