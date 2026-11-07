@@ -19,6 +19,22 @@ export function unknownSuccessConflictDetail(tool: string): string {
 /** Why a committed detail has no value to compare: no lookup offered it, or the record has it scrubbed. */
 export type UnresolvedWhy = "no_source" | "scrubbed";
 
+/** One earlier lookup item that offered the changed slot: the lookup, the seq of its result, and what it said. */
+export interface LookupCandidate {
+  tool: string;
+  seq: number;
+  said: string;
+}
+
+/**
+ * The detail of an unresolved_committed_detail gap for one field where earlier lookups offered the same slot with
+ * different values, so none is picked. Each candidate is named with its lookup, result and value, oldest first.
+ */
+export function lookupsDisagreeDetail(field: string, candidates: LookupCandidate[]): string {
+  const said = candidates.map((c) => `${c.tool} (result ${c.seq}) said ${c.said}`);
+  return `Earlier lookups gave different values for the ${field} of this slot: ${said.join("; ")}.`;
+}
+
 /** The detail of an unresolved_committed_detail gap: one detail a change committed that can't be read back. */
 export function unresolvedDetail(field: string, tool: string, why: UnresolvedWhy): string {
   if (why === "scrubbed") {
