@@ -92,7 +92,7 @@ function refusal(status: 403 | 404, text: string = status === 404 ? LOCAL_REFUSA
 /**
  * True for a GET or HEAD to /reports/ that another site (or another port on this computer, which is same-site) made
  * as a subresource: the browser says so in Sec-Fetch-Site, and Sec-Fetch-Dest is anything but `document`. A
- * top-level navigation, the same origin, a typed address (`none`) and a client that sends no Fetch Metadata pass.
+ * top-level navigation (unless Sec-Purpose says prefetch), the same origin, a typed address (`none`) and a client that sends no Fetch Metadata pass.
  */
 export function isCrossSiteSubresource(req: Request): boolean {
   if (!SAFE_METHODS.has(req.method.toUpperCase())) return false;
@@ -105,6 +105,9 @@ export function isCrossSiteSubresource(req: Request): boolean {
   if (pathname !== "/reports" && !pathname.startsWith("/reports/")) return false;
   const site = req.headers.get("sec-fetch-site")?.toLowerCase();
   if (site !== "cross-site" && site !== "same-site") return false;
+  // A prefetch another site starts with speculation rules arrives as a document, so Sec-Purpose names it. Next's own
+  // prefetch is same-origin and returned above.
+  if (req.headers.get("sec-purpose")?.toLowerCase().includes("prefetch")) return true;
   return req.headers.get("sec-fetch-dest")?.toLowerCase() !== "document";
 }
 

@@ -92,6 +92,9 @@ export async function POST(request: Request): Promise<Response> {
       logFailure("connect.store_failed", err);
       return failed(storeError(err), 500);
     }
+    // A new key may be another account's. Pulls, calls and remembered misses from the old key go, as in Disconnect.
+    // After the write, so a fetch that read the old key and is still running cannot store its answer.
+    clearPulls();
     return json({ connected: true });
   } catch (err) {
     logFailure("connect.failed", err);

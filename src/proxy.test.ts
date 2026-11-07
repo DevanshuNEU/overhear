@@ -220,6 +220,10 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
     expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "none", "sec-fetch-dest": "document" })))?.status).toBe(200);
     expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" })))?.status).toBe(200);
     expect((await proxy(reqOf("/reports/x", LOOPBACK)))?.status).toBe(200);
+    // A speculation-rules prefetch from another site arrives as a document, and is refused; Next's own is same-origin.
+    expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "cross-site", "sec-fetch-dest": "document", "sec-purpose": "prefetch" })))?.status).toBe(403);
+    expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty", "sec-purpose": "prefetch" })))?.status).toBe(200);
+    expect(fetched).not.toHaveBeenCalled();
     // Other paths are not this rule's business.
     expect((await proxy(reqOf("/demo", { ...LOOPBACK, "sec-fetch-site": "cross-site", "sec-fetch-dest": "image" })))?.status).toBe(200);
   });

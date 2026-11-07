@@ -194,10 +194,11 @@ describe("FRAME_HEADERS", () => {
 });
 
 describe("checkLocalRequest: cross-site subresources of /reports/", () => {
-  const get = (path: string, site?: string, dest?: string) => {
+  const get = (path: string, site?: string, dest?: string, purpose?: string) => {
     const headers: Record<string, string> = { host: "localhost:3000" };
     if (site) headers["sec-fetch-site"] = site;
     if (dest) headers["sec-fetch-dest"] = dest;
+    if (purpose) headers["sec-purpose"] = purpose;
     return checkLocalRequest(req("GET", headers, path), LOCAL);
   };
 
@@ -218,6 +219,23 @@ describe("checkLocalRequest: cross-site subresources of /reports/", () => {
     expect(get("/reports/call_x", "same-origin", "empty")).toBeNull();
     expect(get("/reports/call_x", "none", "document")).toBeNull();
     expect(get("/reports/call_x")).toBeNull();
+  });
+
+  it("refuses a cross-site or same-site prefetch even though it arrives as a document", () => {
+    for (const site of ["cross-site", "same-site"]) {
+      for (const purpose of ["prefetch", "prefetch;anonymous-client-ip", "Prefetch", "prefetch;prerender"]) {
+        expect(get("/reports/call_x", site, "document", purpose)?.status, `${site} ${purpose}`).toBe(403);
+      }
+    }
+    expect(checkLocalRequest(req("HEAD", { host: "localhost:3000", "sec-fetch-site": "cross-site", "sec-fetch-dest": "document", "sec-purpose": "prefetch" }, "/reports/x"), LOCAL)?.status).toBe(403);
+  });
+
+  it("lets Next's own prefetch (same origin, with or without Sec-Purpose) and a plain cross-site navigation through", () => {
+    expect(get("/reports/call_x", "same-origin", "empty", "prefetch")).toBeNull();
+    expect(get("/reports/call_x", "same-origin", "document")).toBeNull();
+    expect(get("/reports/call_x", undefined, undefined, "prefetch")).toBeNull();
+    expect(get("/reports/call_x", "cross-site", "document", "prerender")).toBeNull();
+    expect(get("/reports/call_x", "none", "document", "prefetch")).toBeNull();
   });
 
   it("applies to the /reports/ path only", () => {
