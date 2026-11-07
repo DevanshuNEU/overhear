@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "stand-in (engine not built yet)",
-  "inputs": { "cases": 3, "fingerprint": "7ce28bcd089ce4b44ecab555944f467ad1cae60c007c4522f1ea9693d2d9e887" },
+  "inputs": { "cases": 3, "fingerprint": "2c66ecc3788dd849084850e72a286262ba11903eec0d2fc04f6adfe6c8df0fed" },
   "metrics": {
     "independent": {
       "n": 0,
