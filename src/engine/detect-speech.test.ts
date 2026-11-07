@@ -140,6 +140,7 @@ describe("detectAll reads spoken tool syntax", () => {
     ["Calling book_appointment(date: 5th) now", ["book_appointment"]],
     ["Calling transfer_call(billing) now", ["transfer_call"]],
     ["book_appointment(3)", ["book_appointment"]],
+    ["book_appointment: date=5th", ["book_appointment"]],
     ["transfer_call ()", ["transfer_call"]],
     ['book("Monday")', ["book"]],
     ["book(date=Monday)", ["book"]],

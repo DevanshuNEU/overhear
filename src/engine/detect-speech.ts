@@ -93,7 +93,11 @@ const OFFER_CAN = new RegExp(
   "i",
 );
 const TRANSFER =
-  /(?:\b(?:i(?:'ll| will)|i(?:'m| am) going to|let me|i(?:'m| am)) (?:go ahead and )?(?:now )?(?:transfer|connect|put you through|pass you|hand you)\b|\btransferring you\b|\bconnecting you (?:to|with)\b|\b(?:and|then)\s+(?:(?:i(?:'ll| will)|let me)\s+)?(?:transfer|connect|put) you\b|\bi(?:'m| am) (?:transferring|connecting)\b)/i;
+  /(?:\b(?:i(?:'ll| will)|i(?:'m| am) going to|let me|i(?:'m| am)) (?:go ahead and )?(?:now )?(?:transfer|connect|put you through|pass you|hand you)\b|\btransferring you\b|\bconnecting you (?:to|with)\b|\bi(?:'m| am) (?:transferring|connecting)\b)/i;
+// "Let me book that and then put you through": a transfer chained onto a first-person clause. The lead is
+// required, so "The front desk will review it and transfer you" and "They book and transfer you" are not.
+const TRANSFER_CHAIN = /\b(?:and|then)\s+(?:(?:i(?:'ll| will)|let me)\s+)?(?:transfer you|connect you|put you through)\b/i;
+const LEAD = /\b(?:i(?:'ll| will)|i(?:'m| am) going to|i(?:'m| am) gonna|let me)\s/i;
 const INTENTION = new RegExp(
   [
     `\\b(?:i(?:'ll| will)|i(?:'m| am) going to|i(?:'m| am) gonna|let me|let's|i(?:'m| am) about to) (?:go ahead and |just |now )*${CHANGE_VERB}\\b`,
@@ -102,6 +106,8 @@ const INTENTION = new RegExp(
     // Said as it happens: "booking that now", "Booking now", "Locking in Monday at 9"
     "(?<!\\b(?:before|after|for|about|by) )\\b(?:booking|rescheduling|cancell?ing|moving)\\b[^!?]*\\bnow\\b",
     "^\\s*locking in\\b",
+    // "Let me check the calendar and put you down": a booking chained onto a first-person clause.
+    "\\b(?:i(?:'ll| will)|let me|let's) [^.,;!?]*?\\b(?:and|then) (?:i(?:'ll| will) )?(?:go ahead and )?(?:book|schedule|cancel|reschedule|set you up|put you down)\\b",
   ].join("|"),
   "i",
 );
@@ -172,11 +178,23 @@ function clauseAt(s: string, at: number): string {
 
 /** The rest of the clause after a position. */
 function clauseTail(s: string, from: number): string {
-  const stops = [s.indexOf(",", from), s.indexOf(";", from)].filter((i) => i >= 0);
-  return s.slice(from, stops.length ? Math.min(...stops) : s.length);
+  return s.slice(from).split(/[,;]|\b(?:and|but|since|because|so|which|then)\b/i)[0];
 }
 
 const GOOD_TO_GO = /\bgood to go\b/i;
+// A clause that says the change has not happened: "the insurance update is pending", "I'll update it later".
+const NOT_YET = /\b(?:pending|yet|still|later|will|i'll|let me|going to|gonna|not|waiting|in progress|if|once|when)\b|n't/i;
+
+/** The kind named by another clause of the sentence, unless that clause says the change is still to come. */
+function otherClauseKind(s: string, at: number): ChangeKind | undefined {
+  const own = clauseAt(s, at);
+  for (const clause of s.split(/[,;]/)) {
+    if (clause === own || NOT_YET.test(clause)) continue;
+    const kind = kindOf(clause);
+    if (kind) return kind;
+  }
+  return undefined;
+}
 
 /** Whether the words before a match make it conditional, negated or a question rather than a claim. */
 function notAClaim(s: string, at: number): boolean {
@@ -206,7 +224,7 @@ function completions(s: string): Hit[] {
   // insurance update is pending" is a booking and not an update.
   const at = Math.min(...found.map((f) => f.at));
   // "You're all set, 8am on the 19th" carries its details after the comma, which is the booking itself.
-  const kind = kindOf(clauseAt(s, at)) ?? (/\ball set\b[,\s]+(?:for|on|at|with|\d)/i.test(s.slice(at)) ? "book" : undefined);
+  const kind = kindOf(clauseAt(s, at)) ?? otherClauseKind(s, at) ?? (/\ball set\b[,\s]+(?:for|on|at|with|\d)/i.test(s.slice(at)) ? "book" : undefined);
   return [{ cls: "completion", ...(kind ? { kind } : {}), at, ...(!kind && GOOD_TO_GO.test(s) ? { fromTurn: true } : {}) }];
 }
 
@@ -222,15 +240,28 @@ const firstAt = (s: string, ...res: RegExp[]): number => {
 // "ok?", "right?" after a claim is a tag question that keeps the claim: "I'm transferring you now, ok?"
 const TAG_QUESTION = /,\s*(?:ok|okay|alright|all right|right)\s*\?["”’']?$/i;
 // After a transfer or intention: "once the system is back" waits, "if needed" is only a maybe.
-const WAITS = /\b(?:once|as soon as|when|whenever)\b/i;
-const MAYBE = /\b(?:if|unless|in case)\b/i;
+// "if that's okay" asks for a nod, it is not a condition on the claim.
+const MAYBE = /\b(?:if|unless|in case)\b(?!\s+that(?:'s| is)\s+(?:ok|okay|fine|alright|all right|good)\b)/i;
+// "I'll book you for Tuesday when Dr. Osei is in": a "when" after a day or time names the slot, not a wait.
+const TIMEISH = /\b(?:today|tomorrow|tonight|week|weekend|month|morning|afternoon|evening|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(?::\d\d)?\s*(?:am|pm|a\.m\.|p\.m\.)|\d{1,2}(?:st|nd|rd|th))\b/i;
 
 /** What a transfer or intention match is worth, from the rest of its clause. */
 function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
   const tail = s.slice(end).split(/[,;.]|\b(?:then|and)\b/i)[0];
-  if (WAITS.test(tail)) return "deferral";
+  const w = /\b(?:once|as soon as|when|whenever)\b/i.exec(tail);
+  if (w && !(/^when(?:ever)?$/i.test(w[0]) && TIMEISH.test(tail.slice(0, w.index)))) return "deferral";
   if (MAYBE.test(tail)) return "maybe";
   return "claim";
+}
+
+/** A chained transfer ("... and then put you through") that follows a first-person, un-negated, unconditional clause. */
+function chainedTransfer(s: string): { at: number; end: number } | null {
+  const m = matchOf(TRANSFER_CHAIN, s);
+  if (!m) return null;
+  const before = s.slice(0, m.at);
+  if (!LEAD.test(before) && !INTENTION.test(before)) return null;
+  if (NEGATED.test(before.trimEnd()) || notAClaim(s, m.at)) return null;
+  return m;
 }
 
 function matchOf(re: RegExp, s: string): { at: number; end: number } | null {
@@ -253,7 +284,7 @@ function primary(s: string): Hit[] {
   if (OFFER_CAN.test(s)) return [{ cls: "offer", at: firstAt(s, OFFER_CAN) }];
   const out: Hit[] = [];
   let waits = -1;
-  const transfer = matchOf(TRANSFER, s);
+  const transfer = matchOf(TRANSFER, s) ?? chainedTransfer(s);
   if (transfer) {
     const tail = claimTail(s, transfer.end);
     if (tail === "claim") out.push({ cls: "transfer", at: transfer.at });
@@ -301,10 +332,15 @@ export function findToolSyntax(text: string, toolNames: string[]): string | null
   for (const name of toolNames) {
     if (name === "") continue;
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // A name is tool syntax when "(" follows with argument-like content (key: value, key=value, quotes, braces),
-    // when "{" follows, or when it is written functions.name. "book (if you want) tomorrow" is just speech.
-    const args = "\\(\\s*(?:\\{|\\[|[\"'`]|[\\w-]+\\s*[:=])";
-    const m = new RegExp(`\\b${escaped}\\s*${args}|\\b${escaped}\\(\\s*\\)|\\b${escaped}\\s*\\{|\\bfunctions?\\.${escaped}\\b`).exec(text);
+    // A name with _ or . ("transfer_call") is never a spoken word, so any "(" after it is tool syntax. A plain
+    // word ("book") needs argument-like content: braces, a quoted string, or key: value / key=value with one
+    // token value. "book (if you want) tomorrow" and "book (tomorrow: 9am or Friday)" are just speech.
+    const identifier = /[_.]/.test(name);
+    const arg = "[\\w-]+\\s*[:=]\\s*[^\\s,)]+\\s*[,)]";
+    const quoted = "([\"'`])[^)]*?\\1";
+    const args = `\\(\\s*(?:\\{|\\[|${quoted}|${arg})`;
+    const call = identifier ? `\\b${escaped}\\s*\\(` : `\\b${escaped}\\s*${args}|\\b${escaped}\\(\\s*\\)`;
+    const m = new RegExp(`${call}|\\b${escaped}\\s*\\{|\\bfunctions?\\.${escaped}\\b`).exec(text);
     if (m) return m[0];
   }
   const markup = /<\/?(?:function_calls?|tool_call|invoke)\b[^>]*>|\bfunctions\.\w+\s*\(|\{\s*"(?:name|tool|function)"\s*:/.exec(text);
