@@ -106,10 +106,10 @@ interface Run {
 }
 
 /** Runs the contract the way the pipeline will (resolveOk, detections, changes, every committed-detail gap added), then checks the schema. */
-function run(input: Evidence, policy: Policy = PRESET): Run {
+function run(input: Evidence, policy: Policy = PRESET, addGaps = true): Run {
   const resolved = resolveOk({ ...input, callStartMs: input.callStartMs ?? CALL_START }, policy);
   const list = changes(resolved, policy);
-  const gaps = list.flatMap((c) => committedDetails(resolved, policy, c).gaps);
+  const gaps = addGaps ? list.flatMap((c) => committedDetails(resolved, policy, c).gaps) : [];
   const evidence: Evidence = { ...resolved, gaps: [...resolved.gaps, ...gaps] };
   const ctx: ContractContext = {
     ev: evidence,
@@ -358,6 +358,91 @@ describe("spoken_matches_committed", () => {
       const r = run(e);
       expect(r.out.result).toBe("unverified");
       expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the call record doesn't say what happened first.");
+    });
+  });
+
+  describe("conflicting sentences in one turn (differs wins)", () => {
+    const wrongThenRight = "You're booked for Friday, November 6 at 3 PM. You're all set for Friday, November 6 at 2 PM.";
+
+    it("a right sentence followed by a wrong one is violated", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6 at 2 PM. Your appointment is confirmed for Friday, November 6 at 3 PM.", 20)]));
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.fields.find((f) => f.field === "time")).toMatchObject({ status: "differs", values: ["2 PM", "3 PM"] });
+      expect(r.finding.text).toBe("The agent confirmed Friday, November 6 at 3 PM. What was committed is Friday, November 6 at 2:00 PM.");
+    });
+
+    it("a wrong sentence followed by a right one is violated", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent(wrongThenRight, 20)]));
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.fields.find((f) => f.field === "time")?.status).toBe("differs");
+    });
+
+    it("a wrong date in a second sentence is violated even when the first sentence's date was right", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6 at 2 PM. Your appointment is confirmed for Saturday, November 7.", 20)]));
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.fields.find((f) => f.field === "date")).toMatchObject({ status: "differs", values: ["Friday, November 6", "Saturday, November 7"] });
+      expect(r.finding.fields.find((f) => f.field === "time")?.status).toBe("match");
+    });
+
+    it("sentences that say different fields and none wrong are combined into a pass", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6. Your appointment is confirmed for 2 PM with Dr. Nair.", 20)]));
+      expect(r.out.result).toBe("passed");
+      expect(r.finding.text).toBe(PASSED_TEXT);
+    });
+
+    it("a sentence is never glued to the next: a name stops at its own sentence", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6 at 2 PM with Dr. Nair. You're all set.", 20)]));
+      expect(r.out.result).toBe("passed");
+      expect(r.finding.fields.find((f) => f.field === "provider")?.values).toEqual(["Dr. Nair"]);
+    });
+
+    it("a claim of another kind in the turn is not about this change", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("Your old appointment is cancelled for Monday, November 9 at 9 AM. You're booked for Friday, November 6 at 2 PM with Dr. Nair.", 20)]));
+      expect(r.out.result).toBe("passed");
+    });
+  });
+
+  describe("fields without a definition, and changes with nothing to compare", () => {
+    const withRoom: Policy = PolicySchema.parse({
+      ...preset,
+      tools: { ...preset.tools, book_appointment: { ...preset.tools.book_appointment, required: ["date", "time", "room"] } },
+    });
+
+    it("a required field the policy has no definition for is unresolved, so the finding is unverified", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]), withRoom);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the room of the booking isn't in the call.");
+      expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
+      expect(r.finding.fields.at(-1)).toEqual({ field: "room", type: "string", from: "spoken", values: [], committed: null, status: "unresolved" });
+    });
+
+    it("a successful cancellation nobody confirmed is unverified with the no_claim reason", () => {
+      const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), agent("Anything else today?", 20)]));
+      expect(r.out.result).toBe("unverified");
+      expect(r.out.findings).toEqual([
+        {
+          result: "unverified",
+          text: "Couldn't check spoken details match the booking: the agent never confirmed the cancellation.",
+          said: [],
+          did: [1, 2],
+          asked: [],
+          gaps: [],
+          fields: [],
+        },
+      ]);
+    });
+
+    it("a cancellation followed by a booking that is confirmed once is judged on the booking alone", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...tool("tc_c", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]));
+      expect(r.out.findings.map((f) => f.result)).toEqual(["passed"]);
+    });
+  });
+
+  describe("unresolved gaps in the evidence", () => {
+    it("a finding never cites a gap code the evidence does not hold", () => {
+      const r = run(ev([...lookup([slot("other")]), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]), PRESET, false);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.gaps).toEqual([]);
     });
   });
 
