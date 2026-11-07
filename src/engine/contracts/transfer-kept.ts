@@ -52,7 +52,7 @@ function syntaxFinding(ctx: ContractContext, d: Detection): Finding {
 
 /** What the attempts one claim rests on add up to. */
 type Outcome =
-  | { kind: "worked"; did: number[] }
+  | { kind: "worked"; did: number[]; viaEvent: boolean }
   | { kind: "failed"; did: number[] }
   /** A call whose success can't be told: no result, or a result that doesn't say. */
   | { kind: "unsettled"; did: number[]; tool: string; noResult: boolean }
@@ -70,7 +70,14 @@ function judge(ctx: ContractContext, seq: number): Finding {
   const outcome = outcomeOf(ctx, seq, unordered);
   const did = outcome.kind === "none" ? [] : outcome.did;
 
-  const touching = gapsTouching(ev, "transfer_kept", [seq, ...did]);
+  // A transfer_target event settles a result that says nothing (6.4), so that result's unknown_success gap, which
+  // resolveOk raised for exactly this case, no longer decides the finding. The gap stays in the evidence.
+  const viaEvent = outcome.kind === "worked" && outcome.viaEvent;
+  const silentResults = new Set(toolCalls(ev, ctx.policy, "transfer").flatMap((c) => (c.ok === null && c.resultSeq !== null ? [c.resultSeq] : [])));
+  const deciding: Evidence = viaEvent
+    ? { ...ev, gaps: ev.gaps.filter((g) => !(g.code === "unknown_success" && g.seqs.some((s) => silentResults.has(s) || did.includes(s)))) }
+    : ev;
+  const touching = gapsTouching(deciding, "transfer_kept", [seq, ...did]);
   const causes: GapText[] = touching.map((g) => describeGap(g, { tool: outcome.kind === "unsettled" ? outcome.tool : undefined }));
   if (unordered) causes.push(REASONS.order_unknown);
   if (causes.length > 0) {
@@ -95,10 +102,13 @@ function judge(ctx: ContractContext, seq: number): Finding {
       if (unknown.tools.length > 0) {
         return finding("unverified", unverifiedText("transfer_kept", [unknownTransferToolCause(unknown.tools)]), unknown.seqs);
       }
-      if (ctx.policySource === "inferred" && !hasTransferTool(ctx)) {
+      // With no tool calls in the record the transcript is what is missing, whatever the policy knows, so that
+      // reason comes first, as in promise_backed.
+      const softened = softenForMissingTools(ev, finding("violated", transferViolatedText(time, "not_attempted"), []), "transfer_kept");
+      if (softened.result === "violated" && ctx.policySource === "inferred" && !hasTransferTool(ctx)) {
         return finding("unverified", unverifiedText("transfer_kept", [REASONS.no_transfer_tool]), []);
       }
-      return softenForMissingTools(ev, finding("violated", transferViolatedText(time, "not_attempted"), []), "transfer_kept");
+      return softened;
     }
   }
 }
@@ -112,11 +122,14 @@ function outcomeOf(ctx: ContractContext, seq: number, unordered: boolean): Outco
   const pick = unordered ? { calls, events } : after.calls.length + after.events.length > 0 ? after : before;
 
   const worked = pick.calls.filter((c) => c.ok === true);
-  if (worked.length > 0) return { kind: "worked", did: callSeqs(worked.slice(-1)) };
+  if (worked.length > 0) return { kind: "worked", did: callSeqs(worked.slice(-1)), viaEvent: false };
   // An event stands in for the result of a call that has none or says nothing, and for a call nobody logged.
   const silent = pick.calls.filter((c) => c.ok === null);
   if (pick.events.length > 0 && (silent.length > 0 || pick.calls.length === 0)) {
-    return { kind: "worked", did: [...callSeqs(silent.slice(-1)), pick.events[0]].sort((a, b) => a - b) };
+    // Cite the call and the event, not a result that says nothing: the report schema lets no passed finding cite a
+    // result that carries an unknown_success gap, and the result is not what settled this.
+    const call = silent.slice(-1).map((c) => c.callSeq);
+    return { kind: "worked", did: [...call, pick.events[0]].sort((a, b) => a - b), viaEvent: true };
   }
   if (silent.length > 0) {
     const last = silent[silent.length - 1];

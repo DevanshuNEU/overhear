@@ -169,6 +169,28 @@ describe("transfer_kept", () => {
       expect(r.finding.did).toEqual([4]);
     });
 
+    it("a result that does not say whether the transfer worked passes when a transfer_target event shows the caller was connected", () => {
+      const r = run(ev([agent(CLAIM, 9), ...tool("tc_1", "transfer_call", { note: "queued" }, null), target()]));
+      expect(r.out.result).toBe("passed");
+      expect(r.finding).toEqual({
+        result: "passed",
+        text: "At 0:09 the agent said it was transferring the caller. The transfer went through.",
+        said: [1],
+        did: [2, 4],
+        asked: [],
+        gaps: [],
+        fields: [],
+      });
+      // The gap stays in the evidence: it is true of the result, it just does not decide this finding.
+      expect(r.evidence.gaps.map((g) => g.code)).toEqual(["unknown_success"]);
+    });
+
+    it("an unknown_success gap on a result no event stands in for still makes the claim unverified", () => {
+      const r = run(ev([agent(CLAIM, 9), ...tool("tc_1", "transfer_call", { note: "queued" }, null)]));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.gaps).toEqual(["unknown_success"]);
+    });
+
     it("a retry that worked passes after a failed first try", () => {
       const r = run(
         ev([agent(CLAIM, 9), ...tool("tc_1", "transfer_call", { ok: false, error: "busy" }), ...tool("tc_2", "transfer_call", { ok: true })]),
@@ -325,11 +347,15 @@ describe("transfer_kept", () => {
       expect(r.finding.text).toBe(NOT_ATTEMPTED);
     });
 
-    it("an inferred policy with no tool calls at all is unverified too", () => {
+    it("an inferred policy with no tool calls at all names the missing tool transcript, as promise_backed does", () => {
       const input = ev([agent(CLAIM, 9)]);
       const picked = policyFor(input);
+      expect(picked.source).toBe("inferred");
       const r = runWith(input, picked.policy, picked.source);
       expect(r.out.result).toBe("unverified");
+      expect(r.finding.gaps).toEqual(["missing_tool_transcript"]);
+      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the call record has no tool calls.");
+      expect(r.evidence.gaps).toEqual([{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }]);
     });
 
     it("an inferred policy still believes a transfer_target event", () => {
@@ -423,13 +449,14 @@ describe("transfer_kept", () => {
       const out = transferKept({
         ev: evidence,
         policy: sample.policy,
-        policySource: "preset",
+        policySource: policyFor(sample.evidence).source,
         tz: sample.timezone,
         policyTz: sample.policy.timezone !== undefined,
         detections: detectAll(evidence, Object.keys(sample.policy.tools)),
         changes: changes(evidence, sample.policy),
         providerNames: providerNames(evidence, sample.policy),
       });
+      expect(policyFor(sample.evidence).source).toBe("preset");
       expect(out.result).toBe("violated");
       expect(out.findings.map((f) => [f.result, f.said])).toEqual([
         ["violated", [25]],
@@ -448,7 +475,7 @@ describe("transfer_kept", () => {
         const out = transferKept({
           ev: evidence,
           policy: sample.policy,
-          policySource: "preset",
+          policySource: policyFor(sample.evidence).source,
           tz: sample.timezone,
           policyTz: sample.policy.timezone !== undefined,
           detections: detectAll(evidence, Object.keys(sample.policy.tools)),
