@@ -90,11 +90,41 @@ describe("classifyTurn", () => {
   });
 });
 
+describe("splitSentences and St.", () => {
+  it("ends a sentence at a street St. before a new clause", () => {
+    expect(splitSentences("Our office is on Elm St. You're booked for Monday.")).toEqual([
+      "Our office is on Elm St.",
+      " You're booked for Monday.",
+    ]);
+    expect(splitSentences("We're on Elm St.I've booked you.")).toEqual(["We're on Elm St.", "I've booked you."]);
+  });
+  it("keeps St. before a name", () => {
+    expect(splitSentences("Go to St. Mary's Hospital, you're booked.")).toHaveLength(1);
+    expect(splitSentences("Dr. Osei is at St. Mary's.")).toHaveLength(1);
+  });
+  it("quotes only the completion", () => {
+    const out = classifyTurn("Our office is on Elm St. You're booked for Monday.");
+    expect(out).toEqual([{ cls: "completion", kind: "book", quote: "You're booked for Monday" }]);
+  });
+});
+
 describe("findToolSyntax", () => {
   it("finds spoken tool syntax", () => {
     expect(findToolSyntax("Calling book_appointment(date: 5th) now", ["book_appointment"])).not.toBeNull();
     expect(findToolSyntax('{"name": "book_appointment"}', [])).not.toBeNull();
     expect(findToolSyntax("Booked for the 5th.", ["book_appointment"])).toBeNull();
+  });
+  it("finds a tool name with argument-like content", () => {
+    expect(findToolSyntax("book_appointment({...})", ["book_appointment"])).not.toBeNull();
+    expect(findToolSyntax('book("Monday")', ["book"])).not.toBeNull();
+    expect(findToolSyntax("book(date=Monday)", ["book"])).not.toBeNull();
+    expect(findToolSyntax('book {"date": "Monday"}', ["book"])).not.toBeNull();
+    expect(findToolSyntax("functions.book", ["book"])).not.toBeNull();
+  });
+  it("does not read a parenthetical after a tool word as tool syntax", () => {
+    expect(findToolSyntax("I can book (if you want) tomorrow", ["book"])).toBeNull();
+    expect(findToolSyntax("I can book (tomorrow or Friday)", ["book"])).toBeNull();
+    expect(findToolSyntax("I can book tomorrow", ["book"])).toBeNull();
   });
 });
 
