@@ -84,21 +84,30 @@ function hasDemoSlots(payload: unknown): boolean {
 
 // ---------- Roles from tool names ----------
 
-/** Role rules, in order; the first rule with a word in the tool's name wins (old plan Task 5). */
-const ROLE_RULES: { words: string[]; role: Pick<ToolPolicy, "role" | "kind"> }[] = [
+/**
+ * Role rules, in order; the first rule that matches wins (old plan Task 5). A rule matches when the name has one of
+ * its words, or one of its noun verbs and ends in a booking noun ("make_booking", "delete_appointment"). The noun must
+ * end the name so "add_booking_note" and "confirm_booking_by_email" stay undescribed. The noun verbs ("set", "add",
+ * "make", "delete") mean nothing as a change without the noun.
+ */
+type RoleRule = { words: string[]; withNoun?: string[]; role: Pick<ToolPolicy, "role" | "kind"> };
+
+const BOOKING_NOUNS = new Set(["booking", "bookings", "appointment", "appointments", "reservation", "reservations"]);
+
+const ROLE_RULES: RoleRule[] = [
   { words: ["verify", "authenticate", "identify"], role: { role: "verify" } },
   { words: ["transfer"], role: { role: "transfer" } },
-  { words: ["cancel"], role: { role: "change", kind: "cancel" } },
-  { words: ["reschedule", "move"], role: { role: "change", kind: "reschedule" } },
-  { words: ["book", "schedule", "create", "reserve"], role: { role: "change", kind: "book" } },
+  { words: ["cancel"], withNoun: ["delete", "remove"], role: { role: "change", kind: "cancel" } },
+  { words: ["reschedule", "move"], withNoun: ["change"], role: { role: "change", kind: "reschedule" } },
+  { words: ["book", "schedule", "create", "reserve"], withNoun: ["make", "submit", "confirm", "set", "add"], role: { role: "change", kind: "book" } },
   { words: ["update", "modify", "change", "exchange", "return"], role: { role: "change", kind: "update" } },
   { words: ["check", "get", "find", "list", "search", "lookup", "availability"], role: { role: "lookup" } },
 ];
 
-/** The words of a tool name: split at underscores, dashes, spaces and camelCase humps, lower-cased. */
-function nameWords(name: string): Set<string> {
+/** The words of a tool name in order: split at underscores, dashes, spaces and camelCase humps, lower-cased. */
+function nameWords(name: string): string[] {
   const spaced = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
-  return new Set(spaced.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+  return spaced.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 }
 
 /**
@@ -106,8 +115,10 @@ function nameWords(name: string): Set<string> {
  * lookup rather than a booking and "remove_item" is not a reschedule.
  */
 export function roleFor(name: string): Pick<ToolPolicy, "role" | "kind"> | null {
-  const words = nameWords(name);
-  const rule = ROLE_RULES.find((r) => r.words.some((w) => words.has(w)));
+  const list = nameWords(name);
+  const words = new Set(list);
+  const endsInNoun = list.length > 0 && BOOKING_NOUNS.has(list[list.length - 1]);
+  const rule = ROLE_RULES.find((r) => r.words.some((w) => words.has(w)) || (endsInNoun && (r.withNoun ?? []).some((w) => words.has(w))));
   return rule ? { ...rule.role } : null;
 }
 
