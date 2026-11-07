@@ -74,7 +74,7 @@ function Facts({ location }: { location: string }) {
       {rows.map((row) => (
         <div key={row.label} className="grid gap-x-8 sm:col-span-2 sm:grid-cols-subgrid">
           <dt className="text-[13px] text-report-muted sm:pt-px">{row.label}</dt>
-          <dd className={row.mono ? "break-all font-mono text-[13px] leading-6 tabular-nums" : "text-sm"}>{row.value}</dd>
+          <dd data-mono={row.mono ? "" : undefined} className={row.mono ? "break-all font-mono text-[13px] leading-6 tabular-nums" : "text-sm"}>{row.value}</dd>
         </div>
       ))}
     </dl>
@@ -183,14 +183,14 @@ export function ConnectScreen({ stored, location, storeError }: Props) {
                   data-lpignore="true"
                   aria-invalid={failure?.tone === "critical" ? true : undefined}
                   aria-describedby={failure ? "retell-key-hint retell-key-problem" : "retell-key-hint"}
-                  className={`min-h-11 min-w-0 flex-1 rounded-md border bg-report-surface px-3 font-mono text-sm outline-none read-only:text-report-ink-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent ${
+                  className={`min-h-11 min-w-0 flex-1 rounded-md border bg-report-surface px-3 font-mono text-sm read-only:text-report-ink-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent ${
                     failure?.tone === "critical" ? "border-report-critical" : "border-report-line-strong"
                   }`}
                 />
                 <button
                   type="submit"
                   disabled={checking}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-report-accent px-4 text-sm font-semibold text-white enabled:hover:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default"
+                  className="inline-flex min-h-11 min-w-40 items-center justify-center gap-2 rounded-md bg-report-accent px-4 text-sm font-semibold text-white enabled:hover:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default"
                 >
                   {checking ? (
                     <>
@@ -205,7 +205,7 @@ export function ConnectScreen({ stored, location, storeError }: Props) {
                 </button>
               </div>
               <div role="status" className="mt-3 min-h-6 text-sm">
-                {checking ? <span className="text-report-ink-2">{CONNECT_WORDS.checkingStatus}</span> : null}
+                {checking ? <span className="sr-only">{CONNECT_WORDS.checkingStatus}</span> : null}
                 {failure ? (
                   <p
                     id="retell-key-problem"

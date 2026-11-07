@@ -244,7 +244,7 @@ describe("the words", () => {
   it("has no em dash, en dash or straight quote in any string on screen", () => {
     const strings = [...Object.values(CONNECT_WORDS), ...Object.values(CONNECT_MESSAGE), ...Object.values(LOCAL_REFUSAL)];
     for (const s of strings) {
-      expect(s, s).not.toMatch(/[–—"']/);
+      expect(s, s).not.toMatch(/[\u2013\u2014"']/);
     }
   });
 });
