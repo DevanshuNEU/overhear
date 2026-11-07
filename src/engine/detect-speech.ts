@@ -264,6 +264,41 @@ function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
   return "claim";
 }
 
+// A sentence that opens with a wait clause: "Once the system is back, I'll connect you", "When a nurse is free I'll
+// transfer you". "Now that", "since", "because" and "so" state a fact or a reason, "before we hang up" promises the
+// claim during this call, and "until" means act now in the meantime, so none of them are in the list. Idioms that open
+// with a wait word but wait for nothing ("once again", "after all", "when it comes to", "as soon as possible") are out too.
+const WAIT_FILLER = "(?:and|so|okay|ok|alright|all right|right|sure|great|perfect|thanks|thank you|um|uh|well|actually|yes|no|sorry)";
+const LEADING_WAIT = new RegExp(
+  `^\\s*(?:${WAIT_FILLER}[,.!]?\\s+)*(?:once(?! (?:again|more)\\b)|after(?! all\\b)|whenever|when(?! it comes to\\b)|as soon as(?! possible\\b))\\b`,
+  "i",
+);
+
+// A "when" clause about something already done, a subject then a simple past verb: "When I checked", "When you called
+// earlier". An auxiliary ("when we've checked") or another subject ("when the nurse looked") is still a wait.
+const PAST_WAIT = /^\s*(?:i|you|we)\s+(?:checked|called|asked|spoke|looked|was|were|did)\b/i;
+
+/**
+ * What a transfer or intention starting at a position is worth. A leading wait clause stays a wait however many
+ * commas it has ("Once Dr. Osei, our nurse, is back, I'll transfer you"), because a false deferral costs less than a
+ * missed claim. It is finished in three cases: the claim is introduced by ", so" ("..., so I'll book you"), the wait is
+ * "when" plus I, you or we and a simple past verb ("When I checked"), or the wait is "after" plus an -ing word
+ * ("After checking"). "Once" and "after" with a subject never count as finished.
+ */
+function claimAt(s: string, at: number, end: number): "claim" | "deferral" | "maybe" {
+  const prefix = s.slice(0, at);
+  const m = LEADING_WAIT.exec(prefix);
+  if (m) {
+    const clause = prefix.slice(m[0].length);
+    const finished =
+      /,\s*so\s*$/i.test(prefix) ||
+      (/when$/i.test(m[0]) && PAST_WAIT.test(clause)) ||
+      (/after$/i.test(m[0]) && /^\s*\w+ing\b/i.test(clause));
+    if (!finished) return "deferral";
+  }
+  return claimTail(s, end);
+}
+
 function lastIndexOf(re: RegExp, s: string): number {
   let at = -1;
   for (const m of s.matchAll(new RegExp(re.source, "gi"))) at = m.index;
@@ -271,7 +306,7 @@ function lastIndexOf(re: RegExp, s: string): number {
 }
 
 /** A chained transfer ("... and then put you through") that follows a first-person, un-negated, unconditional clause. */
-function chainedTransfer(s: string): { at: number; end: number } | null {
+function chainedTransfer(s: string): { at: number; end: number; lead: number } | null {
   const m = matchOf(TRANSFER_CHAIN, s);
   if (!m) return null;
   const before = s.slice(0, m.at);
@@ -281,7 +316,7 @@ function chainedTransfer(s: string): { at: number; end: number } | null {
   if (from < 0) return null;
   if (lead >= 0 && CHAIN_BLOCK_RE.test(before.slice(from))) return null;
   if (NEGATED.test(before.trimEnd()) || notAClaim(s, m.at)) return null;
-  return m;
+  return { ...m, lead: from };
 }
 
 function matchOf(re: RegExp, s: string): { at: number; end: number } | null {
@@ -304,9 +339,9 @@ function primary(s: string): Hit[] {
   if (OFFER_CAN.test(s)) return [{ cls: "offer", at: firstAt(s, OFFER_CAN) }];
   const out: Hit[] = [];
   let waits = -1;
-  const transfer = matchOf(TRANSFER, s) ?? chainedTransfer(s);
+  const transfer: { at: number; end: number; lead?: number } | null = matchOf(TRANSFER, s) ?? chainedTransfer(s);
   if (transfer) {
-    const tail = claimTail(s, transfer.end);
+    const tail = claimAt(s, transfer.lead ?? transfer.at, transfer.end);
     if (tail === "claim") out.push({ cls: "transfer", at: transfer.at });
     else if (tail === "deferral") waits = transfer.at;
   } else if (TRANSFER_DONE.test(s)) {
@@ -314,7 +349,7 @@ function primary(s: string): Hit[] {
   }
   const intention = matchOf(INTENTION, s);
   if (intention) {
-    const tail = claimTail(s, intention.end);
+    const tail = claimAt(s, intention.at, intention.end);
     if (tail === "claim") {
       const kind = kindOf(clauseAt(s, intention.at));
       out.push({ cls: "intention", ...(kind ? { kind } : {}), at: intention.at });
