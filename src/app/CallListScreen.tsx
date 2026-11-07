@@ -118,7 +118,12 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
     handOffRef.current = handOff;
     clockRef.current = clockFn;
   });
-  const onDisconnected = useCallback((notice?: Extract<ConnectError, "bad_key">) => handOffRef.current(notice), []);
+  // Every way off this screen forgets the pull, so a key pasted next starts fresh instead of polling an id the server dropped.
+  const onDisconnected = useCallback((notice?: Extract<ConnectError, "bad_key">) => {
+    current.current = null;
+    remember(null);
+    handOffRef.current(notice);
+  }, []);
   const now = useCallback(() => clockRef.current(), []);
 
   const adopt = useCallback((id: string) => {
@@ -315,10 +320,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
         <ConnectionBar
           location={location}
           beforeDisconnect={beforeDisconnect}
-          onDisconnected={() => {
-            remember(null);
-            onDisconnected(undefined);
-          }}
+          onDisconnected={() => onDisconnected(undefined)}
         />
         <main>
           <h1 className="max-w-[760px] font-display text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] sm:text-[32px] sm:tracking-[-0.02em]">

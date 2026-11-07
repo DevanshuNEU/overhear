@@ -84,4 +84,28 @@ describe("the home screen", () => {
     expect(screen.getByRole("status")).toHaveTextContent(CONNECT_MESSAGE.bad_key);
     expect(screen.getByRole("status")).toHaveTextContent(CONNECT_WORDS.badKeyNext);
   });
+
+  it("forgets the rejected pull, so a new key starts a fresh pull instead of looping back on the old one", async () => {
+    progress = { ...done, phase: "failed", error: { code: "bad_key", message: "x" } };
+    render(<HomeScreen stored location={LOCATION} />);
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(CONNECT_WORDS.headline));
+    expect(window.sessionStorage.getItem("overhear.pull")).toBeNull();
+
+    // A working key is pasted: the old pull is gone from the server's point of view, and a new one answers.
+    const polled = () => fetchMock.mock.calls.filter(([url]) => String(url) === "/api/pulls/pull_1").length;
+    const before = polled();
+    fetchMock.mockImplementation(async (input, init) => {
+      const key = `${init?.method ?? "GET"} ${String(input)}`;
+      if (key === "POST /api/connect") return connectAnswer();
+      if (key === "POST /api/pulls") return new Response(JSON.stringify({ id: "pull_2" }), { status: 202 });
+      if (key === "GET /api/pulls/pull_2") return new Response(JSON.stringify({ ...done, id: "pull_2" }), { status: 200 });
+      throw new Error(`unexpected ${key}`);
+    });
+    fireEvent.change(screen.getByLabelText(CONNECT_WORDS.fieldLabel), { target: { value: KEY } });
+    fireEvent.click(screen.getByRole("button", { name: CONNECT_WORDS.connect }));
+    await waitFor(() => expect(document.querySelector("li[data-call-id=call_1]")).not.toBeNull());
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url) === "/api/pulls" && init?.method === "POST")).toBe(true);
+    expect(polled()).toBe(before);
+    expect(screen.queryByLabelText(CONNECT_WORDS.fieldLabel)).toBeNull();
+  });
 });
