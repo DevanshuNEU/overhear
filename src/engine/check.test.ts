@@ -246,6 +246,12 @@ describe("checkCall", () => {
       expect(parsed(checkCall(e, policy, { tz: "UTC", policySource: source })).verdict).toBe("failed");
     });
 
+    it("a failed follow-up slot booking after a good booking, then a confirmation, is Failed", () => {
+      const { report, policy } = judge("book_follow_up_slot", { slotId: "slot_2" }, CONFIRM);
+      expect(policy.tools.book_follow_up_slot).toMatchObject({ role: "change", kind: "book" });
+      expect(report.verdict).toBe("failed");
+    });
+
     it("a real change failing after a good booking still fails the call", () => {
       const { report } = judge("book_slot", { slotId: "slot_2" }, CONFIRM);
       expect(report.verdict).toBe("failed");

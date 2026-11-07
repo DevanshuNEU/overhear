@@ -111,7 +111,7 @@ const FILLERS = new Set(["a", "an", "the", "new", "my", "up"]);
 const SIDE_NOUNS = new Set(["callback", "callbacks", "reminder", "reminders", "note", "notes", "preference", "preferences", "follow", "followup", "followups"]);
 
 /** What a follow-up can be of and still be a booking: "book_follow_up_appointment", "create_follow_up_visit". */
-const FOLLOW_UP_BOOKABLE = new Set([...BOOKING_NOUNS, "visit", "visits"]);
+const FOLLOW_UP_BOOKABLE = new Set([...BOOKING_NOUNS, "visit", "visits", "slot", "slots"]);
 
 /**
  * Whether the name acts on a side noun, counting "call_back" as "callback". "follow" and "followup" are side words

@@ -176,6 +176,8 @@ describe("roleFor", () => {
       ["schedule_follow_up_appointment", "book"],
       ["bookFollowUpAppointment", "book"],
       ["create_follow_up_visit", "book"],
+      ["book_follow_up_slot", "book"],
+      ["schedule_followup_slot", "book"],
       ["cancel_follow_up_appointment", "cancel"],
     ] as const)("%s still reads as a %s", (name, kind) => expect(roleFor(name)).toEqual({ role: "change", kind }));
 
