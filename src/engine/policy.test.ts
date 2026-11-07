@@ -143,6 +143,72 @@ describe("roleFor", () => {
     it("keeps update on an appointment an update", () => {
       expect(roleFor("update_appointment")).toEqual({ role: "change", kind: "update" });
     });
+
+    // OVE-48. A side tool acts on a callback, a reminder, a note or a preference, not on the booking itself. If it read
+    // as a change, its failure after a good booking would turn the call Failed.
+    it.each([
+      "book_callback",
+      "schedule_callback",
+      "request_callback",
+      "cancel_reminder",
+      "set_reminder",
+      "send_reminder",
+      "update_booking_notes",
+      "add_booking_note",
+      "change_appointment_preferences",
+      "update_preferences",
+      "schedule_follow_up_call",
+      "cancel_callback",
+    ])("%s is a side tool, not a change", (name) => expect(roleFor(name)?.role).not.toBe("change"));
+
+    it("reads the same side tools in camelCase and with a split word", () => {
+      expect(roleFor("bookCallback")?.role).not.toBe("change");
+      expect(roleFor("book_call_back")?.role).not.toBe("change");
+      expect(roleFor("scheduleFollowUpCall")?.role).not.toBe("change");
+      expect(roleFor("schedule_followup")?.role).not.toBe("change");
+      expect(roleFor("cancelReminder")?.role).not.toBe("change");
+    });
+
+    it("keeps real changes and transfers that merely sit near a side word", () => {
+      expect(roleFor("book_appointment")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("transfer_call")).toEqual({ role: "transfer" });
+      expect(roleFor("schedule_visit")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("get_reminders")).toEqual({ role: "lookup" });
+    });
+
+    // One filler word may sit between the verb and the booking noun.
+    it.each([
+      ["make_a_booking", "book"],
+      ["make_new_booking", "book"],
+      ["make_an_appointment", "book"],
+      ["add_a_booking", "book"],
+      ["add_new_appointment", "book"],
+      ["confirm_the_booking", "book"],
+      ["submit_new_booking", "book"],
+      ["set_up_appointment", "book"],
+      ["delete_my_appointment", "cancel"],
+      ["remove_an_appointment", "cancel"],
+    ] as const)("%s reads as a %s", (name, kind) => expect(roleFor(name)).toEqual({ role: "change", kind }));
+
+    it("reads a filler word in camelCase too", () => {
+      expect(roleFor("makeANewBooking")).toBeNull();
+      expect(roleFor("makeNewBooking")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("deleteMyAppointment")).toEqual({ role: "change", kind: "cancel" });
+    });
+
+    it("allows exactly one filler word, and only from the list", () => {
+      expect(roleFor("make_a_new_booking")).toBeNull();
+      expect(roleFor("make_the_old_booking")).toBeNull();
+      expect(roleFor("make_extra_booking")).toBeNull();
+      expect(roleFor("add_to_booking")).toBeNull();
+      expect(roleFor("a_booking")).toBeNull();
+    });
+
+    it("keeps the filler path from reading a side tool as a change", () => {
+      expect(roleFor("make_a_callback")).toBeNull();
+      expect(roleFor("set_a_reminder")).toBeNull();
+      expect(roleFor("add_a_booking_note")).toBeNull();
+    });
   });
 
   it("takes the first matching rule when a name matches two roles", () => {

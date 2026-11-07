@@ -7,6 +7,7 @@ import { CONTRACT_IDS, CallReportSchema, PolicySchema, type CallReport, type Evi
 import * as variants from "@/report/samples/variants.fixture";
 import { SAMPLE_REPORTS } from "@/report/samples";
 import { checkCall } from "./check";
+import { policyFor } from "./policy";
 import preset from "./presets/northwind-clinic.json";
 import { ev, type ItemSpec } from "./testing/build";
 
@@ -199,6 +200,37 @@ describe("checkCall", () => {
       const r = parsed(checkCall(e, PRESET, { tz: "UTC", policySource: "inferred" }));
       expect(r.evidence.gaps.filter((g) => g.code === "missing_tool_transcript")).toHaveLength(1);
       expect(r.verdict).toBe("needs_review");
+    });
+  });
+
+  // OVE-48. A side tool that fails after a good booking must not turn the call Failed.
+  describe("a side tool that fails after a good booking", () => {
+    const CONFIRM = "You're booked for Friday, November 13 at 2 PM.";
+    const lookup = () => tool("tc_1", "check_availability", { date: "2026-11-13" }, { slots: [slot("2026-11-13T14:00:00Z")] });
+    const booking = () => tool("tc_2", "book_appointment", { slotId: "slot_1", patientId: "p1" }, { ok: true });
+    const judge = (side: string, args: Record<string, unknown>, confirmation: string) => {
+      const e = ev([caller("Book me for Friday.", 1), ...lookup(), ...booking(), ...tool("tc_3", side, args, { ok: false, error: "unavailable" }), agent(confirmation, 20)]);
+      const { policy, source } = policyFor(e);
+      return { report: parsed(checkCall(e, policy, { tz: "UTC", policySource: source })), policy };
+    };
+
+    it("book_callback failing leaves the booking passed", () => {
+      const { report, policy } = judge("book_callback", { phone: "555-0100" }, CONFIRM);
+      expect(policy.tools.book_callback).toBeUndefined();
+      expect(report.verdict).not.toBe("failed");
+      expect(report.results.find((r) => r.contract === "promise_backed")?.result).toBe("passed");
+    });
+
+    it("cancel_reminder failing leaves the booking passed", () => {
+      const { report, policy } = judge("cancel_reminder", { reminderId: "r1" }, "You're all set.");
+      expect(policy.tools.cancel_reminder).toBeUndefined();
+      expect(report.verdict).not.toBe("failed");
+      expect(report.results.find((r) => r.contract === "promise_backed")?.result).toBe("passed");
+    });
+
+    it("a real change failing after a good booking still fails the call", () => {
+      const { report } = judge("book_slot", { slotId: "slot_2" }, CONFIRM);
+      expect(report.verdict).toBe("failed");
     });
   });
 
