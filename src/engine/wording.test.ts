@@ -21,6 +21,7 @@ import {
   spokenViolatedText,
   toolSyntaxText,
   transferViolatedText,
+  unknownToolCause,
   unverifiedText,
   verifiedViolatedText,
   withFix,
@@ -63,6 +64,8 @@ describe("wording", () => {
       transferViolatedText("0:10", "not_attempted"),
       toolSyntaxText("0:10", "q"),
       requestViolatedText("a", "b"),
+      ...Object.values(unknownToolCause(["a", "b", "c"], "book")),
+      ...Object.values(unknownToolCause(["a"])),
       ...CONTRACT_IDS.map((c) => unverifiedText(c, [describeGap({ code: "unknown_success", tool: "t" })])),
     ];
     expect(all.filter((s) => DASH.test(s))).toEqual([]);
@@ -76,6 +79,16 @@ describe("wording", () => {
     expect(GAP_TEXT.unknown_success.missing).toBe("the {tool} result doesn't say whether it worked");
     expect(GAP_TEXT.unresolved_committed_detail.missing).toBe("the {field} of the {kind} isn't in the call");
     expect(REASONS.no_request).toEqual({ missing: "no caller request was found", fix: "Check the post-call analysis fields in the policy." });
+  });
+
+  it("names undescribed tools plainly, one or several", () => {
+    expect(unknownToolCause(["make_appointment"], "book")).toEqual({
+      missing: "the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking",
+      fix: "Add make_appointment to the policy.",
+    });
+    expect(unknownToolCause(["a", "b", "c"], "cancel").missing).toBe(
+      "the call used a, b and c, which the policy doesn't describe, so we couldn't tell whether any of them was the cancellation",
+    );
   });
 
   it("fills slots, and a gap's own tool wins over a default", () => {

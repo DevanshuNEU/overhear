@@ -247,6 +247,48 @@ describe("promise_backed", () => {
       expect(r.finding.did).toEqual([3, 4]);
     });
 
+    it("a tool the policy doesn't describe might have been the booking, so the claim is unverified, not violated", () => {
+      const r = run(ev([...tool("tc_1", "make_appointment", { ok: true }), agent(BOOKED, 40)]));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding).toEqual({
+        result: "unverified",
+        text: "Couldn't check promises backed by the system: the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking.",
+        said: [3],
+        did: [1],
+        asked: [],
+        gaps: [],
+        fields: [],
+      });
+    });
+
+    it("names every undescribed tool used before the claim, once each", () => {
+      const r = run(
+        ev([...tool("tc_1", "make_appointment", { ok: true }), ...lookup(), ...tool("tc_3", "set_appointment", {}), call("tc_4", "make_appointment"), agent(BOOKED, 40)]),
+      );
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe(
+        "Couldn't check promises backed by the system: the call used make_appointment and set_appointment, which the policy doesn't describe, so we couldn't tell whether any of them was the booking.",
+      );
+    });
+
+    it("a described change of another kind does not hide an undescribed tool", () => {
+      const r = run(ev([...tool("tc_1", "cancel_appointment", { ok: true }), ...tool("tc_2", "make_appointment", { ok: true }), agent(BOOKED, 40)]));
+      expect(r.out.result).toBe("unverified");
+    });
+
+    it("an undescribed tool used only after the claim leaves it violated", () => {
+      const r = run(ev([...lookup(), agent(BOOKED, 40), ...tool("tc_2", "make_appointment", { ok: true })]));
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toMatch(/No booking was attempted\.$/);
+    });
+
+    it("a backend action on an undescribed tool counts too", () => {
+      const action: ItemSpec = { kind: "backend_action", id: "ba_1", toolCallId: "tc_look", tool: "make_appointment", args: {}, result: {}, ok: true, ts: "t", link: { toolCallId: "tc_look", by: "tool_call_id" } };
+      const r = run(ev([...lookup(), action, agent(BOOKED, 40)], { tier: 2 }));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toContain("the call used make_appointment, which the policy doesn't describe");
+    });
+
     it("a claim made before the change was first tried does not say none was attempted at all", () => {
       const r = run(ev([...lookup(), agent(BOOKED, 5), ...tool("tc_1", "book_appointment", { ok: true })]));
       expect(r.out.result).toBe("violated");

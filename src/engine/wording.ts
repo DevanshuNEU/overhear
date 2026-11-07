@@ -61,8 +61,31 @@ export const REASONS = {
   field_not_spoken: { missing: "the agent didn't say the {field}", fix: "None needed if that was intended." },
   no_request: { missing: "no caller request was found", fix: "Check the post-call analysis fields in the policy." },
   llm_failed: { missing: "the model's reply couldn't be read", fix: "Run again, or check the model setting." },
+  unknown_tool: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether it was the {kind}",
+    fix: "Add {tool} to the policy.",
+  },
+  unknown_tools: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the {kind}",
+    fix: "Add {tool} to the policy.",
+  },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
 } satisfies Record<string, GapText>;
+
+/** Tool names for a sentence: "a", "a and b", "a, b and c". */
+function nameList(names: string[]): string {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
+/**
+ * The unverified cause for a claim that no described change backs while the call used tools the policy does not
+ * describe: any of them could have been the change, so the record does not prove nothing was attempted.
+ */
+export function unknownToolCause(tools: string[], kind?: ChangeKind): GapText {
+  const text = tools.length === 1 ? REASONS.unknown_tool : REASONS.unknown_tools;
+  const slots = { tool: nameList(tools), kind };
+  return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
+}
 
 /** Words for the kinds of change, in the sentences. */
 export const KIND_WORDS: Record<ChangeKind, string> = {

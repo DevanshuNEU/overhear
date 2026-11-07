@@ -5,10 +5,13 @@
 // them. A claim with no clear kind ("you're all set") matches any earlier change and counts only when one was
 // attempted before it. A reschedule claim also matches a cancel followed by a book, which stands or falls as one
 // change. Transfer claims and deferrals are other contracts' business. A change tool the policy gives no kind backs a
-// claim of any kind, since the record can't say what it was for. Nothing is violated on shaky evidence: a gap that
-// touches the claim, the call or its result, or ordering none, makes the finding unverified.
+// claim of any kind, since the record can't say what it was for. A claim no described change backs is violated only
+// when every earlier tool call is one the policy describes; a tool it doesn't describe might have been the change.
+// Nothing is violated on shaky evidence: a gap that touches the claim, the call or its result, or ordering none,
+// makes the finding unverified.
 import type { ChangeKind, Detection, Evidence, Finding, GapCode } from "@/report/schema";
 import type { ToolUse } from "../committed";
+import { toolPolicy } from "../policy";
 import {
   REASONS,
   describeGap,
@@ -16,6 +19,7 @@ import {
   formatTime,
   promisePassedText,
   promiseViolatedText,
+  unknownToolCause,
   unverifiedText,
   type GapText,
   type PromiseReason,
@@ -73,6 +77,11 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   }
 
   if (!backing) {
+    // A tool the policy doesn't describe might have been the change, so nothing here proves one wasn't attempted.
+    const unknown = undescribedBefore(ctx, seq);
+    if (unknown.tools.length > 0) {
+      return { ...base, did: unknown.seqs, result: "unverified", text: unverifiedText("promise_backed", [unknownToolCause(unknown.tools, kind)]), gaps: [] };
+    }
     const later = claim.kind ? backingFor(claim.kind, ctx.changes.filter((c) => c.callSeq > seq)) : undefined;
     return softenForMissingTools(ev, violated({ why: later ? "attempted_later" : "not_attempted", kind }), "promise_backed");
   }
@@ -86,6 +95,18 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
     return { ...base, result: "unverified", text: unverifiedText("promise_backed", [cause]), gaps: [] };
   }
   return { ...base, result: "passed", text: promisePassedText(time, claim.quote, kind), gaps: [] };
+}
+
+/** The tools used before a claim that the policy gives no role, in order of first use, with the seqs of their calls. */
+function undescribedBefore(ctx: ContractContext, seq: number): { tools: string[]; seqs: number[] } {
+  const used = ctx.ev.items.flatMap((it) => {
+    if (it.seq >= seq) return [];
+    if (it.kind === "tool_call") return [{ seq: it.seq, name: it.name }];
+    if (it.kind === "backend_action") return [{ seq: it.seq, name: it.tool }];
+    return [];
+  });
+  const unknown = used.filter((u) => toolPolicy(ctx.policy, u.name) === undefined);
+  return { tools: [...new Set(unknown.map((u) => u.name))], seqs: unknown.map((u) => u.seq) };
 }
 
 /** Whether the record has any tool call, which is what makes "nothing was attempted" something it can prove. */
