@@ -116,6 +116,22 @@ describe("roleFor", () => {
       expect(roleFor("delete_booking_reminder")).toBeNull();
     });
 
+    it.each([
+      "add_note_to_booking",
+      "add_to_booking",
+      "set_reminder_for_appointment",
+      "make_payment_for_booking",
+      "submit_feedback_for_appointment",
+      "delete_note_from_booking",
+      "remove_guest_from_reservation",
+    ])("%s is a side tool, not a change", (name) => expect(roleFor(name)).toBeNull());
+
+    it("needs the verb to sit directly before the noun", () => {
+      expect(roleFor("make_booking")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("confirm_appointments")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("appointment_make_booking")).toEqual({ role: "change", kind: "book" });
+    });
+
     it("leaves verbs without a booking noun alone", () => {
       expect(roleFor("set_timezone")).toBeNull();
       expect(roleFor("add_note")).toBeNull();

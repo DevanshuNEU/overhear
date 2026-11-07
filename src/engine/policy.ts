@@ -86,9 +86,10 @@ function hasDemoSlots(payload: unknown): boolean {
 
 /**
  * Role rules, in order; the first rule that matches wins (old plan Task 5). A rule matches when the name has one of
- * its words, or one of its noun verbs and ends in a booking noun ("make_booking", "delete_appointment"). The noun must
- * end the name so "add_booking_note" and "confirm_booking_by_email" stay undescribed. The noun verbs ("set", "add",
- * "make", "delete") mean nothing as a change without the noun.
+ * its words, or when the name ends in a booking noun and the word right before that noun is one of its noun verbs
+ * ("make_booking", "delete_appointment"). Anything between verb and noun ("add_note_to_booking",
+ * "set_reminder_for_appointment") or after the noun ("add_booking_note") is a side tool and gets no role from this
+ * path. The noun verbs mean nothing as a change without the noun.
  */
 type RoleRule = { words: string[]; withNoun?: string[]; role: Pick<ToolPolicy, "role" | "kind"> };
 
@@ -99,7 +100,9 @@ const ROLE_RULES: RoleRule[] = [
   { words: ["transfer"], role: { role: "transfer" } },
   { words: ["cancel"], withNoun: ["delete", "remove"], role: { role: "change", kind: "cancel" } },
   { words: ["reschedule", "move"], withNoun: ["change"], role: { role: "change", kind: "reschedule" } },
-  { words: ["book", "schedule", "create", "reserve"], withNoun: ["make", "submit", "confirm", "set", "add"], role: { role: "change", kind: "book" } },
+  // Known case: "confirm" can only confirm a booking that already exists. A good booking followed by a confirm that
+  // fails with "already confirmed" reads as a failed booking. Accepted so confirm_appointment-style tools are checked.
+  { words: ["book", "schedule", "create", "reserve"], withNoun:["make", "submit", "confirm", "set", "add"], role: { role: "change", kind: "book" } },
   { words: ["update", "modify", "change", "exchange", "return"], role: { role: "change", kind: "update" } },
   { words: ["check", "get", "find", "list", "search", "lookup", "availability"], role: { role: "lookup" } },
 ];
@@ -117,8 +120,9 @@ function nameWords(name: string): string[] {
 export function roleFor(name: string): Pick<ToolPolicy, "role" | "kind"> | null {
   const list = nameWords(name);
   const words = new Set(list);
-  const endsInNoun = list.length > 0 && BOOKING_NOUNS.has(list[list.length - 1]);
-  const rule = ROLE_RULES.find((r) => r.words.some((w) => words.has(w)) || (endsInNoun && (r.withNoun ?? []).some((w) => words.has(w))));
+  // The verb of a "verb + booking noun" name is the word right before the noun, which is the last word.
+  const verb = list.length >= 2 && BOOKING_NOUNS.has(list[list.length - 1]) ? list[list.length - 2] : undefined;
+  const rule = ROLE_RULES.find((r) => r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb)));
   return rule ? { ...rule.role } : null;
 }
 
