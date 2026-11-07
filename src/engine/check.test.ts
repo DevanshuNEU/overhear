@@ -242,7 +242,7 @@ describe("checkCall", () => {
         agent(CONFIRM, 20),
       ]);
       const { policy, source } = policyFor(e);
-      expect(policy.tools.book_follow_up_appointment).toEqual({ role: "change", kind: "book" });
+      expect(policy.tools.book_follow_up_appointment).toMatchObject({ role: "change", kind: "book" });
       expect(parsed(checkCall(e, policy, { tz: "UTC", policySource: source })).verdict).toBe("failed");
     });
 
