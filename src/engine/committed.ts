@@ -3,15 +3,18 @@
 // The tool calls in a record, paired with their results; the ones that change something; and, for each change,
 // the date, time and provider it committed. Tier 1 has no backend log, so a change's own arguments and result are
 // all it says about itself. The slot's date, time and provider live in the lookup that offered the slot, so an
-// item. field is read from the most recent earlier successful lookup whose item id equals the change's id (an exact
-// match first, then one that ignores letter case). A detail that can't be read, or that Retell scrubbed to a placeholder, is unresolved and says so in a gap: it is never guessed, and
+// item. field is read from the earlier successful lookups whose item id equals the change's id (an exact match
+// first, then one that ignores letter case). When more than one such item exists and they disagree on a field the
+// change needs, none is picked: the field is unresolved and one gap names every candidate. A detail that can't be
+// read, or that Retell scrubbed to a placeholder, is unresolved and says so in a gap: it is never guessed, and
 // never compared.
 import type { ChangeKind, Evidence, Gap, Policy } from "@/report/schema";
 import { readPath, type PathRoots } from "./paths";
 import { pairToolItems } from "./pairing";
 import { isPlaceholder } from "./placeholder";
 import { toolPolicy, type ToolPolicy } from "./policy";
-import { unresolvedDetail, type UnresolvedWhy } from "./wording";
+import { formatValue, toLocal } from "./spoken";
+import { lookupsDisagreeDetail, unresolvedDetail, type LookupCandidate, type UnresolvedWhy } from "./wording";
 
 export type Role = ToolPolicy["role"];
 export type FieldType = Policy["fields"][string]["type"];
@@ -71,13 +74,19 @@ export interface CommittedDetails {
   types: Record<string, FieldType>;
   /** Fields the change needed and could not resolve, plus any field the record had but Retell scrubbed. */
   unresolved: string[];
+  /** The fields the change needs: the ones whose absence makes a comparison unverified rather than optional. */
+  required: string[];
+  /** The seqs of the lookup results the item fields were read from, oldest first; [] when no item was read. */
+  sources: number[];
   gaps: Gap[];
 }
 
 /**
  * The details a change committed, field by field, from the policy's field paths. item. paths read the item the
- * change picked, found in the most recent earlier lookup that offered an item with the change's id (a lookup that
- * failed does not count). args., result. and call. paths read the change itself and the call's fields. A field is
+ * change meant, found in the earlier lookups that offered an item with the change's id (a lookup that failed does
+ * not count). When several items carry the id and disagree on a field, that field is read from none of them: if the
+ * change needs it, it is unresolved and its own gap names each candidate's lookup, result seq and value for it; if
+ * not, it is left out with no gap. args., result. and call. paths read the change itself and the call's fields. A field is
  * required when the tool's required list names it; with no list, when the field's own required flag is set; a
  * list of [] makes none required. A required field with no value is unresolved; so is any field whose value is a
  * redaction placeholder. Each unresolved field has an unresolved_committed_detail gap. Throws InputError for a
@@ -88,22 +97,34 @@ export function committedDetails(ev: Evidence, policy: Policy, change: ToolUse):
   const roots: PathRoots = { args: change.args, result: change.result, call: ev.callFields };
   const required = new Set(tp?.required ?? Object.entries(policy.fields).flatMap(([name, f]) => (f.required ? [name] : [])));
 
-  let picked: unknown;
-  let searched = false;
-  const item = () => {
-    if (!searched) {
-      searched = true;
-      picked = pickedItem(ev, policy, change, tp?.id !== undefined ? readPath(tp.id, roots) : undefined);
-    }
-    return picked;
-  };
+  const usesItem = Object.values(policy.fields).some((f) => f.path.split(".")[0] === "item");
+  const candidates = usesItem ? candidateItems(ev, policy, change, tp?.id !== undefined ? readPath(tp.id, roots) : undefined) : [];
+  const zone = { tz: policy.timezone ?? "UTC", policyTz: policy.timezone !== undefined };
+  // The item. fields the candidates disagree on. With one candidate, or none, there is nothing to disagree.
+  const disagree = new Set(
+    candidates.length < 2
+      ? []
+      : Object.entries(policy.fields).flatMap(([name, f]) => {
+          if (f.path.split(".")[0] !== "item") return [];
+          const keys = new Set(candidates.map((c) => comparableKey(f.type, readItem(f.path, c.item), zone)));
+          return keys.size > 1 ? [name] : [];
+        }),
+  );
+  // Of the candidates that agree, the latest one's value is read.
+  const picked = candidates.at(-1)?.item;
+  // The lookups a reader should be shown: the one the values were read from, and every candidate when some field is disputed.
+  const sources = [...new Set((disagree.size > 0 ? candidates : candidates.slice(-1)).map((c) => c.use.resultSeq!))].sort((a, b) => a - b);
 
   const fields: Record<string, unknown> = {};
   const types: Record<string, FieldType> = {};
-  const unresolved: { field: string; why: UnresolvedWhy }[] = [];
+  const unresolved: { field: string; why: UnresolvedWhy | "disagree" }[] = [];
   for (const [name, f] of Object.entries(policy.fields)) {
     types[name] = f.type;
-    const value = f.path.split(".")[0] === "item" ? readItem(f.path, item()) : readPath(f.path, roots);
+    if (disagree.has(name)) {
+      if (required.has(name)) unresolved.push({ field: name, why: "disagree" });
+      continue;
+    }
+    const value = f.path.split(".")[0] === "item" ? readItem(f.path, picked) : readPath(f.path, roots);
     if (isBlank(value)) {
       if (required.has(name)) unresolved.push({ field: name, why: "no_source" });
     } else if (isPlaceholder(value)) {
@@ -117,12 +138,57 @@ export function committedDetails(ev: Evidence, policy: Policy, change: ToolUse):
   }
 
   const seqs = change.resultSeq === null ? [change.callSeq] : [change.callSeq, change.resultSeq];
+  // One gap per unresolved field, each findable by its own field name. A disputed field's gap names every
+  // candidate's lookup, result and value for that field, and cites every candidate's result.
   const gaps = unresolved.map(({ field, why }): Gap => {
-    const gap: Gap = { code: "unresolved_committed_detail", detail: unresolvedDetail(field, change.tool, why), seqs: [...seqs], tool: change.tool, field };
+    let detail: string;
+    let cited = seqs;
+    if (why === "disagree") {
+      const said = candidates.map((c): LookupCandidate => ({ tool: c.use.tool, seq: c.use.resultSeq!, said: candidateSaid(policy.fields[field], c.item, zone) }));
+      detail = lookupsDisagreeDetail(field, said);
+      cited = [...new Set([...seqs, ...said.map((c) => c.seq)])].sort((a, b) => a - b);
+    } else {
+      detail = unresolvedDetail(field, change.tool, why);
+    }
+    const gap: Gap = { code: "unresolved_committed_detail", detail, seqs: [...cited], tool: change.tool, field };
     if (change.kind) gap.kind = change.kind;
     return gap;
   });
-  return { fields, types, unresolved: unresolved.map((u) => u.field), gaps };
+  return { fields, types, unresolved: unresolved.map((u) => u.field), required: [...required], sources, gaps };
+}
+
+interface Zone {
+  tz: string;
+  policyTz: boolean;
+}
+
+/**
+ * A field value as a key for comparing candidates. Dates and times compare as wall-clock values read the way the
+ * checker reads them, so one moment written two ways agrees; names and strings ignore letter case and extra
+ * spaces. A blank value and a scrubbed one each have their own key, so a candidate missing a field disagrees with
+ * one that has it, and two scrubbed ones agree (they are unresolved anyway).
+ */
+function comparableKey(type: FieldType, value: unknown, zone: Zone): string {
+  if (isBlank(value)) return "blank";
+  if (isPlaceholder(value)) return "hidden";
+  if ((type === "date" || type === "time" || type === "datetime") && typeof value === "string") {
+    const local = toLocal(value, zone.tz, zone.policyTz);
+    const parts = [type !== "time" ? local.date : undefined, type !== "date" ? local.time : undefined];
+    if (parts.some((p) => p !== undefined)) return `at ${parts.join(" ")}`;
+  }
+  const text = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+  return `is ${text.trim().replace(/\s+/g, " ").toLowerCase()}`;
+}
+
+/**
+ * What one candidate item said for a disputed field, as display text. A scrubbed value is never repeated, and a
+ * blank one reads "nothing".
+ */
+function candidateSaid(field: Policy["fields"][string], item: unknown, zone: Zone): string {
+  const value = readItem(field.path, item);
+  if (isBlank(value)) return "nothing";
+  if (isPlaceholder(value)) return "a value hidden by Retell";
+  return formatValue(field.type, value, zone.tz, zone.policyTz);
 }
 
 /**
@@ -147,31 +213,40 @@ export function providerNames(ev: Evidence, policy: Policy): string[] {
   return [...new Set(names)];
 }
 
+/** An item from an earlier lookup that carries the change's id, with the lookup it came from. */
+interface Candidate {
+  use: ToolUse;
+  item: unknown;
+}
+
 /**
- * The item the change picked: from the latest earlier successful lookup that offered an item with the change's id.
- * Only a lookup whose ok is true counts: a failed one offers nothing, and so does one whose success is unknown (after
- * resolveOk a lookup with a readable items list is already true, so a null one has no list to read). An id matches
- * exactly first, across every earlier lookup, newest first; only when none matches exactly does a match that
- * ignores letter case count, so ids that differ only in case never pick each other's item when the exact one exists.
+ * The items the change could mean: every item with the change's id in the earlier successful lookups, oldest
+ * lookup first and in list order within one. Only a lookup whose ok is true counts: a failed one offers nothing,
+ * and so does one whose success is unknown (after resolveOk a lookup with a readable items list is already true,
+ * so a null one has no list to read). An id matches exactly first: when any item matches exactly, only exact
+ * matches are candidates; only when none does, items that match ignoring letter case are. Two or more candidates
+ * are not ranked here: committedDetails compares them and picks none when they disagree.
  */
-function pickedItem(ev: Evidence, policy: Policy, change: ToolUse, changeId: unknown): unknown {
+function candidateItems(ev: Evidence, policy: Policy, change: ToolUse, changeId: unknown): Candidate[] {
   const wanted = idKey(changeId);
-  if (wanted === null) return undefined;
+  if (wanted === null) return [];
   const earlier = toolCalls(ev, policy, "lookup")
     .filter((u) => u.resultSeq !== null && u.resultSeq < change.callSeq && u.ok === true)
-    .sort((a, b) => b.resultSeq! - a.resultSeq!);
+    .sort((a, b) => a.resultSeq! - b.resultSeq!);
   for (const exact of [true, false]) {
-    for (const use of earlier) {
+    const found = earlier.flatMap((use): Candidate[] => {
       const idPath = toolPolicy(policy, use.tool)?.id;
-      if (idPath === undefined) continue;
-      const hit = itemsOf(policy, use).find((it) => {
-        const key = idKey(readPath(idPath, { item: it }));
-        return key !== null && (exact ? key.exact === wanted.exact : key.folded === wanted.folded);
-      });
-      if (hit !== undefined) return hit;
-    }
+      if (idPath === undefined) return [];
+      return itemsOf(policy, use)
+        .filter((it) => {
+          const key = idKey(readPath(idPath, { item: it }));
+          return key !== null && (exact ? key.exact === wanted.exact : key.folded === wanted.folded);
+        })
+        .map((item) => ({ use, item }));
+    });
+    if (found.length > 0) return found;
   }
-  return undefined;
+  return [];
 }
 
 /** The items a lookup returned, read from the tool's items path; none when the policy gives no path or it is not a list. */

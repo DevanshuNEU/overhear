@@ -1012,5 +1012,846 @@
       null
     ],
     "source": "review:detector-probe"
+  },
+  {
+    "text": "Your appointment is scheduled for next week.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're scheduled for Tuesday already.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your appointment is now scheduled for Tuesday at 9am.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll transfer you if needed.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for Tuesday if the doctor is free.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book it once the system is back.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll transfer you as soon as a nurse is free.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I wasn't able to book that.",
+    "classes": [
+      "refusal"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I couldn't transfer you just now.",
+    "classes": [
+      "refusal"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your booking is complete.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're good to go.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I've booked Tuesday at 9am for you. You're good to go.",
+    "classes": [
+      "completion",
+      "completion"
+    ],
+    "kinds": [
+      "book",
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your insurance card is on file. You're good to go.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Consider it done.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Booking you now, then I'll connect you.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Our office is on Elm St. You're booked for Monday.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Dr. Osei is at St. Mary's Hospital. You're booked for Monday.",
+    "classes": [
+      "completion"
+    ],
+    "kind": "book",
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set for Tuesday, the insurance update is pending.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'm transferring you now, ok?",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll connect you with a nurse now, alright?",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for Monday, right?",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Would you like me to transfer you?",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Would you like me to transfer you, okay?",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I can book (if you want) tomorrow.",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your appointment is already booked.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're already confirmed for Tuesday.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your appointment is already cancelled.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me book that and connect you.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book that, then connect you with a nurse.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book that and transfer you.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Would you like me to book that and connect you?",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me check the calendar and put you down for Tuesday.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me check and put you on hold for a moment.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll pull up your file and put you on the waitlist.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "The front desk will review it and transfer you to billing.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "They usually book and transfer you the same day.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I won't book it and transfer you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'm not going to cancel that and transfer you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me book that and then put you through to billing.",
+    "classes": [
+      "intention",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're booked for Tuesday and I already sent the confirmation text.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're booked for Tuesday and your reminder is already set.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Your old appointment is cancelled since you already have one on Friday.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "cancel"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for Tuesday when Dr. Osei is in.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for the week when you're back.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you now if that's okay.",
+    "classes": [
+      "intention"
+    ],
+    "kinds": [
+      "book"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll transfer you to the nurse when she's free.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set, your cancellation went through.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "cancel"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set, the reschedule went through.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "reschedule"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "You're all set, the insurance update is pending.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      null
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll transfer you tomorrow when the office opens.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for 9am tomorrow when the doctor approves.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll cancel it Monday when the office opens.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll book you for Monday when the system is back up.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll never check and book you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me not check and cancel it.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me know when you're ready and book it.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll send a link so you can cancel and book online.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll give you a number to call and book.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "I'll see if there's a slot and book you.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Let me know if you'd like to cancel and book.",
+    "classes": [],
+    "source": "review:ove-43"
+  },
+  {
+    "text": "Once the system is back I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After we finish booking, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When a nurse is free, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "As soon as the line opens up, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once you're booked, I'll connect you with billing.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the system is back, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When Dr. Osei is free, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "I'm transferring you now.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Let me connect you with a nurse.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Okay, I'll transfer you to the front desk.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Now that you're booked, I'll connect you with a nurse.",
+    "classes": [
+      "completion",
+      "transfer"
+    ],
+    "kinds": [
+      "book",
+      null
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Since you asked, I'll transfer you.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Now that I have your date of birth, I'll book you.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Okay, once the system is back I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Because you asked, I'll book you.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Before we hang up, I'll connect you with a nurse.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Before you go, I'll transfer you to billing.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Until Dr. Osei is back, I'll connect you with the nurse on call.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Until the system is back up, I'll transfer you to the front desk.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once again, I'm transferring you now.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once more, let me connect you with a nurse.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After all, I'll transfer you to billing.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When it comes to billing, I'll transfer you.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When you called earlier you asked for billing, so I'm transferring you now.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once again, thanks for holding, I'm transferring you now.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Until we hear back, I'll book you for Tuesday as a placeholder.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
+  },
+  {
+    "text": "As soon as possible, I'll book you.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When I checked, Tuesday was open, so I'll book you for Tuesday.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Um, once the system is back I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Well, when a nurse is free, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Actually, once the system is back, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the system is back, let me book that and then put you through.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once Dr. Osei, our nurse, is back, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once you're booked, then I'll connect you with billing.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the system is back, and I have your info, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After we finish booking, so you know, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When the nurse is free, but not before, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the system is back, I'll let you know and I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When Dr. Osei is back, which should be soon, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Okay, after checking the calendar, I'll book you for Tuesday.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once you've had a chance to look, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When we've checked your insurance, I'll connect you with billing.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once you've checked in, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After you've called back, I'll book you for Tuesday.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once we had the results, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the nurse has looked at it, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After the nurse called, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When Dr. Osei had a chance, I'll connect you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After booking, I'll connect you with a nurse.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Yes, once the system is back, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Sure, when a nurse is free, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Sorry, once the system is back, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Yes, I'm transferring you now.",
+    "classes": [
+      "transfer"
+    ],
+    "source": "review:ove-46"
   }
 ]

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Evidence } from "@/report/schema";
 import { SAMPLE_REPORTS } from "@/report/samples";
 import phrasings from "./phrasings.json";
 import { classifyTurn, detectAll, findToolSyntax, splitSentences } from "./detect-speech";
@@ -90,11 +91,76 @@ describe("classifyTurn", () => {
   });
 });
 
+describe("splitSentences and St.", () => {
+  it("ends a sentence at a street St. before a new clause", () => {
+    expect(splitSentences("Our office is on Elm St. You're booked for Monday.")).toEqual([
+      "Our office is on Elm St.",
+      " You're booked for Monday.",
+    ]);
+    expect(splitSentences("We're on Elm St.I've booked you.")).toEqual(["We're on Elm St.", "I've booked you."]);
+  });
+  it("keeps St. before a name", () => {
+    expect(splitSentences("Go to St. Mary's Hospital, you're booked.")).toHaveLength(1);
+    expect(splitSentences("Dr. Osei is at St. Mary's.")).toHaveLength(1);
+  });
+  it("quotes only the completion", () => {
+    const out = classifyTurn("Our office is on Elm St. You're booked for Monday.");
+    expect(out).toEqual([{ cls: "completion", kind: "book", quote: "You're booked for Monday" }]);
+  });
+});
+
 describe("findToolSyntax", () => {
   it("finds spoken tool syntax", () => {
     expect(findToolSyntax("Calling book_appointment(date: 5th) now", ["book_appointment"])).not.toBeNull();
     expect(findToolSyntax('{"name": "book_appointment"}', [])).not.toBeNull();
     expect(findToolSyntax("Booked for the 5th.", ["book_appointment"])).toBeNull();
+  });
+  it("finds a tool name with argument-like content", () => {
+    expect(findToolSyntax("book_appointment({...})", ["book_appointment"])).not.toBeNull();
+    expect(findToolSyntax('book("Monday")', ["book"])).not.toBeNull();
+    expect(findToolSyntax("book(date=Monday)", ["book"])).not.toBeNull();
+    expect(findToolSyntax('book {"date": "Monday"}', ["book"])).not.toBeNull();
+    expect(findToolSyntax("functions.book", ["book"])).not.toBeNull();
+  });
+  it("does not read a parenthetical after a tool word as tool syntax", () => {
+    expect(findToolSyntax("I can book (if you want) tomorrow", ["book"])).toBeNull();
+    expect(findToolSyntax("I can book (tomorrow or Friday)", ["book"])).toBeNull();
+    expect(findToolSyntax("I can book tomorrow", ["book"])).toBeNull();
+  });
+});
+
+// Spoken tool syntax, labeled by hand: a line and the tool names the policy knows.
+describe("detectAll reads spoken tool syntax", () => {
+  const turn = (text: string) =>
+    ({ items: [{ kind: "turn", seq: 1, role: "agent", text, startSec: null, interrupted: null }] }) as unknown as Evidence;
+  it.each([
+    ["functions.transfer_call", ["transfer_call"]],
+    ["transfer_call()", ["transfer_call"]],
+    ['book_appointment({"slot_id": 3})', ["book_appointment"]],
+    ["Calling book_appointment(date: 5th) now", ["book_appointment"]],
+    ["Calling transfer_call(billing) now", ["transfer_call"]],
+    ["book_appointment(3)", ["book_appointment"]],
+    ["book_appointment: date=5th", ["book_appointment"]],
+    ['transfer_call: "billing"', ["transfer_call"]],
+    ["transfer_call: 3", ["transfer_call"]],
+    ["transfer_call ()", ["transfer_call"]],
+    ['book("Monday")', ["book"]],
+    ["book(date=Monday)", ["book"]],
+  ])("%s is tool_syntax", (text, tools) => {
+    const out = detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax");
+    expect(out).toHaveLength(1);
+    expect(text).toContain(out[0].quote);
+  });
+  it.each([
+    ["Cancel: your 3pm is gone", ["cancel"]],
+    ["cancel: your 3pm is gone", ["cancel"]],
+    ["I can book (if you want) tomorrow", ["book"]],
+    ["I can transfer_call tomorrow", ["transfer_call"]],
+    ["I'll book ('cause you asked) tomorrow", ["book"]],
+    ["I can book (tomorrow: 9am or Friday)", ["book"]],
+    ["The transfer_call: that's the tool", ["transfer_call"]],
+  ])("%s is not tool_syntax", (text, tools) => {
+    expect(detectAll(turn(text), tools).filter((d) => d.cls === "tool_syntax")).toEqual([]);
   });
 });
 

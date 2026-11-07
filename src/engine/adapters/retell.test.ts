@@ -7,7 +7,7 @@ import { NO_CONTENT_REASONS, NOT_A_RETELL_CALL } from "@/report/labels";
 import { SAMPLE_REPORTS, failedSample } from "@/report/samples";
 import { toRetell } from "../testing/retell";
 import { InputError } from "../types";
-import { GAP_TEXT } from "../wording";
+import { GAP_DETAIL } from "../wording";
 import { fromRetell, type Adapted } from "./retell";
 
 type Raw = Record<string, unknown>;
@@ -170,7 +170,7 @@ describe("fromRetell", () => {
     const e = evidenceOf(call({ transcript_with_tool_calls: undefined, transcript_object: [{ role: "user", content: "Hello", words: [] }] }));
     expect(e.ordering).toBe("none");
     expect(e.items).toEqual([{ kind: "turn", seq: 1, role: "caller", text: "Hello", startSec: null, interrupted: null }]);
-    expect(e.gaps).toEqual([{ code: "missing_tool_transcript", detail: GAP_TEXT.missing_tool_transcript, seqs: [] }]);
+    expect(e.gaps).toEqual([{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }]);
   });
 
   describe("reads no_content for a stripped call and for a call that never connected", () => {

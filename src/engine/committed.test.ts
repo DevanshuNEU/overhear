@@ -97,9 +97,9 @@ describe("changes", () => {
 });
 
 describe("committedDetails", () => {
-  it("item. fields resolve through the most recent earlier lookup whose item id equals the change's id", () => {
+  it("item. fields resolve through the earlier lookup whose item id equals the change's id", () => {
     const e = ev([
-      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-06T09:00:00.000Z")] }),
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-0", "2026-11-06T09:00:00.000Z")] }),
       ...tool("tc_2", "check_availability", {}, { slots: [osei("s-1", "2026-11-06T10:00:00.000Z"), nair("s-2", "2026-11-06T14:00:00.000Z")] }),
       ...tool("tc_3", "check_availability", {}, { slots: [nair("s-9", "2026-11-06T16:00:00.000Z")] }),
       ...tool("tc_4", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
@@ -115,6 +115,9 @@ describe("committedDetails", () => {
     expect(d.types).toEqual({ date: "date", time: "time", provider: "name" });
     expect(d.unresolved).toEqual([]);
     expect(d.gaps).toEqual([]);
+    // Which fields the change needs, and which lookup result the item was read from (tc_3's result is seq 6).
+    expect(d.required).toEqual(["date", "time"]);
+    expect(d.sources).toEqual([4]);
   });
 
   it("a lookup that came after the change, or that failed, does not count", () => {
@@ -238,8 +241,13 @@ describe("committedDetails", () => {
     const [a, b, c] = changes(e, PRESET);
     expect(committedDetails(e, PRESET, a).fields.date).toBe("2026-11-06T15:00:00.000Z");
     expect(committedDetails(e, PRESET, b).fields.date).toBe("2026-11-06T09:00:00.000Z");
-    // No exact match: the first case-insensitive match in the lookup's order.
-    expect(committedDetails(e, PRESET, c).fields.date).toBe("2026-11-06T09:00:00.000Z");
+    // No exact match, and both case-insensitive matches are candidates that disagree on the time: it is unresolved.
+    // The date is the same in both, so it still resolves.
+    const d = committedDetails(e, PRESET, c);
+    expect(d.fields).toEqual({ date: "2026-11-06T15:00:00.000Z" });
+    expect(d.unresolved).toEqual(["time"]);
+    expect(d.gaps).toHaveLength(1);
+    expect(d.gaps[0]).toMatchObject({ field: "time", seqs: [2, 7, 8] });
   });
 
   it("an exact id in an older lookup beats a case-only match in a newer one", () => {
@@ -248,7 +256,9 @@ describe("committedDetails", () => {
       ...tool("tc_2", "check_availability", {}, { slots: [{ id: "recab", startsAt: "2026-11-06T15:00:00.000Z" }] }),
       ...tool("tc_3", "book_appointment", { slotId: "recAb" }, { ok: true }),
     ]);
-    expect(committedDetails(e, PRESET, changes(e, PRESET)[0]).fields.date).toBe("2026-11-06T09:00:00.000Z");
+    const d = committedDetails(e, PRESET, changes(e, PRESET)[0]);
+    expect(d.fields.date).toBe("2026-11-06T09:00:00.000Z");
+    expect(d.gaps).toEqual([]);
   });
 
   it("a lookup whose success is unknown does not offer items", () => {
@@ -263,6 +273,145 @@ describe("committedDetails", () => {
     const bad: Policy = { ...PRESET, fields: { date: { path: "nowhere.startsAt", type: "date", required: true } } };
     const e = booked();
     expect(() => committedDetails(e, bad, changes(e, bad)[0])).toThrow(/policy path/);
+  });
+});
+
+/** The preset plus a second lookup tool that lists appointments, so two lookups can offer the same item id. */
+const WITH_APPOINTMENTS: Policy = {
+  ...PRESET,
+  tools: { ...PRESET.tools, list_appointments: { role: "lookup", items: "result.appointments", id: "item.id" } },
+};
+
+describe("committedDetails when earlier lookups disagree", () => {
+  it("two lookups with the same id and different needed fields: unresolved, one gap per field naming both candidates", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [osei("s-2", "2026-12-01T16:00:00.000Z")] }),
+      ...tool("tc_3", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.fields).toEqual({});
+    expect(d.unresolved).toEqual(["date", "time"]);
+    // Date and time are needed and disputed; provider is disputed too but not needed, so it has no gap.
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    const byField = (name: string) => d.gaps.find((g) => g.field === name)!;
+    for (const name of ["date", "time"]) {
+      expect(byField(name)).toMatchObject({ code: "unresolved_committed_detail", tool: "book_appointment", kind: "book" });
+      expect(byField(name).seqs).toEqual(expect.arrayContaining([2, 4]));
+      expect(byField(name).seqs).toEqual([2, 4, 5, 6]);
+    }
+    expect(byField("date").detail).toBe(
+      "Earlier lookups gave different values for the date of this slot: check_availability (result 2) said Tuesday, November 10; list_appointments (result 4) said Tuesday, December 1.",
+    );
+    expect(byField("time").detail).toBe(
+      "Earlier lookups gave different values for the time of this slot: check_availability (result 2) said 9:00 AM; list_appointments (result 4) said 4:00 PM.",
+    );
+  });
+
+  it("two lookups with the same id and the same needed fields resolve, with no gap", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_3", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.fields).toEqual({ date: "2026-11-10T09:00:00.000Z", time: "2026-11-10T09:00:00.000Z", provider: "Dr. Priya Nair" });
+    expect(d.unresolved).toEqual([]);
+    expect(d.gaps).toEqual([]);
+  });
+
+  it("two items with the same id in one lookup that disagree: unresolved", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z"), nair("s-2", "2026-11-11T11:00:00.000Z")] }),
+      ...tool("tc_2", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, PRESET, changes(e, PRESET)[0]);
+    // Both items name the same provider, so that field still resolves.
+    expect(d.fields).toEqual({ provider: "Dr. Priya Nair" });
+    expect(d.unresolved).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.seqs)).toEqual([[2, 3, 4], [2, 3, 4]]);
+    expect(d.gaps[0].detail).toBe(
+      "Earlier lookups gave different values for the date of this slot: check_availability (result 2) said Tuesday, November 10; check_availability (result 2) said Wednesday, November 11.",
+    );
+  });
+
+  it("an exact id match alone counts when a case-different id has other details", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [{ id: "recab", startsAt: "2026-11-06T15:00:00.000Z", providerName: "Dr. Amara Osei" }] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [{ id: "recAb", startsAt: "2026-11-06T09:00:00.000Z", providerName: "Dr. Priya Nair" }] }),
+      ...tool("tc_3", "book_appointment", { slotId: "recAb", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.fields).toEqual({ date: "2026-11-06T09:00:00.000Z", time: "2026-11-06T09:00:00.000Z", provider: "Dr. Priya Nair" });
+    expect(d.unresolved).toEqual([]);
+    expect(d.gaps).toEqual([]);
+  });
+
+  it("a disagreement only on a field the policy does not need leaves the change resolved, and that field out", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [osei("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_3", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.fields).toEqual({ date: "2026-11-10T09:00:00.000Z", time: "2026-11-10T09:00:00.000Z" });
+    expect(d.unresolved).toEqual([]);
+    expect(d.gaps).toEqual([]);
+  });
+
+  it("a candidate that lacks a needed field disagrees with one that has it", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [{ id: "s-2" }] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_3", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.fields).toEqual({});
+    expect(d.unresolved).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    expect(d.gaps[0].detail).toContain("check_availability (result 2) said nothing");
+  });
+
+  it("never repeats a scrubbed placeholder in the gap text", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [{ id: "s-2", startsAt: "[date 1]", providerName: "[person name 1]" }] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_3", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.unresolved).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    for (const g of d.gaps) {
+      expect(g.detail).not.toContain("[date 1]");
+      expect(g.detail).not.toContain("[person name 1]");
+      expect(g.detail).toContain("check_availability (result 2) said a value hidden by Retell");
+    }
+  });
+
+  it("candidates that write the same moment two ways agree", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00Z")] }),
+      ...tool("tc_2", "list_appointments", {}, { appointments: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_3", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.unresolved).toEqual([]);
+    expect(d.gaps).toEqual([]);
+  });
+
+  it("three candidates, two agreeing and one not, still disagree", () => {
+    const e = ev([
+      ...tool("tc_1", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_2", "check_availability", {}, { slots: [nair("s-2", "2026-11-10T09:00:00.000Z")] }),
+      ...tool("tc_3", "list_appointments", {}, { appointments: [nair("s-2", "2026-11-11T10:00:00.000Z")] }),
+      ...tool("tc_4", "book_appointment", { slotId: "s-2", patientId: "pt-1" }, { ok: true }),
+    ]);
+    const d = committedDetails(e, WITH_APPOINTMENTS, changes(e, WITH_APPOINTMENTS)[0]);
+    expect(d.unresolved).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.field)).toEqual(["date", "time"]);
+    expect(d.gaps.map((g) => g.seqs)).toEqual([[2, 4, 6, 7, 8], [2, 4, 6, 7, 8]]);
+    expect(d.gaps[0].detail).toContain("list_appointments (result 6)");
   });
 });
 
