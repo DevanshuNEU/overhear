@@ -1,7 +1,8 @@
 // @vitest-environment node
-import fs from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { failedSample } from "@/report/samples";
+import { analyzeRetellCall } from "../analyze";
+import { toRetell } from "../testing/retell";
 import { engine, engineLabel, engineNotBuiltYet, isStandIn } from "./engine";
 
 describe("the engine the eval runs", () => {
@@ -20,9 +21,15 @@ describe("the engine the eval runs", () => {
     expect(engineLabel(() => ({ kind: "no_content", callId: "x", reason: "no_transcript" }))).toBe("analyzeRetellCall");
   });
 
-  // Task 10 adds src/engine/analyze.ts. From then on the stand-in must be gone, or every eval number is about it.
-  it("is the real engine once src/engine/analyze.ts exists", () => {
-    const built = fs.existsSync(path.join(__dirname, "..", "analyze.ts"));
-    expect(isStandIn(engine), built ? "analyze.ts exists: swap the stand-in in src/engine/eval/engine.ts" : "").toBe(!built);
+  // The stand-in must never be the engine the eval runs, or every eval number is about it.
+  it("is the real engine, analyzeRetellCall, not the stand-in", () => {
+    expect(engine).toBe(analyzeRetellCall);
+    expect(isStandIn(engine)).toBe(false);
+    expect(engineLabel(engine)).toBe("analyzeRetellCall");
+  });
+
+  it("the real engine answers a call record with a report", () => {
+    const out = engine(toRetell(failedSample.evidence), { tz: "UTC" });
+    expect(out.kind === "report" && out.report.verdict).toBe("failed");
   });
 });
