@@ -69,6 +69,32 @@ describe("analyzeRetellCall", () => {
     }
   });
 
+  // Tool names alone never grant the preset: another agent can reuse the demo's names. Here the lookup fails and the
+  // booking says nothing in the demo's shape, so the policy is inferred, a transfer that was never attempted cannot
+  // be proved missing, and the call is not Failed.
+  it("a failed lookup and a booking with no demo-shaped result do not earn the preset or a false Failed", () => {
+    const turn = (role: "agent" | "caller", text: string, startSec: number): ItemSpec => ({ kind: "turn", role, text, startSec, interrupted: null });
+    for (const booking of [[], [{ kind: "tool_result", id: "tc_2", ok: null, platformOk: true, payload: { status: "confirmed" } } as ItemSpec]]) {
+      const raw = toRetell(
+        ev([
+          turn("caller", "I need an appointment.", 1),
+          { kind: "tool_call", id: "tc_1", name: "check_availability", args: {} },
+          { kind: "tool_result", id: "tc_1", ok: null, platformOk: false, payload: "HTTP 500: Request failed" },
+          { kind: "tool_call", id: "tc_2", name: "book_appointment", args: { slotId: "x" } },
+          ...booking,
+          turn("agent", "Let me transfer you to someone who can help.", 30),
+        ]),
+      );
+      const out = analyzeRetellCall(raw, { tz: "UTC" });
+      expect(out.kind).toBe("report");
+      if (out.kind === "report") {
+        expect(out.report.verdict).not.toBe("failed");
+        expect(out.report.policy.tools).not.toHaveProperty("verify_patient");
+        expect(out.report.results.find((c) => c.contract === "transfer_kept")?.result).toBe("unverified");
+      }
+    }
+  });
+
   it("handles a call with no turns", () => {
     expect(analyzeRetellCall({ call_id: "call_empty", transcript_with_tool_calls: [] }, opts)).toEqual({ kind: "no_content", callId: "call_empty", reason: "no_transcript" });
     expect(analyzeRetellCall({ call_id: "call_none" }, opts)).toEqual({ kind: "no_content", callId: "call_none", reason: "no_transcript" });

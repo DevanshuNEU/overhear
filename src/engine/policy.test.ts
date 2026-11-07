@@ -273,9 +273,22 @@ describe("policyFor", () => {
       expect(policyFor(retry).source).toBe("preset");
     });
 
-    it("keeps the preset when the call went on to use a tool only the preset names", () => {
-      const call = ev([turn("Let me check."), ...failedLookup("tc_1"), ...tool("tc_2", "verify_patient", {}, { verified: true, patientId: "pt-1" })]);
-      expect(policyFor(call).source).toBe("preset");
+    // A positive sign comes from what a result says, never from a tool's name: names alone are too common.
+    it("keeps the preset when another preset tool's result has the demo's shape", () => {
+      const verify = ev([turn("Let me check."), ...failedLookup("tc_1"), ...tool("tc_2", "verify_patient", {}, { verified: true, patientId: "pt-1" })]);
+      expect(policyFor(verify).source).toBe("preset");
+      const book = ev([...failedLookup("tc_1"), ...tool("tc_2", "book_appointment", { slotId: "s-1" }, { ok: true, appointmentId: "a-1" })]);
+      expect(policyFor(book).source).toBe("preset");
+    });
+
+    it("infers when a preset tool is called but no result shows the demo's shape", () => {
+      const book = (payload: unknown, platformOk: boolean | null = true) => ev([...failedLookup("tc_1"), ...tool("tc_2", "book_appointment", { slotId: "s-1" }, payload, platformOk)]);
+      expect(policyFor(book("Booked")).source).toBe("inferred");
+      expect(policyFor(book({ status: "confirmed" })).source).toBe("inferred");
+      expect(policyFor(book({ ok: true }, false)).source).toBe("inferred");
+      expect(policyFor(ev([...failedLookup("tc_1"), { kind: "tool_call", id: "tc_2", name: "book_appointment", args: {} }])).source).toBe("inferred");
+      const verify = ev([...failedLookup("tc_1"), ...tool("tc_2", "verify_patient", {}, { verified: "yes" })]);
+      expect(policyFor(verify).source).toBe("inferred");
     });
 
     it("infers when the errored lookup is all there is, or all the call's lookups that answered are not the demo's", () => {
@@ -284,7 +297,7 @@ describe("policyFor", () => {
     });
 
     it("infers when a lookup that did not fail answered in another shape, whatever else the call did", () => {
-      const call = ev([...failedLookup("tc_1"), ...tool("tc_2", "check_availability", {}, "no slots"), ...tool("tc_3", "verify_patient", {}, { verified: true })]);
+      const call = ev([...failedLookup("tc_1"), ...tool("tc_2", "check_availability", {}, "no slots"), ...tool("tc_3", "verify_patient", {}, { verified: true, patientId: "pt-1" })]);
       expect(policyFor(call).source).toBe("inferred");
     });
 
