@@ -138,7 +138,7 @@ describe("fromRetell", () => {
     const out = fromRetell(call());
     expect(out.kind === "evidence" && out.agentId).toBe("agent_northwind");
     expect(JSON.stringify((out as { evidence: Evidence }).evidence)).not.toContain("agent_northwind");
-    for (const agent_id of [undefined, "", 7, null, {}]) {
+    for (const agent_id of [undefined, "", "  ", "\t\n", 7, null, {}]) {
       const none = fromRetell(call({ agent_id }));
       expect(none.kind === "evidence" && none.agentId).toBeNull();
     }

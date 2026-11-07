@@ -52,6 +52,7 @@ describe("analyzeCall", () => {
     const hasPreset = (out: Outcome) => out.kind === "report" && isDeepStrictEqual(out.report.policy, preset);
 
     it("passes OVERHEAR_DEMO_AGENT_ID to the engine, read when the call is analyzed", () => {
+      vi.stubEnv("RETELL_AGENT_ID", undefined);
       vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", "agent_demo");
       expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
       expect(hasPreset(analyzeCall(record("agent_other")))).toBe(false);
@@ -59,15 +60,55 @@ describe("analyzeCall", () => {
       expect(hasPreset(analyzeCall(record("agent_other")))).toBe(true);
     });
 
-    it("with the variable unset or empty, a pulled call that has an agent id never gets the preset", () => {
+    it("with neither variable set, a pulled call that has an agent id never gets the preset", () => {
       vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", undefined);
+      vi.stubEnv("RETELL_AGENT_ID", undefined);
       expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(false);
       vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", "");
+      vi.stubEnv("RETELL_AGENT_ID", "");
       expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(false);
+    });
+
+    it("falls back to RETELL_AGENT_ID, the provisioned demo agent, when OVERHEAR_DEMO_AGENT_ID is unset", () => {
+      vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", undefined);
+      vi.stubEnv("RETELL_AGENT_ID", "agent_demo");
+      expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
+      expect(hasPreset(analyzeCall(record("agent_other")))).toBe(false);
+      vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", "");
+      expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
+    });
+
+    it("a blank value grants nothing, and does not hide the other variable", () => {
+      for (const blank of ["  ", "\t", " \t "]) {
+        vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", blank);
+        vi.stubEnv("RETELL_AGENT_ID", blank);
+        expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(false);
+        // A blank value is no id, so a call whose own agent id is blank is a call with none: the shape rule.
+        expect(hasPreset(analyzeCall(record(blank)))).toBe(true);
+      }
+      vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", "  ");
+      vi.stubEnv("RETELL_AGENT_ID", "agent_demo");
+      expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
+    });
+
+    it("trims both variables", () => {
+      vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", "  agent_demo\n");
+      expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
+      vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", undefined);
+      vi.stubEnv("RETELL_AGENT_ID", " agent_demo ");
+      expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
+    });
+
+    it("OVERHEAR_DEMO_AGENT_ID takes precedence over RETELL_AGENT_ID when both are set", () => {
+      vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", "agent_demo");
+      vi.stubEnv("RETELL_AGENT_ID", "agent_other");
+      expect(hasPreset(analyzeCall(record("agent_demo")))).toBe(true);
+      expect(hasPreset(analyzeCall(record("agent_other")))).toBe(false);
     });
 
     it("a call with no agent id keeps the shape rule, so the samples are unchanged", () => {
       vi.stubEnv("OVERHEAR_DEMO_AGENT_ID", undefined);
+      vi.stubEnv("RETELL_AGENT_ID", "agent_demo");
       const failed = analyzeCall(toRetell(failedSample.evidence));
       const passed = analyzeCall(toRetell(passedSample.evidence));
       expect(failed.kind === "report" && failed.report.verdict).toBe("failed");

@@ -66,7 +66,13 @@ export function fromRetell(raw: unknown): Adapted {
     items: readItems(call[source] as unknown[]),
     gaps: withTools ? [] : [{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }],
   };
-  return { kind: "evidence", evidence, source, agentId: isId(call.agent_id) ? call.agent_id : null };
+  return { kind: "evidence", evidence, source, agentId: agentIdOf(call.agent_id) };
+}
+
+/** The record's agent id, trimmed; null when it is missing, not text or blank. */
+function agentIdOf(v: unknown): string | null {
+  const id = typeof v === "string" ? v.trim() : "";
+  return id === "" ? null : id;
 }
 
 /** The call record itself, out of a webhook or custom-function body when it is wrapped in one. */
