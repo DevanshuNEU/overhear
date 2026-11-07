@@ -544,14 +544,15 @@ describe("spoken_matches_committed", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding.result).toBe("unverified");
       expect(r.finding.text).toBe(
-        "Couldn't check spoken details match the booking: the agent said 7 PM, and the booking is 7:00 PM UTC, which is 2:00 PM where this check ran, so we couldn't tell which time the caller meant.",
+        "Couldn't check spoken details match the booking: the agent said Friday, November 13 at 7 PM, and the booking is Friday, November 13 at 7:00 PM UTC, which is Friday, November 13 at 2:00 PM where this check ran, so we couldn't tell which date and time the caller meant.",
       );
       expect(r.finding.fields.map((f) => [f.field, f.status])).toEqual([
         ["date", "match"],
         ["time", "unresolved"],
         ["provider", "match"],
       ]);
-      expect(r.finding.fields[1]).toMatchObject({ values: ["7 PM"], committed: "2:00 PM" });
+      // The row names both readings, so a reader sees why it is unclear.
+      expect(r.finding.fields[1]).toMatchObject({ values: ["7 PM"], committed: "2:00 PM here or 7:00 PM UTC" });
       expect(r.finding.gaps).toEqual([]);
     });
 
@@ -574,16 +575,65 @@ describe("spoken_matches_committed", () => {
     it("a time that fits only UTC is unverified when the machine is far east", () => {
       const r = inferredIn("Asia/Tokyo", "2026-11-13T14:00:00Z", "You're booked for Friday, November 13 at 2 PM with Dr. Nair.");
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toContain("which is 11:00 PM where this check ran");
+      expect(r.finding.text).toContain("which is Friday, November 13 at 11:00 PM where this check ran");
       expect(r.finding.fields.find((f) => f.field === "time")?.status).toBe("unresolved");
       expect(r.finding.fields.find((f) => f.field === "date")?.status).toBe("match");
     });
 
-    it("a date that matches only the UTC day is unverified, with the date named", () => {
+    it("a date and time that fit only the UTC reading are one doubt, said once", () => {
       const r = inferredIn(NY, "2026-11-14T01:00:00Z", "You're booked for Saturday, November 14 at 1 AM with Dr. Nair.");
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.fields.find((f) => f.field === "date")?.status).toBe("unresolved");
-      expect(r.finding.text).toContain("which is Friday, November 13 where this check ran");
+      expect(r.finding.fields.map((f) => [f.field, f.status])).toEqual([
+        ["date", "unresolved"],
+        ["time", "unresolved"],
+        ["provider", "match"],
+      ]);
+      expect(r.finding.fields[0].committed).toBe("Friday, November 13 here or Saturday, November 14 UTC");
+      expect(r.finding.text).toBe(
+        "Couldn't check spoken details match the booking: the agent said Saturday, November 14 at 1 AM, and the booking is Saturday, November 14 at 1:00 AM UTC, which is Friday, November 13 at 8:00 PM where this check ran, so we couldn't tell which date and time the caller meant.",
+      );
+    });
+
+    // One reading per claim: a date from one zone and a time from another is never accepted.
+    it("a date from the machine's zone with a time from UTC is violated", () => {
+      const r = inferredIn(NY, "2026-11-14T01:00:00Z", "You're booked for Friday, November 13 at 1 AM with Dr. Nair.");
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a date from UTC with a time from the machine's zone is violated", () => {
+      const r = inferredIn(NY, "2026-11-14T01:00:00Z", "You're booked for Saturday, November 14 at 8 PM with Dr. Nair.");
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a weekday with a time from the other zone is violated", () => {
+      const wed = Date.parse("2026-11-11T15:00:00Z");
+      const input = ev([...lookup([slot("s1", "2026-11-14T01:00:00Z")]), ...book("tc_1", "s1"), agent("You're booked for Friday at 1 AM with Dr. Nair.", 20)]);
+      const r = run({ ...input, callStartMs: wed }, INFERRED, true, { tz: NY, policyTz: false });
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("two sentences, each right in a different zone, are violated: no zone makes both true", () => {
+      const r = inferredIn(
+        NY,
+        "2026-11-13T19:00:00Z",
+        "You're booked for Friday, November 13 at 7 PM. Your appointment is confirmed for Friday, November 13 at 2 PM with Dr. Nair.",
+      );
+      expect(r.out.result).toBe("violated");
+    });
+
+    // "Today" and "tomorrow" are counted in the day of the zone each reading uses.
+    it("tomorrow, counted in UTC, fits and is unverified, not violated", () => {
+      const late = Date.parse("2026-11-13T02:00:00Z"); // Nov 12, 9 PM in New York
+      const input = ev([...lookup([slot("s1", "2026-11-14T10:00:00Z")]), ...book("tc_1", "s1"), agent("You're booked for tomorrow at 10 AM with Dr. Nair.", 20)]);
+      const r = run({ ...input, callStartMs: late }, INFERRED, true, { tz: NY, policyTz: false });
+      expect(r.out.result).toBe("unverified");
+    });
+
+    it("today, counted in UTC, fits and is unverified, not violated", () => {
+      const late = Date.parse("2026-11-13T02:00:00Z");
+      const input = ev([...lookup([slot("s1", "2026-11-13T19:00:00Z")]), ...book("tc_1", "s1"), agent("You're booked for today at 7 PM with Dr. Nair.", 20)]);
+      const r = run({ ...input, callStartMs: late }, INFERRED, true, { tz: NY, policyTz: false });
+      expect(r.out.result).toBe("unverified");
     });
 
     it("a slot with its own offset: the time as written is the match, in any machine zone", () => {
@@ -594,7 +644,7 @@ describe("spoken_matches_committed", () => {
     it("a slot with its own offset: the time in the machine's zone is unverified, never violated", () => {
       const r = inferredIn("Europe/London", "2026-11-13T14:00:00-05:00", "You're booked for Friday, November 13 at 7 PM with Dr. Nair.");
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toContain("7:00 PM where this check ran, which is 2:00 PM at the booking's own offset");
+      expect(r.finding.text).toContain("the booking is Friday, November 13 at 7:00 PM where this check ran, which is Friday, November 13 at 2:00 PM at the booking's own offset");
     });
 
     it("a slot with its own offset and a time that fits neither still differs", () => {

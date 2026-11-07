@@ -215,6 +215,14 @@ export const FIELD_STATUS_LABEL: Record<FieldCheck["status"], string> = {
   unresolved: "Couldn't resolve",
 };
 
+/** The status of an unresolved row that still has a committed value: it names the readings the time could have. */
+export const ZONE_UNCLEAR_LABEL = "Time zone unclear";
+
+/** The words for a row's status. An unresolved row with a committed value is a time zone doubt, not a missing value. */
+export function fieldStatusLabel(f: Pick<FieldCheck, "status" | "committed">): string {
+  return f.status === "unresolved" && f.committed !== null ? ZONE_UNCLEAR_LABEL : FIELD_STATUS_LABEL[f.status];
+}
+
 export const FIELD_COLUMN_LABEL = {
   field: "Detail",
   compared: "Compared",

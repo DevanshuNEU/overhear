@@ -3,7 +3,7 @@
 // word (a call on Monday 2026-11-02, zone America/New_York). The blocks after it pin the conservative rules: a
 // value that is only unparsed, unresolvable or scrubbed never makes a field "differs".
 import { describe, expect, it } from "vitest";
-import { fieldCheck, formatValue, matchField, matchFieldZoned, parseSpokenDateTimes, spokenValues, toLocal } from "./spoken";
+import { fieldCheck, formatValue, matchField, matchReadings, parseSpokenDateTimes, spokenValues, toLocal } from "./spoken";
 
 const call = Date.parse("2026-11-02T15:00:00Z"); // Monday, 10:00 in New York
 const ny = "America/New_York";
@@ -38,35 +38,50 @@ describe("the old plan's Task 7 table", () => {
   it("matches a month-day against a full committed date", () => expect(matchField("date", "May 16th", "2024-05-16", { ...ctx, callStartMs: null })).toBe("match"));
 });
 
-describe("matchField: a zone the check did not run in (OVE-49)", () => {
+// OVE-49: with no policy zone a committed value has more than one plausible reading. matchReadings gives the result
+// in each, the first being the check's own reading (the one matchField reports).
+describe("matchReadings: the zones a committed value may be read in (OVE-49)", () => {
   const utcSlot = "2026-11-13T19:00:00Z"; // 2 PM in New York
+  const statuses = (...args: Parameters<typeof matchReadings>) => matchReadings(...args).map((r) => [r.where, r.status]);
   it("reads UTC wall time as a second plausible zone without a policy zone", () => {
-    expect(matchField("time", "at 7 PM", utcSlot, ctx)).toBe("zone");
-    expect(matchField("time", "at 2 PM", utcSlot, ctx)).toBe("match");
-    expect(matchField("time", "at 4 PM", utcSlot, ctx)).toBe("differs");
+    expect(statuses("time", "at 7 PM", utcSlot, ctx)).toEqual([["here", "differs"], ["utc", "match"]]);
+    expect(statuses("time", "at 2 PM", utcSlot, ctx)).toEqual([["here", "match"], ["utc", "differs"]]);
+    expect(statuses("time", "at 4 PM", utcSlot, ctx)).toEqual([["here", "differs"], ["utc", "differs"]]);
+    expect(matchField("time", "at 7 PM", utcSlot, ctx)).toBe("differs");
   });
-  it("never offers a second zone for a policy's zone", () => expect(matchField("time", "at 7 PM", utcSlot, { ...ctx, policyTz: true })).toBe("differs"));
+  it("never offers a second zone for a policy's zone", () => expect(matchReadings("time", "at 7 PM", utcSlot, { ...ctx, policyTz: true })).toHaveLength(1));
   it("compares the date and time as a pair in each zone, never one from each", () => {
     // 8 PM on the 13th in New York is 1 AM on the 14th in UTC.
     const late = "2026-11-14T01:00:00Z";
-    expect(matchField("datetime", "Friday, November 13 at 1 AM", late, ctx)).toBe("differs");
-    expect(matchField("datetime", "Saturday, November 14 at 1 AM", late, ctx)).toBe("zone");
-    expect(matchField("datetime", "Friday, November 13 at 8 PM", late, ctx)).toBe("match");
+    expect(statuses("datetime", "Friday, November 13 at 1 AM", late, ctx)).toEqual([["here", "differs"], ["utc", "differs"]]);
+    expect(statuses("datetime", "Saturday, November 14 at 1 AM", late, ctx)).toEqual([["here", "differs"], ["utc", "match"]]);
+    expect(statuses("datetime", "Friday, November 13 at 8 PM", late, ctx)).toEqual([["here", "match"], ["utc", "differs"]]);
   });
   it("reads a slot's own offset as written, and the machine's zone as the other reading", () => {
     const own = "2026-11-13T14:00:00-05:00";
     const london = { ...ctx, tz: "Europe/London" };
-    expect(matchField("time", "at 2 PM", own, london)).toBe("match");
-    expect(matchField("time", "at 7 PM", own, london)).toBe("zone");
-    expect(matchField("time", "at 4 PM", own, london)).toBe("differs");
+    expect(statuses("time", "at 2 PM", own, london)).toEqual([["offset", "match"], ["here", "differs"]]);
+    expect(statuses("time", "at 7 PM", own, london)).toEqual([["offset", "differs"], ["here", "match"]]);
+    expect(statuses("time", "at 4 PM", own, london)).toEqual([["offset", "differs"], ["here", "differs"]]);
   });
-  it("has no second zone when both readings agree", () => expect(matchField("time", "at 4 PM", utcSlot, { ...ctx, tz: "UTC" })).toBe("differs"));
-  it("has no second zone for a value with no offset, or a date alone", () => {
-    expect(matchField("time", "at 4 PM", "2026-11-13T14:00:00", ctx)).toBe("differs");
-    expect(matchField("date", "the 14th", "2026-11-13", ctx)).toBe("differs");
+  it("has one reading when both zones agree, or for a value with no offset, or a date alone", () => {
+    expect(matchReadings("time", "at 4 PM", utcSlot, { ...ctx, tz: "UTC" })).toHaveLength(1);
+    expect(matchReadings("time", "at 4 PM", "2026-11-13T14:00:00", ctx)).toHaveLength(1);
+    expect(matchReadings("date", "the 14th", "2026-11-13", ctx)).toHaveLength(1);
   });
-  it("names both readings", () => {
-    expect(matchFieldZoned("time", "at 7 PM", utcSlot, ctx).zone).toEqual({ matched: "7:00 PM", matchedWhere: "utc", primary: "2:00 PM", primaryWhere: "here" });
+  it("shows the value as each reading has it", () => {
+    expect(matchReadings("time", "at 7 PM", utcSlot, ctx).map((r) => r.shown)).toEqual(["2:00 PM", "7:00 PM"]);
+  });
+  // "Today" is counted in each reading's own zone, not the machine's.
+  it("counts the call's day in the zone of each reading", () => {
+    const lateCall = { ...ctx, callStartMs: Date.parse("2026-11-13T02:00:00Z") }; // Nov 12, 9 PM in New York
+    expect(statuses("datetime", "tomorrow at 10 AM", "2026-11-14T10:00:00Z", lateCall)).toEqual([["here", "differs"], ["utc", "match"]]);
+    expect(statuses("datetime", "today at 7 PM", "2026-11-13T19:00:00Z", lateCall)).toEqual([["here", "differs"], ["utc", "match"]]);
+  });
+  it("counts the call's day in the slot's own offset by hand", () => {
+    // 2026-11-13T02:00Z is Nov 12 at 9 PM in -05:00, so "today" is the 12th there.
+    const lateCall = { ...ctx, tz: "Asia/Tokyo", callStartMs: Date.parse("2026-11-13T02:00:00Z") };
+    expect(statuses("datetime", "today at 3 PM", "2026-11-12T15:00:00-05:00", lateCall)[0]).toEqual(["offset", "match"]);
   });
 });
 

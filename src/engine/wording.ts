@@ -97,6 +97,13 @@ const ZONE_WORDS: Record<"here" | "utc" | "offset", string> = {
   offset: "at the booking's own offset",
 };
 
+/** Where a reading was taken, as a short tag behind a time in a field row: "2:00 PM here or 7:00 PM UTC". */
+export const ZONE_SHORT: Record<"here" | "utc" | "offset", string> = {
+  here: "here",
+  utc: "UTC",
+  offset: "at its own offset",
+};
+
 /** What the zone_unsure sentence calls the field, by its type. */
 const ZONE_WHAT: Record<"date" | "time" | "datetime", string> = { date: "date", time: "time", datetime: "date and time" };
 

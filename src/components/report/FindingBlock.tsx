@@ -3,7 +3,7 @@
 import { useId } from "react";
 import type { ContractId, Detection, Evidence, Finding, Policy } from "@/report/schema";
 import { citedClaims } from "./claims";
-import { FIELD_COLUMN_LABEL, FIELD_STATUS_LABEL, NOTHING_COMMITTED, SHOW_IN_CALL, capitalize, comparedLine } from "@/report/labels";
+import { FIELD_COLUMN_LABEL, NOTHING_COMMITTED, SHOW_IN_CALL, capitalize, comparedLine, fieldStatusLabel } from "@/report/labels";
 import { AbsenceProof } from "./AbsenceProof";
 import { LaneRows } from "./LaneRows";
 
@@ -80,7 +80,7 @@ export function FindingBlock({
                 <td className="[overflow-wrap:anywhere] border-b border-report-line py-2 pr-3">{comparedLine(f.from, f.values)}</td>
                 <td className="[overflow-wrap:anywhere] border-b border-report-line py-2 pr-3">{f.committed ?? NOTHING_COMMITTED}</td>
                 <td className={`border-b border-report-line py-2 ${f.status === "differs" ? "font-medium text-report-critical" : f.status === "unresolved" ? "font-medium text-report-warning" : ""}`}>
-                  {FIELD_STATUS_LABEL[f.status]}
+                  {fieldStatusLabel(f)}
                 </td>
               </tr>
             ))}
