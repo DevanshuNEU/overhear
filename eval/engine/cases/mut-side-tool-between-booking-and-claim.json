@@ -5,7 +5,7 @@
   "independent": false,
   "platform": "retell",
   "locked": true,
-  "label": { "by": "mutation", "at": "2026-11-07", "note": "A tool that only adds a note to the booking runs between the booking and the confirmation. A side tool is not a change, so it neither backs nor breaks the claim, and the booking still stands behind it." },
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "A tool that only adds a note to the booking runs between the booking and the confirmation. A side tool is not a change, so it neither backs nor breaks the claim, and the booking still stands behind it. The tool is outside the demo preset, so adding it moves the call to an inferred policy." },
   "derivedFrom": "sample-passed",
   "expect": { "verdict": "passed", "contracts": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },
   "record": {

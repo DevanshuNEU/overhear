@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "analyzeRetellCall",
-  "inputs": { "cases": 32, "fingerprint": "596cd7ef7dca2aaa99b230e2c126dbe7b86228e35812ff7007d1cb3c178f2241" },
+  "inputs": { "cases": 33, "fingerprint": "fc94a44c33bb02b852c8c2a4b14cd4cfa891d7b9bf7b768969c98ee9a68ac925" },
   "metrics": {
     "independent": {
       "n": 0,
@@ -64,26 +64,26 @@
       }
     },
     "constructed": {
-      "n": 32,
-      "sources": { "real": 3, "mutation": 29, "external": 0 },
-      "outcomes": { "report": 32, "no_content": 0, "error": 0 },
-      "passing": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+      "n": 33,
+      "sources": { "real": 3, "mutation": 30, "external": 0 },
+      "outcomes": { "report": 33, "no_content": 0, "error": 0 },
+      "passing": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
       "overall": {
-        "confusion": { "failed": { "failed": 14, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 13, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 5, "no_content": 0, "error": 0 } },
-        "verdictAccuracy": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+        "confusion": { "failed": { "failed": 14, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 13, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 6, "no_content": 0, "error": 0 } },
+        "verdictAccuracy": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
         "failedPrecision": { "k": 14, "n": 14, "value": 1, "ci": [0.7847, 1] },
         "failedRecall": { "k": 14, "n": 14, "value": 1, "ci": [0.7847, 1] },
-        "falseFailedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] }
+        "falseFailedRate": { "k": 0, "n": 6, "value": 0, "ci": [0, 0.3903] }
       },
       "contracts": {
         "promise_backed": {
-          "n": 32,
-          "confusion": { "violated": { "violated": 5, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 19, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 6, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 2, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+          "n": 33,
+          "confusion": { "violated": { "violated": 5, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 20, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 6, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 2, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
           "violatedPrecision": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
           "violatedRecall": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
-          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
-          "unverifiedRate": { "k": 6, "n": 30, "value": 0.2, "ci": [0.0951, 0.3731] }
+          "falseViolatedRate": { "k": 0, "n": 6, "value": 0, "ci": [0, 0.3903] },
+          "unverifiedRate": { "k": 6, "n": 31, "value": 0.1935, "ci": [0.0919, 0.3628] }
         },
         "verified_before_change": {
           "n": 0,
@@ -91,34 +91,34 @@
           "agreement": { "k": 0, "n": 0, "value": null, "ci": null },
           "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
           "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
-          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
+          "falseViolatedRate": { "k": 0, "n": 6, "value": 0, "ci": [0, 0.3903] },
           "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
         },
         "spoken_matches_committed": {
-          "n": 32,
-          "confusion": { "violated": { "violated": 4, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 13, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 5, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 10, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+          "n": 33,
+          "confusion": { "violated": { "violated": 4, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 14, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 5, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 10, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
           "violatedPrecision": { "k": 4, "n": 4, "value": 1, "ci": [0.5101, 1] },
           "violatedRecall": { "k": 4, "n": 4, "value": 1, "ci": [0.5101, 1] },
-          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
-          "unverifiedRate": { "k": 5, "n": 22, "value": 0.2273, "ci": [0.1012, 0.4344] }
+          "falseViolatedRate": { "k": 0, "n": 6, "value": 0, "ci": [0, 0.3903] },
+          "unverifiedRate": { "k": 5, "n": 23, "value": 0.2174, "ci": [0.0966, 0.419] }
         },
         "transfer_kept": {
-          "n": 32,
-          "confusion": { "violated": { "violated": 5, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 2, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 2, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 23, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+          "n": 33,
+          "confusion": { "violated": { "violated": 5, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 2, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 2, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 24, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
           "violatedPrecision": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
           "violatedRecall": { "k": 5, "n": 5, "value": 1, "ci": [0.5655, 1] },
-          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
+          "falseViolatedRate": { "k": 0, "n": 6, "value": 0, "ci": [0, 0.3903] },
           "unverifiedRate": { "k": 2, "n": 9, "value": 0.2222, "ci": [0.0632, 0.5474] }
         },
         "committed_matches_request": {
-          "n": 32,
-          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 32, "missing": 0, "no_report": 0 } },
-          "agreement": { "k": 32, "n": 32, "value": 1, "ci": [0.8928, 1] },
+          "n": 33,
+          "confusion": { "violated": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "passed": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "unverified": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_applicable": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 0, "missing": 0, "no_report": 0 }, "not_run": { "violated": 0, "passed": 0, "unverified": 0, "not_applicable": 0, "not_run": 33, "missing": 0, "no_report": 0 } },
+          "agreement": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
           "violatedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
           "violatedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
-          "falseViolatedRate": { "k": 0, "n": 5, "value": 0, "ci": [0, 0.4345] },
+          "falseViolatedRate": { "k": 0, "n": 6, "value": 0, "ci": [0, 0.3903] },
           "unverifiedRate": { "k": 0, "n": 0, "value": null, "ci": null }
         }
       }
@@ -396,6 +396,21 @@
     },
     {
       "id": "mut-side-tool-between-booking-and-claim",
+      "source": "mutation",
+      "independent": false,
+      "locked": true,
+      "outcome": "report",
+      "message": null,
+      "expected": "passed",
+      "actual": "passed",
+      "verdictMatch": true,
+      "contracts": [{ "contract": "promise_backed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "spoken_matches_committed", "expected": "passed", "actual": "passed", "agree": true }, { "contract": "transfer_kept", "expected": "not_applicable", "actual": "not_applicable", "agree": true }, { "contract": "committed_matches_request", "expected": "not_run", "actual": "not_run", "agree": true }],
+      "results": { "promise_backed": "passed", "spoken_matches_committed": "passed", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" },
+      "mustCite": [],
+      "pass": true
+    },
+    {
+      "id": "mut-side-tool-fails-between-booking-and-claim",
       "source": "mutation",
       "independent": false,
       "locked": true,

@@ -11,7 +11,7 @@ import path from "node:path";
 import { engine, engineLabel } from "@/engine/eval/engine";
 import { mutationCases } from "@/engine/testing/mutations";
 import { sampleCases } from "@/engine/testing/sample-cases";
-import { REPORT_JSON, REPORT_MD, REPO_ROOT, freshReport, writeCase } from "./engine-evals/io";
+import { CASES_DIR, REPORT_JSON, REPORT_MD, REPO_ROOT, freshReport, writeCase } from "./engine-evals/io";
 
 try {
   if (process.argv.includes("--write-sample-cases")) {
@@ -19,6 +19,9 @@ try {
     console.log("wrote the sample cases");
   }
   if (process.argv.includes("--write-mutation-cases")) {
+    // Only mut- files go, so a renamed or removed mutation leaves no stale case behind.
+    const dir = path.join(REPO_ROOT, CASES_DIR);
+    for (const f of fs.readdirSync(dir)) if (f.startsWith("mut-")) fs.rmSync(path.join(dir, f));
     for (const c of mutationCases()) writeCase(c);
     console.log("wrote the mutation cases");
   }

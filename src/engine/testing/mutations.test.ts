@@ -59,7 +59,9 @@ describe("the mutations as cases", () => {
 
   it.each(cases.map((c) => [c.id, c] as const))("%s changes its parent's record", (_id, c) => {
     const parent = samples.find((s) => s.id === c.derivedFrom)!;
-    expect(c.record).not.toEqual(parent.record);
+    // The call id always differs, so it is left out: the edit itself must change something.
+    const withoutId = (record: Record<string, unknown>) => Object.fromEntries(Object.entries(record).filter(([k]) => k !== "call_id"));
+    expect(withoutId(c.record)).not.toEqual(withoutId(parent.record));
   });
 
   it("give every case a call id of its own", () => {
@@ -88,6 +90,7 @@ describe("the engine on each mutation", () => {
     expect(r.mustCite.filter((c) => !c.ok)).toEqual([]);
     const codes = new Set(reports.get(id)!.evidence.gaps.map((g) => g.code));
     for (const gap of m.gaps ?? []) expect(codes.has(gap), `${id} should list a ${gap} gap`).toBe(true);
+    if (m.reasons !== undefined) expect(reports.get(id)!.reasons.map((x) => x.kind), `${id} reasons`).toEqual(m.reasons);
   });
 
   it.each([...failing].map((id) => [id] as const))("%s is a known failure: the engine still gets it wrong (remove it from KNOWN_FAILURES when fixed)", (id) => {
