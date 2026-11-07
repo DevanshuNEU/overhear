@@ -67,6 +67,11 @@ function toQuote(sentence: string): string {
 
 // ---------- Patterns ----------
 
+// Words between a first-person lead and a chained "and book" that mean the agent is not doing it now: negated,
+// conditional, or the caller does it ("so you can cancel and book", "a number to call and book", "let me know").
+const CHAIN_BLOCK =
+  "(?:never|not|if|whether|unless|once|when|you can|you to|to call|so you|so that|you could|you may|you should|you(?:'d|'ll| will)|let me know)\\b|n't";
+const CHAIN_BLOCK_RE = new RegExp(`\\b(?:${CHAIN_BLOCK})`, "i");
 const CHANGE_VERB = "(?:book|schedule|cancel|reschedule|update|move|change|set you up|put you down)";
 const DEFERRAL =
   /\b(?:i can help (?:you )?(?:once|when|after|later|as soon as)|get back to you|call you back|follow up with you|have (?:someone|a (?:nurse|member|staff|colleague)) (?:call|follow|reach)|someone (?:will|from)[^.]*\b(?:call|reach|follow)|(?:i'?ll|i will|let me) (?:need to )?(?:check|find out|look into)[^.]*\band (?:get back|let you know|follow up))/i;
@@ -107,7 +112,7 @@ const INTENTION = new RegExp(
     "(?<!\\b(?:before|after|for|about|by) )\\b(?:booking|rescheduling|cancell?ing|moving)\\b[^!?]*\\bnow\\b",
     "^\\s*locking in\\b",
     // "Let me check the calendar and put you down": a booking chained onto a first-person clause.
-    "\\b(?:i(?:'ll| will)|let me|let's) [^.,;!?]*?\\b(?:and|then) (?:i(?:'ll| will) )?(?:go ahead and )?(?:book|schedule|cancel|reschedule|set you up|put you down)\\b",
+    `\\b(?:i(?:'ll| will)|let me|let's) (?:(?!\\b${CHAIN_BLOCK})[^.,;!?])*?\\b(?:and|then) (?:i(?:'ll| will) )?(?:go ahead and )?(?:book|schedule|cancel|reschedule|set you up|put you down)\\b`,
   ].join("|"),
   "i",
 );
@@ -243,15 +248,26 @@ const TAG_QUESTION = /,\s*(?:ok|okay|alright|all right|right)\s*\?["”’']?$/i
 // "if that's okay" asks for a nod, it is not a condition on the claim.
 const MAYBE = /\b(?:if|unless|in case)\b(?!\s+that(?:'s| is)\s+(?:ok|okay|fine|alright|all right|good)\b)/i;
 // "I'll book you for Tuesday when Dr. Osei is in": a "when" after a day or time names the slot, not a wait.
+const AVAILABLE = /^when(?:ever)?\s+(?:dr\.?\s+\w+|you|he|she|they|the (?:doctor|provider|nurse))(?:['’]re|['’]s| is| are)\s+(?:in|back|available|free|here|around)\b(?!\s+up\b)/i;
 const TIMEISH = /\b(?:today|tomorrow|tonight|week|weekend|month|morning|afternoon|evening|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(?::\d\d)?\s*(?:am|pm|a\.m\.|p\.m\.)|\d{1,2}(?:st|nd|rd|th))\b/i;
 
 /** What a transfer or intention match is worth, from the rest of its clause. */
 function claimTail(s: string, end: number): "claim" | "deferral" | "maybe" {
   const tail = s.slice(end).split(/[,;.]|\b(?:then|and)\b/i)[0];
   const w = /\b(?:once|as soon as|when|whenever)\b/i.exec(tail);
-  if (w && !(/^when(?:ever)?$/i.test(w[0]) && TIMEISH.test(tail.slice(0, w.index)))) return "deferral";
+  // "for Tuesday when Dr. Osei is in" names the slot's own availability; "tomorrow when the office opens"
+  // waits on an event. When the two cannot be told apart, it is a wait.
+  if (w && !(/^when(?:ever)?$/i.test(w[0]) && TIMEISH.test(tail.slice(0, w.index)) && AVAILABLE.test(s.slice(end + w.index)))) {
+    return "deferral";
+  }
   if (MAYBE.test(tail)) return "maybe";
   return "claim";
+}
+
+function lastIndexOf(re: RegExp, s: string): number {
+  let at = -1;
+  for (const m of s.matchAll(new RegExp(re.source, "gi"))) at = m.index;
+  return at;
 }
 
 /** A chained transfer ("... and then put you through") that follows a first-person, un-negated, unconditional clause. */
@@ -259,7 +275,11 @@ function chainedTransfer(s: string): { at: number; end: number } | null {
   const m = matchOf(TRANSFER_CHAIN, s);
   if (!m) return null;
   const before = s.slice(0, m.at);
-  if (!LEAD.test(before) && !INTENTION.test(before)) return null;
+  const lead = lastIndexOf(LEAD, before);
+  const intention = matchOf(INTENTION, before);
+  const from = lead >= 0 ? lead : intention ? intention.at : -1;
+  if (from < 0) return null;
+  if (lead >= 0 && CHAIN_BLOCK_RE.test(before.slice(from))) return null;
   if (NEGATED.test(before.trimEnd()) || notAClaim(s, m.at)) return null;
   return m;
 }
@@ -339,7 +359,8 @@ export function findToolSyntax(text: string, toolNames: string[]): string | null
     const arg = "[\\w-]+\\s*[:=]\\s*[^\\s,)]+\\s*[,)]";
     const quoted = "([\"'`])[^)]*?\\1";
     const args = `\\(\\s*(?:\\{|\\[|${quoted}|${arg})`;
-    const call = identifier ? `\\b${escaped}\\s*[(:]` : `\\b${escaped}\\s*${args}|\\b${escaped}\\(\\s*\\)`;
+    const colonArgs = "\\s*:\\s*(?:[\\w-]+\\s*=|[\"'`{\\[]|\\d)";
+    const call = identifier ? `\\b${escaped}\\s*\\(|\\b${escaped}${colonArgs}` : `\\b${escaped}\\s*${args}|\\b${escaped}\\(\\s*\\)`;
     const m = new RegExp(`${call}|\\b${escaped}\\s*\\{|\\bfunctions?\\.${escaped}\\b`).exec(text);
     if (m) return m[0];
   }
