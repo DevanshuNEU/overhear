@@ -1705,5 +1705,62 @@
       "deferral"
     ],
     "source": "review:ove-46"
+  },
+  {
+    "text": "Once Dr. Osei, our nurse, is back, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once you're booked, then I'll connect you with billing.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the system is back, and I have your info, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "After we finish booking, so you know, I'll connect you with a nurse.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When the nurse is free, but not before, I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Once the system is back, I'll let you know and I'll transfer you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "When Dr. Osei is back, which should be soon, I'll book you.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:ove-46"
+  },
+  {
+    "text": "Okay, after checking the calendar, I'll book you for Tuesday.",
+    "classes": [
+      "intention"
+    ],
+    "kind": "book",
+    "source": "review:ove-46"
   }
 ]
