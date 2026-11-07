@@ -88,7 +88,15 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
 
   if (backing.some((c) => c.resultSeq === null || c.resultSeq > seq)) return violated({ why: "unfinished", kind });
   const failed = backing.find((c) => c.ok === false);
-  if (failed) return violated({ why: "failed", kind, error: errorReason(failed.result) });
+  if (failed) {
+    // A tool the policy doesn't describe, run after the failure, may have been a retry that worked.
+    const retry = undescribedBefore(ctx, seq, failed.callSeq);
+    if (retry.tools.length > 0) {
+      const seqs = [...did, ...retry.seqs].sort((a, b) => a - b);
+      return { ...base, did: seqs, result: "unverified", text: unverifiedText("promise_backed", [unknownToolCause(retry.tools, kind)]), gaps: [] };
+    }
+    return violated({ why: "failed", kind, error: errorReason(failed.result) });
+  }
   const unknown = backing.find((c) => c.ok === null);
   if (unknown) {
     const cause = describeGap({ code: "unknown_success", tool: unknown.tool });
@@ -97,10 +105,13 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   return { ...base, result: "passed", text: promisePassedText(time, claim.quote, kind), gaps: [] };
 }
 
-/** The tools used before a claim that the policy gives no role, in order of first use, with the seqs of their calls. */
-function undescribedBefore(ctx: ContractContext, seq: number): { tools: string[]; seqs: number[] } {
+/**
+ * The tools used before a claim that the policy gives no role, in order of first use, with the seqs of their calls.
+ * With `after`, only those used after that seq.
+ */
+function undescribedBefore(ctx: ContractContext, seq: number, after = -Infinity): { tools: string[]; seqs: number[] } {
   const used = ctx.ev.items.flatMap((it) => {
-    if (it.seq >= seq) return [];
+    if (it.seq >= seq || it.seq <= after) return [];
     if (it.kind === "tool_call") return [{ seq: it.seq, name: it.name }];
     if (it.kind === "backend_action") return [{ seq: it.seq, name: it.tool }];
     return [];

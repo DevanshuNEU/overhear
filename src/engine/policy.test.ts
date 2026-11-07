@@ -91,6 +91,60 @@ describe("roleFor", () => {
     expect(roleFor("availability")).toEqual({ role: "lookup" });
   });
 
+  describe("booking and appointment names", () => {
+    const BOOK = ["make_booking", "submit_booking", "confirm_appointment", "make_appointment", "set_appointment", "add_appointment", "create_booking", "create_appointment", "schedule_appointment", "book_slot", "reserve_appointment"];
+    const CANCEL = ["cancel_booking", "delete_appointment", "remove_appointment"];
+    const RESCHEDULE = ["reschedule_booking", "move_appointment", "change_appointment"];
+    const LOOKUP = ["get_bookings", "list_appointments", "find_slots", "search_availability", "get_available_slots"];
+    const NOT_CHANGE = ["send_booking_confirmation_sms", "booking_faq", "get_booking_policy", "log_note", "send_sms"];
+
+    it.each(BOOK)("%s books", (name) => expect(roleFor(name)).toEqual({ role: "change", kind: "book" }));
+    it.each(CANCEL)("%s cancels", (name) => expect(roleFor(name)).toEqual({ role: "change", kind: "cancel" }));
+    it.each(RESCHEDULE)("%s reschedules", (name) => expect(roleFor(name)).toEqual({ role: "change", kind: "reschedule" }));
+    it.each(LOOKUP)("%s is a lookup", (name) => expect(roleFor(name)).toEqual({ role: "lookup" }));
+    it.each(NOT_CHANGE)("%s is not a change", (name) => expect(roleFor(name)?.role).not.toBe("change"));
+
+    it("reads camelCase names the same way", () => {
+      expect(roleFor("makeBooking")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("deleteAppointment")).toEqual({ role: "change", kind: "cancel" });
+      expect(roleFor("changeAppointment")).toEqual({ role: "change", kind: "reschedule" });
+    });
+
+    it("needs the noun to end the name, so a booking's side tools stay undescribed", () => {
+      expect(roleFor("add_booking_note")).toBeNull();
+      expect(roleFor("confirm_booking_by_email")).toBeNull();
+      expect(roleFor("delete_booking_reminder")).toBeNull();
+    });
+
+    it.each([
+      "add_note_to_booking",
+      "add_to_booking",
+      "set_reminder_for_appointment",
+      "make_payment_for_booking",
+      "submit_feedback_for_appointment",
+      "delete_note_from_booking",
+      "remove_guest_from_reservation",
+    ])("%s is a side tool, not a change", (name) => expect(roleFor(name)).toBeNull());
+
+    it("needs the verb to sit directly before the noun", () => {
+      expect(roleFor("make_booking")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("confirm_appointments")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("appointment_make_booking")).toEqual({ role: "change", kind: "book" });
+    });
+
+    it("leaves verbs without a booking noun alone", () => {
+      expect(roleFor("set_timezone")).toBeNull();
+      expect(roleFor("add_note")).toBeNull();
+      expect(roleFor("confirm_email")).toBeNull();
+      expect(roleFor("delete_item")).toBeNull();
+      expect(roleFor("change_address")).toEqual({ role: "change", kind: "update" });
+    });
+
+    it("keeps update on an appointment an update", () => {
+      expect(roleFor("update_appointment")).toEqual({ role: "change", kind: "update" });
+    });
+  });
+
   it("takes the first matching rule when a name matches two roles", () => {
     expect(roleFor("verify_and_book")).toEqual({ role: "verify" });
     expect(roleFor("book_and_transfer")).toEqual({ role: "transfer" });
