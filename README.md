@@ -39,9 +39,9 @@ Do not start local mode with `npm run dev` or `npm start`. They listen on every 
 Paste your Retell API key into the box and choose "Connect Retell". Overhear asks Retell for one call to check that the key works, then saves it.
 
 - Where it is kept: `~/.overhear/config.json`, in a folder only you can open, with file mode 0600. To keep it somewhere else, set `OVERHEAR_HOME` to an absolute path. Overhear creates a missing folder with mode 0700. It refuses to use a folder that other users can open, so pick one only Overhear uses.
-- Where it goes: only to Retell, to check the key and read your calls.
+- Where it goes: only to Retell, to check the key and read your calls. The one exception is `OVERHEAR_RETELL_BASE_URL`, which is for contributors (see below). When it is set, the key goes to that address on your computer instead. Leave it unset before you connect a real key.
 - What gets logged: never the key. Before anything is printed, an error is cut down to a class name, an HTTP status and a short code.
-- How to remove it: choose "Disconnect" at the top of the call list, or delete `~/.overhear/config.json`.
+- How to remove it: choose "Disconnect" at the top of the call list, or delete the file yourself: `~/.overhear/config.json`, or `$OVERHEAR_HOME/config.json` when `OVERHEAR_HOME` is set. Disconnect removes whichever file Overhear is using.
 
 ### What happens next
 
@@ -54,8 +54,8 @@ Calls that failed come first, then calls that need review, under the heading "Lo
 The words below are the ones the screen uses (`src/report/labels.ts`).
 
 - **Failed.** "The call broke a rule, and the call record shows it." At least one rule was broken, and the proof is in the call record.
-- **Needs review.** Something couldn't be checked, the agent deferred the caller's request instead of completing it, or the caller asked for something the agent neither did nor refused. A person needs to look.
-- **Passed.** "Every promise that applied was kept." No rule was broken and nothing was left unchecked. A call where the agent made no promises also passes, and the report says so.
+- **Needs review.** No rule was broken, but a rule couldn't be checked, or the agent deferred the caller's request instead of completing it. A person needs to look. (The screen also has a line for a caller's request the agent neither did nor refused. Nothing sets it yet, because Overhear has no source for what the caller asked.)
+- **Passed.** "Every promise that applied was kept." None of the three checks that run found a broken rule, and none was left unchecked. A call where the agent made no promises also passes, and the report says so. A Passed call is not checked against what the caller asked for, and the report says that too.
 
 "Couldn't check" is the result for one rule when the call record does not hold enough to decide it. For example, the tool calls are missing from the transcript, or a tool result gave no success signal. The report lists each gap under "What we couldn't check". A call with a rule it couldn't check is never marked Passed.
 
@@ -63,7 +63,7 @@ The words below are the ones the screen uses (`src/report/labels.ts`).
 
 You need none of these to check your own agents.
 
-- `OVERHEAR_DEMO_AGENT_ID` is the Retell agent id of the demo agent. It falls back to `RETELL_AGENT_ID` when blank. A call from that agent is checked with the demo's own policy. Your own agents never need it.
+- `OVERHEAR_DEMO_AGENT_ID` is the Retell agent id of the demo agent. It falls back to `RETELL_AGENT_ID` when blank. For the demo agent, setting either one selects the demo's own policy, which reads times in UTC. Without it, the demo agent's calls are checked with a policy inferred from their tools, in this machine's time zone, and a correct spoken time can read "Time zone unclear" and count as couldn't check. Your own agents never need it.
 - `OVERHEAR_HOME` moves the folder that holds the key, as above.
 
 Each one has a comment in [`.env.example`](.env.example).
@@ -152,6 +152,8 @@ Every call is scored on seven weighted dimensions (`src/domain/rubric.ts`). Code
 
 Known issue: scoring loads the slots that are open at scoring time (`loadOpenSlots` in `src/qa/pipeline.ts`), so a slot the agent correctly booked during the call is no longer in that list and can look invented to the judge. The fix is to score against the slots as they were during the call.
 
+<a id="evaluation"></a>
+
 ## Demo judge evaluation
 
 The hosted demo's judge is measured against a labeled gold set (`npm run eval`, results in `eval/report.json`, rendered on `/eval`). The current report, from 2026-09-27 with `claude-sonnet-5` at low effort:
@@ -185,6 +187,8 @@ Built in reviewed phases, each behind a pull request with green CI.
 | 4 | QA pipeline: reconciler, Jev/Claude judge, narrator | Done |
 | 5 | Dashboard: call list, annotated transcripts, trends, in-browser call widget | Done |
 | 6 | Seed data with planted failures, plus deployment | Done |
+
+<a id="getting-started"></a>
 
 ## Getting started with the demo
 
