@@ -74,6 +74,10 @@ export interface CommittedDetails {
   types: Record<string, FieldType>;
   /** Fields the change needed and could not resolve, plus any field the record had but Retell scrubbed. */
   unresolved: string[];
+  /** The fields the change needs: the ones whose absence makes a comparison unverified rather than optional. */
+  required: string[];
+  /** The seqs of the lookup results the item fields were read from, oldest first; [] when no item was read. */
+  sources: number[];
   gaps: Gap[];
 }
 
@@ -108,6 +112,8 @@ export function committedDetails(ev: Evidence, policy: Policy, change: ToolUse):
   );
   // Of the candidates that agree, the latest one's value is read.
   const picked = candidates.at(-1)?.item;
+  // The lookups a reader should be shown: the one the values were read from, and every candidate when some field is disputed.
+  const sources = [...new Set((disagree.size > 0 ? candidates : candidates.slice(-1)).map((c) => c.use.resultSeq!))].sort((a, b) => a - b);
 
   const fields: Record<string, unknown> = {};
   const types: Record<string, FieldType> = {};
@@ -148,7 +154,7 @@ export function committedDetails(ev: Evidence, policy: Policy, change: ToolUse):
     if (change.kind) gap.kind = change.kind;
     return gap;
   });
-  return { fields, types, unresolved: unresolved.map((u) => u.field), gaps };
+  return { fields, types, unresolved: unresolved.map((u) => u.field), required: [...required], sources, gaps };
 }
 
 interface Zone {

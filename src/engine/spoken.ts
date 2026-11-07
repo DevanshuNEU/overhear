@@ -928,8 +928,13 @@ export function formatValue(type: FieldType, value: unknown, tz: string, policyT
     if (date && time) return `${date} at ${time}`;
     if (date ?? time) return (date ?? time)!;
   }
-  return typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+  // An object or array is never printed as JSON, and a redaction placeholder is never shown as if it were a value.
+  if ((typeof value === "object" && value !== null) || isPlaceholder(value)) return UNSHOWN;
+  return String(value);
 }
+
+/** What a value that can't be put in a sentence reads as: an object, an array or a redaction placeholder. */
+export const UNSHOWN = "a value that can't be shown";
 
 /** The committed value as display text, or null when it can't be compared: missing, scrubbed or unreadable. */
 function committedDisplay(type: FieldType, value: unknown, ctx: MatchContext): string | null {
