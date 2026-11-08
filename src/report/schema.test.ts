@@ -610,11 +610,11 @@ describe("the Nothing done verdict", () => {
   });
 
   it("is rejected when a contract is unverified", () => {
-    const r = clone(needsReviewSample);
-    r.verdict = "nothing_done";
-    r.reasons = [];
-    r.headline = headlineFor("nothing_done", [], []);
-    expect(issues(r).join("\n")).toMatch(/verdict/);
+    const r = nothingDone();
+    const c = result(r, "promise_backed");
+    c.result = "unverified";
+    c.findings = [{ result: "unverified", text: "x", said: [agentSeq(r)], did: [], asked: [], gaps: [], fields: [] }];
+    expect(issues(r).join("\n")).toMatch(/verdict is nothing_done but the results give needs_review/);
   });
 
   it("is rejected with notes", () => {
@@ -658,6 +658,20 @@ describe("the call experience field", () => {
     const parsed = CallReportSchema.parse(older);
     expect(parsed.experience).toEqual({ ran: [], problems: [] });
     expect(parsed.schemaVersion).toBe(1);
+  });
+
+  it("gives each old report its own default arrays, so mutating one does not touch another", () => {
+    const older = (): Record<string, unknown> => {
+      const o: Record<string, unknown> = clone(passedSample);
+      delete o.experience;
+      return o;
+    };
+    const a = CallReportSchema.parse(older());
+    const b = CallReportSchema.parse(older());
+    expect(a.experience.ran).not.toBe(b.experience.ran);
+    expect(a.experience.problems).not.toBe(b.experience.problems);
+    a.experience.ran.push("error_handled");
+    expect(b.experience.ran).toEqual([]);
   });
 
   it("accepts a problem whose check ran and whose seq is an agent turn", () => {

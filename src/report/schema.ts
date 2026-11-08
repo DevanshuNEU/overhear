@@ -283,7 +283,7 @@ export const CallReportSchema = z
     // Absent in a report stored before the experience checks existed, which then reads as no check having run.
     experience: z
       .strictObject({ ran: z.array(z.enum(EXPERIENCE_CHECKS)), problems: z.array(ExperienceProblemSchema) })
-      .default({ ran: [], problems: [] }),
+      .default(() => ({ ran: [], problems: [] })),
     results: z.array(ContractResultSchema),
     detections: z.array(DetectionSchema),
     // Whether a model helped find claims or the request. With it, a claim only the code found is unverified (6.4).
