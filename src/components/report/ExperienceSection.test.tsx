@@ -6,10 +6,14 @@ import { failedSample, needsReviewSample, passedSample } from "@/report/samples"
 describe("ExperienceSection", () => {
   it("counts the problems and shows each one's sentence with a link to its first turn", () => {
     render(<ExperienceSection report={passedSample} />);
-    const section = screen.getByRole("region", { name: "Call experience: 1 problem" });
-    const [problem] = passedSample.experience.problems;
-    expect(within(section).getByText(problem.text)).toBeInTheDocument();
-    expect(within(section).getByRole("link", { name: "Show in the call" })).toHaveAttribute("href", `#item-${Math.min(...problem.seqs)}`);
+    const { problems } = passedSample.experience;
+    expect(problems).toHaveLength(2);
+    const section = screen.getByRole("region", { name: "Call experience: 2 problems" });
+    const links = within(section).getAllByRole("link", { name: "Show in the call" });
+    problems.forEach((problem, i) => {
+      expect(within(section).getByText(problem.text)).toBeInTheDocument();
+      expect(links[i]).toHaveAttribute("href", `#item-${Math.min(...problem.seqs)}`);
+    });
   });
 
   it("ties each link to its own sentence for a screen reader", () => {
@@ -21,7 +25,7 @@ describe("ExperienceSection", () => {
   it("says the call had no problems, and names the checks that ran", () => {
     render(<ExperienceSection report={failedSample} />);
     const section = screen.getByRole("region", { name: "Call experience: no problems found" });
-    expect(section).toHaveTextContent("Checked: how the call ends and how errors are handled.");
+    expect(section).toHaveTextContent("Checked: how the call ends, how errors are handled and how dates and times are read.");
     expect(screen.queryByRole("link")).toBeNull();
   });
 
@@ -31,11 +35,15 @@ describe("ExperienceSection", () => {
     expect(screen.getByRole("region")).not.toHaveTextContent("how errors are handled");
   });
 
-  it("pluralises the count", () => {
-    const two = { ...passedSample.experience, problems: [...passedSample.experience.problems, { check: "error_handled" as const, text: "At 0:37 the agent read system details to the caller.", seqs: [12] }] };
-    render(<ExperienceSection report={{ ...passedSample, experience: two }} />);
-    expect(screen.getByRole("region", { name: "Call experience: 2 problems" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Show in the call" })).toHaveLength(2);
+  it("says 1 problem for one, and counts three", () => {
+    const [first, second] = passedSample.experience.problems;
+    const withProblems = (problems: typeof passedSample.experience.problems) => ({ ...passedSample, experience: { ...passedSample.experience, problems } });
+    const one = render(<ExperienceSection report={withProblems([first])} />);
+    expect(screen.getByRole("region", { name: "Call experience: 1 problem" })).toBeInTheDocument();
+    one.unmount();
+    render(<ExperienceSection report={withProblems([first, second, { check: "error_handled", text: "At 0:37 the agent read system details to the caller.", seqs: [12] }])} />);
+    expect(screen.getByRole("region", { name: "Call experience: 3 problems" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Show in the call" })).toHaveLength(3);
   });
 
   it("shows nothing when no check ran", () => {

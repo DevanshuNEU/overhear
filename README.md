@@ -62,7 +62,7 @@ The words below are the ones the screen uses (`src/report/labels.ts`).
 
 ### Call experience
 
-Below the verdict, the call screen has one line, "Call experience", that says how the call sounded to the caller. It reads "no problems found" or counts the problems, and it names the checks that ran: whether the agent ended the call after saying goodbye, and whether it read system errors out loud. Each problem is a sentence with a link to the turn it rests on. These checks never change the verdict. A call that kept every promise still reads Passed when its goodbye went on for a minute, and the line is how you find out. The call list shows a quiet note on any row with problems.
+Below the verdict, the call screen has one line, "Call experience", that says how the call sounded to the caller. It reads "no problems found" or counts the problems, and it names the checks that ran: how the call ends (the agent says goodbye and then ends the call, instead of looping), how errors are handled (the agent doesn't read system details out loud), and how dates and times are read (the agent says them the way a person would). Each problem is a sentence with a link to the turn it rests on. These checks never change the verdict. A call that kept every promise still reads Passed when its goodbye went on for a minute, and the line is how you find out. The call list shows a quiet note on any row with problems.
 
 ### Settings
 

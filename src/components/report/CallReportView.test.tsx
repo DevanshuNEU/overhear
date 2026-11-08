@@ -247,7 +247,7 @@ describe("CallReportView call experience", () => {
   it("puts the call experience line right under the verdict, before the key facts", () => {
     render(<CallReportView report={passedSample} />);
     const header = screen.getByRole("banner");
-    const line = within(header).getByRole("region", { name: "Call experience: 1 problem" });
+    const line = within(header).getByRole("region", { name: "Call experience: 2 problems" });
     const facts = within(header).getByRole("list", { name: "Key facts" });
     expect(screen.getByRole("heading", { level: 1 }).compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(line.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
