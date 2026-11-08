@@ -23,7 +23,8 @@
     "eval": "tsx scripts/run-eval.ts",
     "eval:real": "bash scripts/run-real-eval.sh",
     "eval:engine": "tsx scripts/run-engine-evals.ts",
-    "rescore": "tsx scripts/rescore-unscored.ts"
+    "rescore": "tsx scripts/rescore-unscored.ts",
+    "check:pinned": "tsx scripts/check-pinned.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.119",
