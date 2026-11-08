@@ -43,11 +43,16 @@ A pinned call is a case a person saved from a real call, so the engine keeps rea
 
 - `source` is `real`, `platform` is `retell`, `independent` is `false` and `locked` is `true`.
 - `tz` is required: the zone the call was pinned in, so spoken times read the same later.
-- `label.note`, when present, is one line of at most 280 characters. By convention `label.by` is `you` (the schema does not check it).
-- `pin` holds `callId`, `agentId`, `agentVersion` (a string, or `null` when the call has none), `pinnedWith` (the Overhear version that read it) and, for a fix pin, `fixes`: the id of the pinned case it fixes.
+- `label.by` is `you`. `label.note`, when present, is one line of plain text of at most 280 characters: no control characters, escape sequences or line separators.
+- `pin` holds `callId`, `agentId` (letters, digits, hyphens and underscores), `agentVersion` (`null`, or letters, digits, dots, hyphens and underscores, at most 64), `pinnedWith` (the Overhear version that read it: letters, digits, dots, plus and hyphen, at most 64) and, for a fix pin, `fixes`: the id of the pinned case it fixes, never the pin's own id.
+- `record.call_id` equals `pin.callId`, and `record.agent_id`, when the record has one, equals `pin.agentId`.
 - `expect.verdict` is always kept. `expect.contracts` and `expect.experience` hold only the items the person ticked.
 
-`pin` is written right after `label` in the file. A pin is tested like any case: the runner compares the engine's reading with `expect`, and the case breaks its lock when the verdict changes.
+A pin file is untrusted text: it can be exported to a repo, read back by `npm run check:pinned` and printed to terminals and CI logs, so the schema keeps its free-form fields to these narrow shapes.
+
+`pin` is written right after `label` in the file. A pin is tested like any case: the runner compares the engine's reading with `expect`.
+
+Two checks read pins differently. The repo's locked eval cases fail CI only when the verdict changes. `npm run check:pinned` fails on any kept item that changes: the verdict, a ticked contract or a ticked experience check.
 
 ## Adding a case
 

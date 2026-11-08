@@ -47,6 +47,13 @@ export const PIN_NOTE_MAX = 280;
 /** Platform call and agent ids: letters, digits, hyphens and underscores. Copied from the pull side to keep the engine pure. */
 const PLATFORM_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
+/** A pin file is untrusted text that is printed to terminals and logs, so its free-form fields get narrow shapes. */
+const AGENT_VERSION = /^[0-9A-Za-z._-]{1,64}$/;
+const PINNED_WITH = /^[0-9A-Za-z.+-]{1,64}$/;
+
+/** C0 and C1 controls (newlines and escape sequences included), DEL, and the Unicode line and paragraph separators. */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u{2028}\u{2029}]/u;
+
 /**
  * Where a pinned call came from: the call and agent it was pinned from, the Overhear version that read it, and
  * for a fix pin (a passing call of the same scenario) the id of the pinned case it fixes.
@@ -54,8 +61,8 @@ const PLATFORM_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const PinSchema = z.strictObject({
   callId: z.string().regex(PLATFORM_ID, "must be letters, digits, hyphens and underscores"),
   agentId: z.string().regex(PLATFORM_ID, "must be letters, digits, hyphens and underscores"),
-  agentVersion: z.string().min(1).max(64).nullable(),
-  pinnedWith: z.string().min(1).max(64),
+  agentVersion: z.string().regex(AGENT_VERSION, "must be letters, digits, dots, hyphens and underscores, at most 64").nullable(),
+  pinnedWith: z.string().regex(PINNED_WITH, "must be a version: letters, digits, dots, plus and hyphen, at most 64"),
   fixes: z.string().regex(CASE_ID).optional(),
 });
 
@@ -134,8 +141,22 @@ export const EvalCaseSchema = z
       need(c.locked, "locked", "a pinned call must be locked, or a changed reading would not fail");
       need(!c.independent, "independent", "a pinned call is never independent");
       const note = c.label.note;
-      if (note !== undefined && (note.length > PIN_NOTE_MAX || /[\r\n]/.test(note))) {
-        ctx.addIssue({ code: "custom", path: ["label", "note"], message: `a pinned call's note is one line of at most ${PIN_NOTE_MAX} characters` });
+      if (note !== undefined && (note.length > PIN_NOTE_MAX || CONTROL_CHARS.test(note))) {
+        ctx.addIssue({ code: "custom", path: ["label", "note"], message: `a pinned call's note is one line of plain text, at most ${PIN_NOTE_MAX} characters` });
+      }
+      if (c.label.by !== "you") {
+        ctx.addIssue({ code: "custom", path: ["label", "by"], message: "a pinned call is labeled by you" });
+      }
+      need(c.platform === "retell", "platform", "a pinned call is a Retell call");
+      if (c.pin.fixes === c.id) {
+        ctx.addIssue({ code: "custom", path: ["pin", "fixes"], message: "a fix pin cannot fix itself" });
+      }
+      // The pin's claim about where the call came from must match the record it carries.
+      if (c.record.call_id !== c.pin.callId) {
+        ctx.addIssue({ code: "custom", path: ["record", "call_id"], message: "the record's call_id must equal pin.callId" });
+      }
+      if (c.record.agent_id !== undefined && c.record.agent_id !== c.pin.agentId) {
+        ctx.addIssue({ code: "custom", path: ["record", "agent_id"], message: "the record's agent_id must equal pin.agentId" });
       }
     }
   });

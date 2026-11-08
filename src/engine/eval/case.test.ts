@@ -107,6 +107,7 @@ function pinned(over: Record<string, unknown> = {}): Record<string, unknown> {
     id: "pin-call-8f2a9c-1c9e0d4b",
     tz: "America/New_York",
     label: { by: "you", at: "2026-11-08T10:15:00-05:00", note: "nurse transfer promised, never made" },
+    record: { call_id: "call_8f2a9c" },
     pin: { callId: "call_8f2a9c", agentId: "agent_1c9e0d", agentVersion: "3", pinnedWith: "0.1.0" },
     expect: { verdict: "failed", contracts: { transfer_kept: "violated" }, experience: { agent_ends_call: "problem", error_handled: "clean" } },
     ...over,
@@ -121,7 +122,13 @@ describe("a pinned call", () => {
   });
 
   it("reads a fix pin and a call with no agent version", () => {
-    const c = parseCase(pinned({ pin: { callId: "call_2", agentId: "agent_1", agentVersion: null, pinnedWith: "0.1.0", fixes: "pin-call-8f2a9c-1c9e0d4b" } }));
+    const c = parseCase(
+      pinned({
+        id: "pin-call-2-1",
+        record: { call_id: "call_2" },
+        pin: { callId: "call_2", agentId: "agent_1", agentVersion: null, pinnedWith: "0.1.0", fixes: "pin-call-8f2a9c-1c9e0d4b" },
+      }),
+    );
     expect(c.pin?.fixes).toBe("pin-call-8f2a9c-1c9e0d4b");
   });
 
@@ -148,6 +155,37 @@ describe("a pinned call", () => {
     ["an experience expectation that is not problem or clean", { expect: { verdict: "failed", experience: { agent_ends_call: "bad" } } }, "expect"],
   ])("rejects %s", (_what, over, where) => {
     expect(problems(pinned(over))).toContain(where);
+  });
+
+  it.each([
+    ["a control character in the note (escape)", { label: { by: "you", at: "2026-11-08", note: "red \u001b[31m text" } }, "label.note"],
+    ["a control character in the note (NUL)", { label: { by: "you", at: "2026-11-08", note: "a\u0000b" } }, "label.note"],
+    ["a C1 control character in the note", { label: { by: "you", at: "2026-11-08", note: "a\u0085b" } }, "label.note"],
+    ["a line separator in the note", { label: { by: "you", at: "2026-11-08", note: "a\u{2028}b" } }, "label.note"],
+    ["a paragraph separator in the note", { label: { by: "you", at: "2026-11-08", note: "a\u{2029}b" } }, "label.note"],
+    ["a label.by other than you", { label: { by: "alice", at: "2026-11-08" } }, "label.by"],
+    ["a pinnedWith with a space", { pin: { callId: "c", agentId: "a", agentVersion: null, pinnedWith: "0.1.0 beta" } }, "pin.pinnedWith"],
+    ["a pinnedWith with a control character", { pin: { callId: "c", agentId: "a", agentVersion: null, pinnedWith: "0.1\u001b[0m" } }, "pin.pinnedWith"],
+    ["a pinnedWith over 64 characters", { pin: { callId: "c", agentId: "a", agentVersion: null, pinnedWith: "1".repeat(65) } }, "pin.pinnedWith"],
+    ["an agentVersion with a newline", { pin: { callId: "c", agentId: "a", agentVersion: "1\n2", pinnedWith: "0.1.0" } }, "pin.agentVersion"],
+    ["an empty agentVersion", { pin: { callId: "c", agentId: "a", agentVersion: "", pinnedWith: "0.1.0" } }, "pin.agentVersion"],
+    ["an agentId with a space", { pin: { callId: "c", agentId: "a b", agentVersion: null, pinnedWith: "0.1.0" } }, "pin.agentId"],
+    ["a fix pin that fixes itself", { pin: { callId: "call_8f2a9c", agentId: "agent_1c9e0d", agentVersion: null, pinnedWith: "0.1.0", fixes: "pin-call-8f2a9c-1c9e0d4b" } }, "pin.fixes"],
+    ["a record call_id that is not the pin's callId", { record: { call_id: "call_other" } }, "record.call_id"],
+    ["a record with no call_id", { record: {} }, "record.call_id"],
+    ["a record agent_id that is not the pin's agentId", { record: { call_id: "call_8f2a9c", agent_id: "agent_other" } }, "record.agent_id"],
+  ])("rejects %s", (_what, over, where) => {
+    expect(problems(pinned({ record: { call_id: "call_8f2a9c" }, ...over }))).toContain(where);
+  });
+
+  it("accepts a record whose call_id and agent_id match the pin, and a record with no agent_id", () => {
+    expect(problems(pinned({ record: { call_id: "call_8f2a9c", agent_id: "agent_1c9e0d" } }))).toBe("");
+    expect(problems(pinned({ record: { call_id: "call_8f2a9c" } }))).toBe("");
+  });
+
+  it("accepts the version shapes Overhear and Retell write", () => {
+    const pin = { callId: "call_8f2a9c", agentId: "agent_1c9e0d", agentVersion: "v2_3.1", pinnedWith: "0.1.0-rc.1+build5" };
+    expect(problems(pinned({ record: { call_id: "call_8f2a9c" }, pin }))).toBe("");
   });
 
   it("accepts a note of exactly 280 characters", () => {
