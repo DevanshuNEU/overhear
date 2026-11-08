@@ -107,6 +107,17 @@ function firstUnresolvedFailure(ev: Evidence): Item | undefined {
   });
 }
 
+/** Whether the agent offers a way forward after this seq: its turns are read in runs, a caller turn ending a run. */
+function hasWayForward(ev: Evidence, afterSeq: number): boolean {
+  const runs: string[][] = [[]];
+  for (const it of ev.items) {
+    if (it.seq <= afterSeq || it.kind !== "turn") continue;
+    if (it.role === "caller") runs.push([]);
+    else runs[runs.length - 1].push(it.text);
+  }
+  return runs.some((run) => WAY_FORWARD_RE.test(run.join(" ")));
+}
+
 const wordCount = (text: string): number => text.split(/\s+/).filter((w) => w !== "").length;
 
 export const errorHandled: ExperienceCheck = (ev: Evidence, ctx) => {
@@ -120,14 +131,16 @@ export const errorHandled: ExperienceCheck = (ev: Evidence, ctx) => {
     if (fragments.length > 0) problems.push({ check: "error_handled", text: leakedInternalsText(turn.seq, fragments, ev), seqs: [turn.seq] });
   }
 
-  // The first failure no later success of the same tool fixed. A way forward anywhere after it, even in a fragment,
-  // settles it. Otherwise the first full agent turn after it is cited (a fragment such as "I'm booking " is not a
-  // turn to point at); with none after the failure there is nothing to cite, so no problem.
-  const failure = firstUnresolvedFailure(ev);
+  // Without a reliable order "after the failure" is unknowable, so this rule does not run. Otherwise: the first
+  // failure no later success of the same tool fixed. A way forward anywhere after it settles it, including one split
+  // across adjacent agent fragments (Retell breaks a sentence around tool calls, so "call you" / "back" is one
+  // phrase). Otherwise the first full agent turn after it is cited (a fragment such as "I'm booking " is not a turn
+  // to point at); with none after the failure there is nothing to cite, so no problem.
+  const failure = ev.ordering === "none" ? undefined : firstUnresolvedFailure(ev);
   if (failure) {
     const after = agentTurns.filter((t) => t.seq > failure.seq);
     const cited = after.find((t) => wordCount(t.text) >= MIN_CITED_WORDS);
-    if (cited && !after.some((t) => WAY_FORWARD_RE.test(t.text))) problems.push({ check: "error_handled", text: noWayForwardText(failure.seq, ev), seqs: [cited.seq] });
+    if (cited && !hasWayForward(ev, failure.seq)) problems.push({ check: "error_handled", text: noWayForwardText(failure.seq, ev), seqs: [cited.seq] });
   }
   return { ran: true, problems };
 };

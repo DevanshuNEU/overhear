@@ -126,6 +126,21 @@ describe("errorHandled: no way forward", () => {
     expect(run([call, failed, agent("Sorry, that did not work.", 3), agent("A nurse ", 5)]).problems).toEqual([]);
   });
 
+  it("with no reliable order, 'after the failure' is unknowable: no no-way-forward problem, leaks still found", () => {
+    const e = ev([agent("Booking now.", 1), call, failed, agent("Sorry, that did not work.", 5)], { ordering: "none" });
+    expect(errorHandled(e, { detections: [] })).toEqual({ ran: true, problems: [] });
+    const leaky = ev([call, failed, agent("It was a system error.", 5)], { ordering: "none" });
+    expect(errorHandled(leaky, { detections: [] }).problems.map((p) => p.text)).toEqual(['At 0:05 the agent read system details to the caller: "system error".']);
+  });
+
+  it("a way forward split across adjacent agent fragments counts", () => {
+    expect(run([call, failed, agent("Sorry, that did not work, I will", 3), agent("call you", 4), agent("back shortly.", 5)]).problems).toEqual([]);
+  });
+
+  it("fragments are joined only while no caller turn comes between them", () => {
+    expect(run([call, failed, agent("Sorry, that did not work, I will call", 3), caller("Okay.", 4), agent("back to the menu now.", 5)]).problems).toHaveLength(1);
+  });
+
   it("a worked tool and an unsettled one need no way forward", () => {
     expect(run([call, worked, agent("All set.", 3)])).toEqual({ ran: true, problems: [] });
     expect(run([call, { ...worked, ok: null, platformOk: null }, agent("Okay.", 3)])).toEqual({ ran: true, problems: [] });
