@@ -14,6 +14,7 @@ import { promiseBacked } from "./contracts/promise-backed";
 import { spokenMatchesCommitted } from "./contracts/spoken-matches-committed";
 import { transferKept } from "./contracts/transfer-kept";
 import { detectAll } from "./detect-speech";
+import { runExperience } from "./experience";
 import { M1_CONTRACTS } from "./policy";
 import { resolveOk } from "./resolve-ok";
 import type { EngineOptions } from "./types";
@@ -64,7 +65,7 @@ export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): 
     callId: evidence.callId,
     platform: evidence.platform,
     ...verdictFor(results, detections, evidence),
-    experience: { ran: [], problems: [] },
+    experience: runExperience(evidence),
     results,
     detections,
     llmUsed: false,

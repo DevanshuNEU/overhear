@@ -228,6 +228,16 @@ export function formatTime(seq: number, ev: Evidence): string {
   return `turn ${turns.indexOf(turn) + 1}`;
 }
 
+/** The problem text for a goodbye loop: the agent said goodbye at each of these turns and the call went on. */
+export function goodbyeLoopText(seqs: number[], ev: Evidence): string {
+  return `The agent said goodbye ${seqs.length} times (at ${nameList(seqs.map((s) => formatTime(s, ev)))}) and didn't end the call.`;
+}
+
+/** The problem text for a line left open: the agent said goodbye at this turn and the call ran on until it timed out. */
+export function lineLeftOpenText(seq: number, ev: Evidence): string {
+  return `The agent said goodbye at ${formatTime(seq, ev)}, then left the line open until the call timed out.`;
+}
+
 /** Why a promise is broken: the reason slot of the promise_backed template. */
 export type PromiseReason =
   | { why: "not_attempted"; kind?: ChangeKind }

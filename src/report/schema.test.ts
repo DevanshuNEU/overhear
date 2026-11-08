@@ -344,6 +344,7 @@ describe("Tier 2: a backend action links to a tool call by id", () => {
     const shift = (s: number) => (s > book.seq ? s + 1 : s);
     for (const res of r.results) for (const f of res.findings) { f.said = f.said.map(shift); f.did = f.did.map(shift); f.asked = f.asked.map(shift); }
     for (const d of r.detections) d.seq = shift(d.seq);
+    for (const p of r.experience.problems) p.seqs = p.seqs.map(shift);
     return r;
   };
 
@@ -589,6 +590,8 @@ function nothingDone(): CallReport {
   r.notes = [];
   r.headline = headlineFor("nothing_done", [], []);
   r.detections = [];
+  // The sample's experience problem cites turns this cut-back call no longer has.
+  r.experience = { ran: [], problems: [] };
   for (const c of r.results) {
     if (c.result !== "not_run") {
       c.result = "not_applicable";
@@ -732,11 +735,11 @@ describe("the call experience field", () => {
     expect(issues(r).length).toBeGreaterThan(0);
   });
 
-  it("is on every sample, empty", () => {
-    for (const report of SAMPLE_REPORTS) expect(report.experience).toEqual({ ran: [], problems: [] });
+  it("is on every sample, as the engine produces it", () => {
+    for (const report of SAMPLE_REPORTS) expect(report.experience.ran).toEqual(["agent_ends_call"]);
     for (const file of ["failed.json", "needs-review.json", "passed.json"]) {
       const onDisk = JSON.parse(fs.readFileSync(path.join(__dirname, "samples", file), "utf8"));
-      expect(onDisk.experience).toEqual({ ran: [], problems: [] });
+      expect(onDisk.experience.ran).toEqual(["agent_ends_call"]);
     }
   });
 });

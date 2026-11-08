@@ -7,7 +7,9 @@
   "headline": "The call broke a rule, and the call record shows it.",
   "reasons": [],
   "experience": {
-    "ran": [],
+    "ran": [
+      "agent_ends_call"
+    ],
     "problems": []
   },
   "results": [

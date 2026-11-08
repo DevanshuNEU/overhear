@@ -24,7 +24,9 @@
     }
   ],
   "experience": {
-    "ran": [],
+    "ran": [
+      "agent_ends_call"
+    ],
     "problems": []
   },
   "results": [
