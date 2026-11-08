@@ -220,6 +220,37 @@ describe("starting a call", () => {
     expect(screen.getByRole("button", { name: TEST_WORDS.start })).toBeEnabled();
   });
 
+  it("makes one call when Start is clicked twice during the microphone prompt, and disables Start while it is open", async () => {
+    let grant: () => void = () => {};
+    const getUserMedia = vi.fn(() => new Promise<MediaStream>((resolve) => (grant = () => resolve({ getTracks: () => [{ stop() {} }] } as unknown as MediaStream))));
+    Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia }, configurable: true });
+    const server = fakeServer();
+    render(<TestCallScreen />);
+    await pickAgent();
+    const button = screen.getByRole("button", { name: TEST_WORDS.start });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: TEST_WORDS.start })).toBeDisabled();
+    grant();
+    await waitFor(() => expect(clients).toHaveLength(1));
+    await waitFor(() => expect(client().startCall).toHaveBeenCalledTimes(1));
+    expect(server.calls.filter((c) => c.method === "POST" && c.url === "/api/test-calls")).toHaveLength(1);
+  });
+
+  it("lets Start be used again after a blocked microphone and after a refused start", async () => {
+    allowMic(false);
+    fakeServer();
+    render(<TestCallScreen />);
+    await pickAgent();
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await screen.findByRole("alert");
+    const mic = allowMic(true);
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await waitFor(() => expect(mic.getUserMedia).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(clients).toHaveLength(1));
+  });
+
   it("says so when the browser has no microphone to share", async () => {
     Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: true });
     fakeServer();
@@ -282,6 +313,41 @@ describe("the live transcript", () => {
     const turns = within(screen.getByRole("log")).getAllByRole("listitem");
     expect(turns).toHaveLength(1);
     expect(turns[0]).toHaveTextContent("I need to see Dr. Nayar");
+  });
+
+  /** Gives the transcript box a size the way a browser would: its content height, its height, and where the reader is. */
+  function sizeLog(log: HTMLElement, top: number) {
+    Object.defineProperty(log, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(log, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(log, "scrollTop", { value: top, writable: true, configurable: true });
+  }
+
+  it("follows the newest turn while the reader is at the bottom", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    const log = screen.getByRole("log");
+    sizeLog(log, 800);
+    fireEvent.scroll(log);
+    await update([{ role: "agent", content: "Hello." }]);
+    expect(log.scrollTop).toBe(1000);
+  });
+
+  it("leaves the reader where they are when they have scrolled up to read", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    const log = screen.getByRole("log");
+    sizeLog(log, 100);
+    fireEvent.scroll(log);
+    await update([{ role: "agent", content: "Hello." }]);
+    await update([{ role: "agent", content: "Hello." }, { role: "user", content: "Hi." }]);
+    expect(log.scrollTop).toBe(100);
+    // Back at the bottom, it follows again.
+    log.scrollTop = 790;
+    fireEvent.scroll(log);
+    await update([{ role: "agent", content: "Hello." }, { role: "user", content: "Hi." }, { role: "agent", content: "How can I help?" }]);
+    expect(log.scrollTop).toBe(1000);
   });
 
   it("ignores an update that is not a transcript", async () => {
@@ -436,9 +502,31 @@ describe("after the call", () => {
     await tick(3_000);
     expect(screen.getByRole("status")).toHaveTextContent(TEST_CALL_MESSAGE.rate_limited);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(TEST_WORDS.processingLead);
+    // Backed off: the next ask is 6 seconds later, not 3.
+    await tick(3_000);
+    expect(server.asked()).toBe(1);
     await tick(3_000);
     expect(server.asked()).toBe(2);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(TEST_WORDS.noContentLead);
+  });
+
+  it("backs off while Retell keeps limiting or failing (3, 6, 12 seconds, then at most 15), and starts over once it answers", async () => {
+    const limited = { error: "rate_limited", message: TEST_CALL_MESSAGE.rate_limited, httpStatus: 429 };
+    const down = { error: "retell_down", message: TEST_CALL_MESSAGE.retell_down, httpStatus: 502 };
+    const server = fakeServer({ results: [limited, down, limited, limited, limited, { status: "processing" }, { status: "processing" }] });
+    render(<TestCallScreen />);
+    await liveWithFakeTimers();
+    hangUp();
+    const waits = [3_000, 6_000, 12_000, 15_000, 15_000, 15_000, 3_000];
+    for (const [i, wait] of waits.entries()) {
+      await tick(wait - 1);
+      expect(server.asked(), `before ask ${i + 1}`).toBe(i);
+      await tick(1);
+      expect(server.asked(), `ask ${i + 1}`).toBe(i + 1);
+    }
+    // The second processing answer came 3 seconds after the first: the back-off is over.
+    await tick(3_000);
+    expect(server.asked()).toBe(8);
   });
 
   it("stops asking and says why when the server refuses for good", async () => {
@@ -465,7 +553,9 @@ describe("after the call", () => {
     hangUp();
     await tick(3_000);
     expect(screen.getByRole("status")).toHaveTextContent(TEST_WORDS.unreachable);
-    await tick(3_000);
+    await tick(5_900);
+    expect(server.asked()).toBe(0);
+    await tick(100);
     expect(server.asked()).toBe(1);
     expect(screen.getByRole("status")).not.toHaveTextContent(TEST_WORDS.unreachable);
   });
@@ -505,6 +595,20 @@ describe("after the call", () => {
     await tick(20_000);
     expect(server.asked()).toBe(0);
     expect(screen.getByRole("button", { name: TEST_WORDS.another })).toBeEnabled();
+  });
+
+  it("says the call was ended, not failed, when stopping a call that never connected makes the SDK report an error", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await tick(0);
+    await pickAgent();
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await tick(0);
+    client().stopCall.mockImplementationOnce(() => client().emit("error", "closed while connecting"));
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.end }));
+    await tick(0);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(TEST_WORDS.cancelledLead);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("does not free the slot for a call that connected, however it ended", async () => {

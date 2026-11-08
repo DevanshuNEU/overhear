@@ -10,7 +10,7 @@
 //     reads differently now. Every refusal is worded by the server (src/pull/labels.ts) and shown as it arrives.
 // A call that is already kept reads "Kept as a test" with Remove, on load too. KeepAsTest is the two parts in a row, for a
 // place that has no header to split across.
-import { createContext, useContext, useEffect, useId, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, Loader2, TriangleAlert } from "lucide-react";
 import { CONTRACT_TITLE, EXPERIENCE_TITLE, KEEP_NOTE_MAX, KEEP_WORDS, capitalize } from "@/report/labels";
 import type { CallReport } from "@/report/schema";
@@ -30,6 +30,8 @@ const QUIET =
   "inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-report-accent underline-offset-2 enabled:hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
 
 const JSON_HEADERS = { "content-type": "application/json" };
+/** The id of the panel the action opens, for aria-controls. One report is on a page. */
+const PANEL_ID = "keep-panel";
 
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -58,6 +60,13 @@ function useKeep(report: CallReport) {
   const [justKept, setJustKept] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const callId = report.callId;
+  // Where focus is, and where it goes next: the action (the one in the header row), the panel's heading, the panel's Keep.
+  const actionRef = useRef<HTMLButtonElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const focusActionRef = useRef(false);
+  const focusPanelRef = useRef(false);
+  const focusSubmitRef = useRef(false);
 
   // Whether this call is kept already, and whether anything is kept at all (the first keep carries a warning). Until the
   // answer comes, or if it never does, the warning shows: it is the safe thing to say.
@@ -99,6 +108,7 @@ function useKeep(report: CallReport) {
         setPinId(isRec(body) && typeof body.id === "string" ? body.id : null);
         setPins("some");
         setJustKept(true);
+        focusActionRef.current = true;
         setPhase("kept");
         return;
       }
@@ -106,6 +116,7 @@ function useKeep(report: CallReport) {
     } catch {
       setFailure({ code: "unreachable", message: KEEP_WORDS.unreachable });
     }
+    focusSubmitRef.current = true;
     setPhase("open");
   }
 
@@ -118,6 +129,7 @@ function useKeep(report: CallReport) {
       if (res.ok) {
         setPinId(null);
         setJustKept(false);
+        focusActionRef.current = true;
         setPhase("closed");
         return;
       }
@@ -125,10 +137,26 @@ function useKeep(report: CallReport) {
     } catch {
       setFailure({ code: "unreachable", message: KEEP_WORDS.unreachable });
     }
+    focusActionRef.current = true;
     setPhase("kept");
   }
 
-  return { callId, items, phase, setPhase, ticked, toggle, note, setNote, pins, pinId, justKept, failure, keep, remove };
+  /** Opens the panel and moves focus to its heading. */
+  function openPanel() {
+    focusPanelRef.current = true;
+    setPhase("open");
+  }
+  /** Closes the panel from the action, which keeps focus. */
+  function close() {
+    setPhase("closed");
+  }
+  /** Closes the panel from Cancel, which is about to go, so focus returns to the action. */
+  function cancel() {
+    focusActionRef.current = true;
+    setPhase("closed");
+  }
+
+  return { callId, items, phase, openPanel, close, cancel, ticked, toggle, note, setNote, pins, pinId, justKept, failure, keep, remove, actionRef, headingRef, submitRef, focusActionRef, focusPanelRef, focusSubmitRef };
 }
 
 type Keep = ReturnType<typeof useKeep>;
@@ -147,21 +175,29 @@ export function KeepProvider({ report, children }: { report: CallReport; childre
 /** The quiet action: Keep as a test, or, once kept, Kept as a test with Remove. Nothing while the panel is open. */
 export function KeepAction() {
   const k = useKeepContext();
-  if (k.phase === "closed") {
-    return (
-      <button type="button" onClick={() => k.setPhase("open")} aria-expanded="false" className={QUIET}>
-        {KEEP_WORDS.open}
-      </button>
-    );
-  }
-  if (k.phase === "kept" || k.phase === "removing") {
-    return (
-      <span className="inline-flex items-center gap-1">
-        <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm font-medium text-report-ink-2">
-          <Check aria-hidden className="size-4 text-report-accent" strokeWidth={2.5} />
-          {KEEP_WORDS.kept}
-        </span>
-        <button type="button" onClick={() => void k.remove()} disabled={k.phase === "removing" || k.pinId === null} className={QUIET}>
+  const { actionRef, focusActionRef } = k;
+  // Focus goes back to the action after Cancel, a keep and a remove: the control it was on has just changed or gone.
+  useEffect(() => {
+    if (focusActionRef.current) {
+      focusActionRef.current = false;
+      actionRef.current?.focus();
+    }
+  });
+  const kept = k.phase === "kept" || k.phase === "removing";
+  const open = k.phase === "open" || k.phase === "saving";
+  return (
+    <span className="inline-flex items-center gap-1">
+      {/* On the page before anything is kept, so a screen reader announces the words when they arrive. */}
+      <span role="status" aria-label={KEEP_WORDS.open}>
+        {kept ? (
+          <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm font-medium text-report-ink-2">
+            <Check aria-hidden className="size-4 text-report-accent" strokeWidth={2.5} />
+            {KEEP_WORDS.kept}
+          </span>
+        ) : null}
+      </span>
+      {kept ? (
+        <button ref={actionRef} type="button" onClick={() => void k.remove()} disabled={k.phase === "removing" || k.pinId === null} className={QUIET}>
           {k.phase === "removing" ? (
             <>
               <Spin />
@@ -171,10 +207,21 @@ export function KeepAction() {
             KEEP_WORDS.remove
           )}
         </button>
-      </span>
-    );
-  }
-  return null;
+      ) : (
+        <button
+          ref={actionRef}
+          type="button"
+          onClick={open ? k.close : k.openPanel}
+          disabled={k.phase === "saving"}
+          aria-expanded={open}
+          aria-controls={open ? PANEL_ID : undefined}
+          className={QUIET}
+        >
+          {KEEP_WORDS.open}
+        </button>
+      )}
+    </span>
+  );
 }
 
 /** Where it was saved right after a keep, a refusal to remove, and, when the action is open, the list of what to keep. */
@@ -182,7 +229,17 @@ export function KeepPanel() {
   const k = useKeepContext();
   const noteId = useId();
   const noteHintId = useId();
-  const { items, callId, failure } = k;
+  const { items, callId, failure, headingRef, submitRef, focusPanelRef, focusSubmitRef } = k;
+  // Opening the panel moves focus to its heading; a refused keep puts it back on Keep, which was disabled while it was sent.
+  useEffect(() => {
+    if (focusPanelRef.current && headingRef.current) {
+      focusPanelRef.current = false;
+      headingRef.current.focus();
+    } else if (focusSubmitRef.current && submitRef.current) {
+      focusSubmitRef.current = false;
+      submitRef.current.focus();
+    }
+  });
 
   const alert = failure ? (
     <div role="alert" className="mt-4 text-sm">
@@ -212,8 +269,8 @@ export function KeepPanel() {
   const row = "flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm";
   const box = "size-4 shrink-0 accent-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent";
   return (
-    <section aria-labelledby="keep-heading" className="mt-6 max-w-[640px] border-t border-report-line pt-6">
-      <h2 id="keep-heading" className="text-base font-semibold">
+    <section id={PANEL_ID} aria-labelledby="keep-heading" className="mt-6 max-w-[640px] border-t border-report-line pt-6">
+      <h2 id="keep-heading" ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
         {KEEP_WORDS.heading}
       </h2>
       <p className="mt-1 text-sm text-report-ink-2">{KEEP_WORDS.intro}</p>
@@ -286,7 +343,7 @@ export function KeepPanel() {
       ) : null}
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => void k.keep()} disabled={saving} className={PRIMARY}>
+        <button ref={submitRef} type="button" onClick={() => void k.keep()} disabled={saving} className={PRIMARY}>
           {saving ? (
             <>
               <Spin />
@@ -296,7 +353,12 @@ export function KeepPanel() {
             KEEP_WORDS.keep
           )}
         </button>
-        <button type="button" onClick={() => k.setPhase("closed")} disabled={saving} className={BUTTON}>
+        <button
+          type="button"
+          onClick={k.cancel}
+          disabled={saving}
+          className={BUTTON}
+        >
           {KEEP_WORDS.cancel}
         </button>
       </div>

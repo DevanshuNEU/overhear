@@ -31,6 +31,10 @@ import { TEST_WORDS, type ConnectionState, type MicState } from "./testCallWords
 /** The least time between two asks for a result. A caller's own setting can slow this down, never speed it up. */
 const MIN_POLL_MS = 2000;
 const DEFAULT_POLL_MS = 3000;
+/** How far from the bottom of the transcript still counts as being at it. */
+const NEAR_BOTTOM_PX = 40;
+/** The longest wait between asks while Retell is limiting or failing. */
+const MAX_POLL_MS = 15000;
 /** Answers that pass: Retell is limiting requests or having trouble, so the screen says so and asks again. */
 const TRANSIENT = new Set(["rate_limited", "network", "retell_down"]);
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -127,16 +131,22 @@ function Heading({ lead, next }: { lead: string; next?: string }) {
 
 function Transcript({ turns, label, className = "" }: { turns: Turn[]; label: string; className?: string }) {
   const box = useRef<HTMLDivElement>(null);
-  // The newest turn stays in view while the call is going.
+  // Whether the reader is at the bottom (or near it). The newest turn stays in view only then: a reader who has scrolled up to
+  // look at something is not pulled away from it.
+  const atBottom = useRef(true);
+  const track = () => {
+    const el = box.current;
+    if (el) atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+  };
   useEffect(() => {
-    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+    if (box.current && atBottom.current) box.current.scrollTop = box.current.scrollHeight;
   }, [turns]);
   return (
     <section aria-labelledby="transcript-heading" className={className}>
       <h2 id="transcript-heading" className="mb-3 text-base font-semibold">
         {label}
       </h2>
-      <div ref={box} role="log" aria-label={label} tabIndex={0} className="max-h-[56vh] overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent lg:max-h-[calc(100vh-14rem)]">
+      <div ref={box} onScroll={track} role="log" aria-label={label} tabIndex={0} className="max-h-[56vh] overflow-y-auto rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent lg:max-h-[calc(100vh-14rem)]">
         {turns.length === 0 ? (
           <p className="text-sm text-report-muted">{label === TEST_WORDS.transcriptLive ? TEST_WORDS.transcriptWaiting : TEST_WORDS.transcriptNone}</p>
         ) : (
@@ -175,6 +185,8 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   const run = useRef({ connected: false, finished: false });
   /** The call the server started for this screen, once it has said so. */
   const callIdRef = useRef<string | null>(null);
+  /** A start is under way (the microphone prompt included). Read synchronously, so two quick clicks make one call. */
+  const starting = useRef(false);
   const mounted = useRef(true);
   const interval = Math.max(MIN_POLL_MS, pollMs);
 
@@ -218,6 +230,9 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     if (pollFor === null) return;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Asks in a row that Retell or Overhear could not answer. Each one doubles the wait (3, 6, 12 seconds, then 15 at most), so
+    // a Retell that is limiting or failing is not asked more often; one answer ends the back-off.
+    let trouble = 0;
     const ask = async () => {
       try {
         const res = await fetch(`/api/test-calls/${encodeURIComponent(pollFor)}/result`, { cache: "no-store" });
@@ -226,6 +241,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
         if (res.ok && isRec(body)) {
           const done = outcomeOf(body);
           setPollNote(null);
+          trouble = 0;
           if (done) {
             setOutcome(done);
             return;
@@ -237,14 +253,17 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
             return;
           }
           setPollNote(body.message);
+          trouble += 1;
         } else {
           setPollNote(TEST_WORDS.unreachable);
+          trouble += 1;
         }
       } catch {
         if (!live) return;
         setPollNote(TEST_WORDS.unreachable);
+        trouble += 1;
       }
-      timer = setTimeout(ask, interval);
+      timer = setTimeout(ask, Math.max(interval, Math.min(MAX_POLL_MS, interval * 2 ** trouble)));
     };
     timer = setTimeout(ask, interval);
     return () => {
@@ -280,7 +299,9 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
 
   async function start() {
     const agent = agents.kind === "ready" ? agents.list.find((a) => a.id === agentId) : undefined;
-    if (!agent || phase !== "idle") return;
+    // Synchronous, so a second click before the screen has re-rendered (the microphone prompt is open) starts nothing.
+    if (!agent || phase !== "idle" || starting.current) return;
+    starting.current = true;
     run.current = { connected: false, finished: false };
     callIdRef.current = null;
     setUnconnected(null);
@@ -298,6 +319,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     // 1. The microphone, before anything that costs a minute.
     const devices = typeof navigator === "undefined" ? undefined : navigator.mediaDevices;
     if (!devices || typeof devices.getUserMedia !== "function") {
+      starting.current = false;
       setMic("blocked");
       setProblem(TEST_WORDS.micMissing);
       return;
@@ -306,6 +328,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
       const stream = await devices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
     } catch {
+      starting.current = false;
       if (!mounted.current) return;
       setMic("blocked");
       setProblem(TEST_WORDS.micBlocked);
@@ -327,6 +350,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
         return;
       }
       if (!res.ok || !isRec(body) || typeof body.callId !== "string" || typeof body.accessToken !== "string") {
+        starting.current = false;
         setProblem(isRec(body) && typeof body.message === "string" ? body.message : TEST_WORDS.unreachable);
         setPhase("idle");
         setConnection("idle");
@@ -337,6 +361,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
       const iceServers = Array.isArray(body.iceServers) ? (body.iceServers as Config["iceServers"]) : undefined;
       joined = { callId: body.callId, accessToken: body.accessToken, transport, iceServers };
     } catch {
+      starting.current = false;
       if (!mounted.current) return;
       setProblem(TEST_WORDS.unreachable);
       setPhase("idle");
@@ -386,13 +411,14 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   function end() {
     const client = clientRef.current;
     if (!client || callId === null) return;
-    const wasConnected = run.current.connected;
+    // A call that had not connected has nothing to end the call with, so the end is said first, here: stopping it can make
+    // the SDK report an error, and that must not read as a failed connection.
+    if (!run.current.connected) finish(callId, "cancelled");
     client.stopCall();
-    // A call that had not connected has nothing to end the call with, so the end is said here.
-    if (!wasConnected) finish(callId, "cancelled");
   }
 
   function again() {
+    starting.current = false;
     clientRef.current?.removeAllListeners();
     clientRef.current = null;
     callIdRef.current = null;
@@ -440,7 +466,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   const processing = phase === "ended" && !finished && unconnected === null;
   const showTranscript = !picker;
   const transcriptLabel = phase === "live" || phase === "connecting" ? TEST_WORDS.transcriptLive : TEST_WORDS.transcriptSaw;
-  const startable = agents.kind === "ready" && agentId !== "";
+  const startable = agents.kind === "ready" && agentId !== "" && mic !== "asking";
 
   const facts = picker && mic === "idle" ? null : (
     <ul aria-label="Call state" className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 sm:flex sm:flex-wrap">

@@ -458,7 +458,7 @@ export const KEEP_WORDS = {
   /** The first-pin warning, word for word from the pin design. */
   firstPin:
     "This saves the call’s transcript and tool data on this computer, in ~/.overhear/pinned. It can hold names, dates of birth and health details. Nothing is sent anywhere. Recording links, the caller’s number and your API key are left out. You can delete it any time.",
-  keep: "Keep as a test",
+  keep: "Keep call",
   keeping: "Keeping",
   cancel: "Cancel",
   kept: "Kept as a test",

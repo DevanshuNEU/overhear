@@ -247,8 +247,90 @@ describe("the call report view", () => {
     const panel = screen.getByRole("region", { name: KEEP_WORDS.heading });
     expect(follows(screen.getByRole("list", { name: "Key facts" }), panel)).toBe(true);
     expect(follows(screen.getByRole("heading", { level: 1 }), panel)).toBe(true);
-    // While the panel is open the row's action is gone: the panel has its own Keep and Cancel.
+    // The action stays where it is, and says it is open; the panel has its own Keep and Cancel.
     expect(screen.getAllByRole("button", { name: KEEP_WORDS.keep })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: KEEP_WORDS.open })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  describe("for a keyboard and a screen reader", () => {
+    const action = () => screen.getByRole("button", { name: KEEP_WORDS.open });
+
+    it("gives the action a real aria-expanded and aria-controls that names the panel", () => {
+      fakeServer();
+      render(<CallReportView report={failedSample} keep />);
+      expect(action()).toHaveAttribute("aria-expanded", "false");
+      expect(action()).not.toHaveAttribute("aria-controls");
+      fireEvent.click(action());
+      expect(action()).toHaveAttribute("aria-expanded", "true");
+      const panel = screen.getByRole("region", { name: KEEP_WORDS.heading });
+      expect(action().getAttribute("aria-controls")).toBe(panel.id);
+      expect(panel.id).not.toBe("");
+    });
+
+    it("closes the panel when the action is used again, and keeps focus on it", () => {
+      fakeServer();
+      render(<CallReportView report={failedSample} keep />);
+      fireEvent.click(action());
+      fireEvent.click(action());
+      expect(screen.queryByRole("region", { name: KEEP_WORDS.heading })).toBeNull();
+      expect(action()).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("moves focus to the panel heading when it opens", () => {
+      fakeServer();
+      render(<CallReportView report={failedSample} keep />);
+      fireEvent.click(action());
+      const heading = screen.getByRole("heading", { name: KEEP_WORDS.heading });
+      expect(heading).toHaveAttribute("tabindex", "-1");
+      expect(heading).toHaveFocus();
+    });
+
+    it("returns focus to the action on Cancel", () => {
+      fakeServer();
+      render(<CallReportView report={failedSample} keep />);
+      fireEvent.click(action());
+      fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.cancel }));
+      expect(action()).toHaveFocus();
+    });
+
+    it("returns focus to the action after a keep, where Remove now is, and after Remove, where Keep as a test is again", async () => {
+      fakeServer();
+      render(<CallReportView report={failedSample} keep />);
+      fireEvent.click(action());
+      fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.keep }));
+      await screen.findByText(KEEP_WORDS.kept);
+      await waitFor(() => expect(screen.getByRole("button", { name: KEEP_WORDS.remove })).toHaveFocus());
+      fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.remove }));
+      await waitFor(() => expect(action()).toHaveFocus());
+    });
+
+    it("puts focus back on Keep after a refused keep, since Keep was disabled while it was sent", async () => {
+      fakeServer({ post: () => new Response(JSON.stringify({ error: "changed", message: PIN_MESSAGE.changed }), { status: 409 }) });
+      render(<CallReportView report={failedSample} keep />);
+      fireEvent.click(action());
+      fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.keep }));
+      await screen.findByRole("alert");
+      await waitFor(() => expect(screen.getByRole("button", { name: KEEP_WORDS.keep })).toHaveFocus());
+    });
+
+    it("does not take focus when the page loads with the call already kept", async () => {
+      fakeServer({ pins: [{ id: "pin-call-sample-failed-1234abcd", callId: failedSample.callId }] });
+      render(<CallReportView report={failedSample} keep />);
+      await screen.findByText(KEEP_WORDS.kept);
+      expect(document.body).toHaveFocus();
+    });
+
+    it("says Kept as a test in a status region that was already on the page, so it is announced", async () => {
+      fakeServer();
+      render(<CallReportView report={failedSample} keep />);
+      const status = screen.getByRole("status", { name: KEEP_WORDS.open });
+      expect(status).toBeEmptyDOMElement();
+      fireEvent.click(action());
+      fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.keep }));
+      await screen.findByText(KEEP_WORDS.kept);
+      expect(screen.getByRole("status", { name: KEEP_WORDS.open })).toBe(status);
+      expect(status).toHaveTextContent(KEEP_WORDS.kept);
+    });
   });
 
   it("reads Kept as a test with Remove in the same row after a keep, and says where it was saved", async () => {
