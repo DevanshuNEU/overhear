@@ -2,12 +2,21 @@
 // of the engine: it takes cases and an Analyze function and returns plain results. Reading the case files and
 // writing the report happen in scripts/run-engine-evals.ts.
 //
-// A case passes only when the engine returned a valid report and the verdict, every labeled contract and every
-// required citation match. An error, a no_content outcome or a report that does not validate never passes and
+// A case passes only when the engine returned a valid report and the verdict, every labeled contract, every kept
+// call experience check and every required citation match. An error, a no_content outcome or a report that does not validate never passes and
 // never counts as a verdict.
-import { CONTRACT_IDS, CallReportSchema, type CallReport, type ContractId, type Result, type Verdict } from "@/report/schema";
+import {
+  CONTRACT_IDS,
+  EXPERIENCE_CHECKS,
+  CallReportSchema,
+  type CallReport,
+  type ContractId,
+  type ExperienceCheckId,
+  type Result,
+  type Verdict,
+} from "@/report/schema";
 import type { Analyze, Outcome } from "../types";
-import type { CaseSource, EvalCase } from "./case";
+import type { CaseSource, EvalCase, ExperienceExpect } from "./case";
 
 /** The time zone a case is read in when it names none. */
 export const DEFAULT_TZ = "UTC";
@@ -22,6 +31,17 @@ export interface ContractCheck {
   contract: ContractId;
   expected: Result;
   actual: ActualResult;
+  agree: boolean;
+}
+
+/** What the engine said about a kept experience check: a problem, clean, or why it said neither. */
+export type ActualExperience = ExperienceExpect | "not_run" | "no_report";
+
+export interface ExperienceCheck {
+  check: ExperienceCheckId;
+  expected: ExperienceExpect;
+  /** not_run: the report's experience.ran does not list the check, so its silence proves nothing. */
+  actual: ActualExperience;
   agree: boolean;
 }
 
@@ -49,6 +69,8 @@ export interface CaseResult {
   /** Every contract result the report returned, labeled or not. Empty with no report. */
   results: Partial<Record<ContractId, Result>>;
   mustCite: CiteCheck[];
+  /** One check per kept experience check, in the schema's order. Empty when the case keeps none. */
+  experience: ExperienceCheck[];
   pass: boolean;
 }
 
@@ -93,6 +115,17 @@ export function runCase(c: EvalCase, analyze: Analyze): CaseResult {
     return [{ contract, expected, actual, agree: actual === expected }];
   });
 
+  const kept = c.expect.experience ?? {};
+  const experience: ExperienceCheck[] = EXPERIENCE_CHECKS.flatMap((check) => {
+    const expected = kept[check];
+    if (expected === undefined) return [];
+    let actual: ActualExperience;
+    if (report === null) actual = "no_report";
+    else if (!report.experience.ran.includes(check)) actual = "not_run";
+    else actual = report.experience.problems.some((p) => p.check === check) ? "problem" : "clean";
+    return [{ check, expected, actual, agree: actual === expected }];
+  });
+
   const mustCite: CiteCheck[] = (c.expect.mustCite ?? []).map(({ contract, seqs }) => {
     const cited = report === null ? new Set<number>() : citedBy(report, contract);
     const missing = seqs.filter((s) => !cited.has(s));
@@ -115,7 +148,8 @@ export function runCase(c: EvalCase, analyze: Analyze): CaseResult {
     contracts,
     results,
     mustCite,
-    pass: report !== null && verdictMatch && contracts.every((k) => k.agree) && mustCite.every((m) => m.ok),
+    experience,
+    pass: report !== null && verdictMatch && contracts.every((k) => k.agree) && experience.every((k) => k.agree) && mustCite.every((m) => m.ok),
   };
 }
 

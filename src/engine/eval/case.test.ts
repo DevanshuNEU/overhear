@@ -101,6 +101,86 @@ describe("parseCase", () => {
   });
 });
 
+/** A valid pinned call; each test changes one thing. */
+function pinned(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return valid({
+    id: "pin-call-8f2a9c-1c9e0d4b",
+    tz: "America/New_York",
+    label: { by: "you", at: "2026-11-08T10:15:00-05:00", note: "nurse transfer promised, never made" },
+    pin: { callId: "call_8f2a9c", agentId: "agent_1c9e0d", agentVersion: "3", pinnedWith: "0.1.0" },
+    expect: { verdict: "failed", contracts: { transfer_kept: "violated" }, experience: { agent_ends_call: "problem", error_handled: "clean" } },
+    ...over,
+  });
+}
+
+describe("a pinned call", () => {
+  it("reads, with its pin block and kept experience checks", () => {
+    const c = parseCase(pinned(), "pin.json");
+    expect(c.pin).toEqual({ callId: "call_8f2a9c", agentId: "agent_1c9e0d", agentVersion: "3", pinnedWith: "0.1.0" });
+    expect(c.expect.experience).toEqual({ agent_ends_call: "problem", error_handled: "clean" });
+  });
+
+  it("reads a fix pin and a call with no agent version", () => {
+    const c = parseCase(pinned({ pin: { callId: "call_2", agentId: "agent_1", agentVersion: null, pinnedWith: "0.1.0", fixes: "pin-call-8f2a9c-1c9e0d4b" } }));
+    expect(c.pin?.fixes).toBe("pin-call-8f2a9c-1c9e0d4b");
+  });
+
+  it("leaves an existing case without a pin or kept experience checks reading as before", () => {
+    const c = parseCase(valid());
+    expect(c.pin).toBeUndefined();
+    expect(c.expect.experience).toBeUndefined();
+  });
+
+  it("rejects a pin with no time zone, naming tz", () => {
+    expect(problems(pinned({ tz: undefined }))).toContain("tz");
+  });
+
+  it.each([
+    ["a source that is not real", { source: "external" }, "source"],
+    ["a case that is not locked", { locked: false }, "locked"],
+    ["a case marked independent", { independent: true }, "independent"],
+    ["a note over 280 characters", { label: { by: "you", at: "2026-11-08", note: "x".repeat(281) } }, "label.note"],
+    ["a note over one line", { label: { by: "you", at: "2026-11-08", note: "one\ntwo" } }, "label.note"],
+    ["a call id with a slash", { pin: { callId: "a/b", agentId: "agent_1", agentVersion: "1", pinnedWith: "0.1.0" } }, "pin.callId"],
+    ["a pin with an unknown key", { pin: { callId: "c", agentId: "a", agentVersion: "1", pinnedWith: "0.1.0", extra: 1 } }, "pin"],
+    ["a pin missing pinnedWith", { pin: { callId: "c", agentId: "a", agentVersion: "1" } }, "pin.pinnedWith"],
+    ["an unknown experience check", { expect: { verdict: "failed", experience: { rude: "problem" } } }, "expect"],
+    ["an experience expectation that is not problem or clean", { expect: { verdict: "failed", experience: { agent_ends_call: "bad" } } }, "expect"],
+  ])("rejects %s", (_what, over, where) => {
+    expect(problems(pinned(over))).toContain(where);
+  });
+
+  it("accepts a note of exactly 280 characters", () => {
+    expect(problems(pinned({ label: { by: "you", at: "2026-11-08", note: "x".repeat(280) } }))).toBe("");
+  });
+
+  it("still lets a case without a pin have a long note", () => {
+    expect(problems(valid({ label: { by: "sample", at: "2026-11-06", note: "x".repeat(400) } }))).toBe("");
+  });
+});
+
+describe("formatCase for a pin", () => {
+  const c = parseCase(pinned({ record: { call_id: "call_8f2a9c", transcript_with_tool_calls: [{ role: "agent", content: "Hi there." }] } }));
+  const text = formatCase(c);
+
+  it("round-trips byte for byte", () => {
+    expect(formatCase(parseCase(JSON.parse(text)))).toBe(text);
+  });
+
+  it("writes the pin right after the label, and before tz and the expectation", () => {
+    const at = (key: string): number => text.indexOf(`"${key}"`);
+    expect(at("label")).toBeLessThan(at("pin"));
+    expect(at("pin")).toBeLessThan(at("tz"));
+    expect(at("tz")).toBeLessThan(at("expect"));
+    expect(at("expect")).toBeLessThan(at("record"));
+  });
+
+  it("writes the keys in one order whatever order the case object has them in", () => {
+    const shuffled = Object.fromEntries(Object.entries(c).reverse()) as EvalCase;
+    expect(formatCase(shuffled)).toBe(text);
+  });
+});
+
 describe("checkCaseSet", () => {
   const a = parseCase(valid({ id: "a" }));
   const b = parseCase(valid({ id: "b", source: "mutation", derivedFrom: "a" }));

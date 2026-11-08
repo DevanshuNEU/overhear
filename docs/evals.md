@@ -25,12 +25,29 @@ A case is one raw call record plus what the engine should say about it. It is on
 | `label` | `by` (who decided the truth), `at` (a date, or a date and time) and an optional `note` saying why. |
 | `derivedFrom` | For a mutation, and only a mutation: the id of its parent case. |
 | `tz` | Optional. The IANA time zone spoken times are read in when the agent's policy names none. Default `UTC`. |
-| `expect` | `verdict` (`failed`, `needs_review` or `passed`); optional `contracts`, the result a person checked for each contract; optional `mustCite`, turns and tool items (by evidence `seq`) a contract's findings must cite. |
+| `pin` | Optional. Only on a pinned call (see "Pinned calls"). |
+| `expect` | `verdict` (`failed`, `needs_review`, `passed` or `nothing_done`); optional `contracts`, the result a person checked for each contract; optional `experience`, the call experience checks a person kept, each `problem` or `clean`; optional `mustCite`, turns and tool items (by evidence `seq`) a contract's findings must cite. |
 | `record` | The raw record exactly as the platform's API returns it (Retell: `GET /v2/get-call`), scrubbed. |
 
 The schema also refuses an expectation that contradicts itself: a violated contract with a verdict other than `failed`, an unverified contract with `passed`, or `mustCite` on a contract expected not to apply.
 
 The same format is meant for two later writers: the product's "pin this call as a regression test" (a pinned call is a case its user labeled) and a converter for outside data such as tau-bench. Both write files with `formatCase`, so every case file reads the same way.
+
+## Kept experience checks
+
+`expect.experience` maps a call experience check (`agent_ends_call`, `error_handled`, `spoken_format`) to `problem` (the engine must report one) or `clean` (the engine must run the check and find nothing). A check left out is not scored. Each kept check counts toward the case passing, and the case result lists what the engine said: `problem`, `clean`, `not_run` (the report's `experience.ran` does not list the check, so its silence proves nothing and it disagrees even for `clean`) or `no_report` (the engine gave no report). A locked case's lock still covers the verdict only.
+
+## Pinned calls
+
+A pinned call is a case a person saved from a real call, so the engine keeps reading that call the way they confirmed. It is a normal case with these rules, which the schema enforces:
+
+- `source` is `real`, `platform` is `retell`, `independent` is `false` and `locked` is `true`.
+- `tz` is required: the zone the call was pinned in, so spoken times read the same later.
+- `label.note`, when present, is one line of at most 280 characters. By convention `label.by` is `you` (the schema does not check it).
+- `pin` holds `callId`, `agentId`, `agentVersion` (a string, or `null` when the call has none), `pinnedWith` (the Overhear version that read it) and, for a fix pin, `fixes`: the id of the pinned case it fixes.
+- `expect.verdict` is always kept. `expect.contracts` and `expect.experience` hold only the items the person ticked.
+
+`pin` is written right after `label` in the file. A pin is tested like any case: the runner compares the engine's reading with `expect`, and the case breaks its lock when the verdict changes.
 
 ## Adding a case
 
