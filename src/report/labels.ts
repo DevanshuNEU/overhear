@@ -28,9 +28,9 @@ export const CONTRACT_TITLE: Record<ContractId, string> = {
 
 /** The call experience checks, named the way CONTRACT_TITLE names a contract: lowercase, to sit in a sentence. */
 export const EXPERIENCE_TITLE: Record<ExperienceCheckId, string> = {
-  agent_ends_call: "the agent ends the call",
-  error_handled: "errors handled well",
-  spoken_format: "dates and times read naturally",
+  agent_ends_call: "how the call ends",
+  error_handled: "how errors are handled",
+  spoken_format: "how dates and times are read",
 };
 
 /** The line under the verdict that says how the call sounded to the caller. Never changes the verdict. */

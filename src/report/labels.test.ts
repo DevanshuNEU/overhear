@@ -81,8 +81,8 @@ describe("the call experience line", () => {
   });
 
   it("names the checks that ran, in a sentence", () => {
-    expect(experienceChecked(["agent_ends_call"])).toBe("Checked: the agent ends the call.");
-    expect(experienceChecked(["agent_ends_call", "error_handled"])).toBe("Checked: the agent ends the call and errors handled well.");
-    expect(experienceChecked(["agent_ends_call", "error_handled", "spoken_format"])).toBe("Checked: the agent ends the call, errors handled well and dates and times read naturally.");
+    expect(experienceChecked(["agent_ends_call"])).toBe("Checked: how the call ends.");
+    expect(experienceChecked(["agent_ends_call", "error_handled"])).toBe("Checked: how the call ends and how errors are handled.");
+    expect(experienceChecked(["agent_ends_call", "error_handled", "spoken_format"])).toBe("Checked: how the call ends, how errors are handled and how dates and times are read.");
   });
 });

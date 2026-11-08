@@ -21,14 +21,14 @@ describe("ExperienceSection", () => {
   it("says the call had no problems, and names the checks that ran", () => {
     render(<ExperienceSection report={failedSample} />);
     const section = screen.getByRole("region", { name: "Call experience: no problems found" });
-    expect(section).toHaveTextContent("Checked: the agent ends the call and errors handled well.");
+    expect(section).toHaveTextContent("Checked: how the call ends and how errors are handled.");
     expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("names only the checks that ran when it counts problems too", () => {
     render(<ExperienceSection report={{ ...passedSample, experience: { ...passedSample.experience, ran: ["agent_ends_call"] } }} />);
-    expect(screen.getByRole("region")).toHaveTextContent("Checked: the agent ends the call.");
-    expect(screen.getByRole("region")).not.toHaveTextContent("errors handled well");
+    expect(screen.getByRole("region")).toHaveTextContent("Checked: how the call ends.");
+    expect(screen.getByRole("region")).not.toHaveTextContent("how errors are handled");
   });
 
   it("pluralises the count", () => {
