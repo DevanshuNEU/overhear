@@ -13,6 +13,7 @@ const STATUS: Record<TestCallErrorCode, number> = {
   body_too_large: 413,
   not_connected: 409,
   call_active: 409,
+  already_open: 409,
   not_found: 404,
   unreadable: 502,
   bad_key: 502,

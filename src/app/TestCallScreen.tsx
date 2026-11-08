@@ -35,6 +35,8 @@ const DEFAULT_POLL_MS = 3000;
 const NEAR_BOTTOM_PX = 40;
 /** The longest wait between asks while Retell is limiting or failing. */
 const MAX_POLL_MS = 15000;
+/** How long the live stream is kept open after the SDK says the call ended, so the last words still arrive. */
+const LIVE_GRACE_MS = 3000;
 /** Answers that pass: Retell is limiting requests or having trouble, so the screen says so and asks again. */
 const TRANSIENT = new Set(["rate_limited", "network", "retell_down"]);
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -77,6 +79,28 @@ function turnsOf(event: unknown): Turn[] | null {
     if (u.role === "user") return [{ role: "caller", text: u.content }];
     return [];
   });
+}
+
+type LiveItem = { role: Turn["role"]; text: string; time: number; seq: number };
+type Live = { source: EventSource | null; items: Map<string, LiveItem>; seq: number; timer: ReturnType<typeof setTimeout> | undefined };
+
+/** One utterance from the live stream (id, role, content, time_sec), or null for anything else. Only agent and user pass. */
+function liveUtteranceOf(data: unknown): { id: string; item: Omit<LiveItem, "seq"> } | null {
+  if (typeof data !== "string") return null;
+  let u: unknown;
+  try {
+    u = JSON.parse(data);
+  } catch {
+    return null;
+  }
+  if (!isRec(u) || typeof u.id !== "string" || typeof u.content !== "string" || typeof u.time_sec !== "number" || !Number.isFinite(u.time_sec)) return null;
+  if (u.role !== "agent" && u.role !== "user") return null;
+  return { id: u.id, item: { role: u.role === "agent" ? "agent" : "caller", text: u.content, time: u.time_sec } };
+}
+
+/** The merged utterances as turns: by time, and by arrival for the same time. */
+function turnsFromLive(items: Map<string, LiveItem>): Turn[] {
+  return [...items.values()].sort((a, b) => a.time - b.time || a.seq - b.seq).map(({ role, text }) => ({ role, text }));
 }
 
 /** What a result says, or null while Retell is still processing. */
@@ -185,6 +209,8 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   const run = useRef({ connected: false, finished: false });
   /** The call the server started for this screen, once it has said so. */
   const callIdRef = useRef<string | null>(null);
+  /** The live transcript stream of the call (see /api/test-calls/{id}/live) and the utterances merged from it by id. */
+  const liveRef = useRef<Live>({ source: null, items: new Map(), seq: 0, timer: undefined });
   /** A start is under way (the microphone prompt included). Read synchronously, so two quick clicks make one call. */
   const starting = useRef(false);
   const mounted = useRef(true);
@@ -207,12 +233,60 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     }
   }, []);
 
+  /** Closes the live stream, now or after a short wait, and forgets what it merged when `forget` is set. */
+  const closeLive = useCallback((forget: boolean, afterMs = 0) => {
+    const l = liveRef.current;
+    clearTimeout(l.timer);
+    l.timer = undefined;
+    const shut = () => {
+      l.source?.close();
+      l.source = null;
+      l.timer = undefined;
+    };
+    if (afterMs > 0 && l.source) l.timer = setTimeout(shut, afterMs);
+    else shut();
+    if (forget) {
+      l.items = new Map();
+      l.seq = 0;
+    }
+  }, []);
+
+  /**
+   * Opens the live stream of a call. The server holds the key and the monitor socket and sends only the words; each utterance
+   * is merged by id (a changed one replaces its earlier text) and the turns shown are rebuilt from the merge. Any end or
+   * trouble on the stream closes it: the SDK's own `update` events stay as the fallback until the stream has said something.
+   */
+  const openLive = useCallback(
+    (id: string) => {
+      if (typeof EventSource === "undefined" || liveRef.current.source) return;
+      const source = new EventSource(`/api/test-calls/${encodeURIComponent(id)}/live`);
+      liveRef.current.source = source;
+      source.addEventListener("utterance", (ev) => {
+        const l = liveRef.current;
+        if (l.source !== source || !mounted.current) return;
+        const got = liveUtteranceOf((ev as MessageEvent).data);
+        if (!got) return;
+        l.items.set(got.id, { ...got.item, seq: l.items.get(got.id)?.seq ?? l.seq++ });
+        setTurns(turnsFromLive(l.items));
+      });
+      const over = () => {
+        if (liveRef.current.source === source) closeLive(false);
+      };
+      source.addEventListener("end", over);
+      source.addEventListener("problem", over);
+      // A dropped connection is not retried: the browser would open a second stream while the server still counts the first.
+      source.onerror = over;
+    },
+    [closeLive],
+  );
+
   // The agents on this key, once. (Written as a microtask so the first render is on screen before state changes.)
   useEffect(() => {
     mounted.current = true;
     queueMicrotask(() => void loadAgents());
     return () => {
       mounted.current = false;
+      closeLive(true);
       // A call still going when the screen goes away must not keep the microphone.
       clientRef.current?.stopCall();
       clientRef.current?.removeAllListeners();
@@ -223,7 +297,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
         releaseSlot(id);
       }
     };
-  }, [loadAgents]);
+  }, [loadAgents, closeLive]);
 
   // After the call: ask where it stands, every few seconds, until the answer will not change.
   useEffect(() => {
@@ -284,13 +358,16 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     setMic("off");
     setConnection(how === "failed" ? "failed" : "ended");
     if (how === "ended") {
+      // The stream says `end` itself when Retell does; this is only so it never stays open if that word does not come.
+      closeLive(false, LIVE_GRACE_MS);
       setPollFor(id);
       return;
     }
+    closeLive(false);
     if (how === "failed") setProblem(TEST_WORDS.connectionFailed);
     setUnconnected(how);
     releaseSlot(id);
-  }, []);
+  }, [closeLive]);
 
   function makeClient(): Client {
     const stub = stubbable ? (globalThis as { __overhearStubClient?: () => Client }).__overhearStubClient : undefined;
@@ -309,6 +386,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     setOutcome(null);
     setPollNote(null);
     setPollFor(null);
+    closeLive(true);
     setTurns([]);
     setCallId(null);
     setHasClient(false);
@@ -380,6 +458,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     client.on("call_started", () => {
       if (!mounted.current || clientRef.current !== client) return;
       run.current.connected = true;
+      openLive(id);
       setPhase("live");
       setMic("on");
       setConnection("connected");
@@ -387,7 +466,8 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     client.on("update", (event: unknown) => {
       if (!mounted.current || clientRef.current !== client) return;
       const next = turnsOf(event);
-      if (next) setTurns(next);
+      // The live stream has the words once it has said anything; the SDK's update is the fallback until then.
+      if (next && liveRef.current.items.size === 0) setTurns(next);
     });
     client.on("call_ended", () => {
       if (clientRef.current === client) finish(id, "ended");
@@ -426,6 +506,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     setPhase("idle");
     setMic("idle");
     setConnection("idle");
+    closeLive(true);
     setTurns([]);
     setProblem(null);
     setOutcome(null);

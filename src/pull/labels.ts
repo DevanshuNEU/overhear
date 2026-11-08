@@ -94,6 +94,7 @@ export type TestCallErrorCode =
   | "body_too_large"
   | "not_connected"
   | "call_active"
+  | "already_open"
   | "not_found"
   | "unreadable"
   | PullErrorCode
@@ -111,6 +112,7 @@ export const TEST_CALL_MESSAGE: Record<TestCallErrorCode, string> = {
   body_too_large: "That request is too long.",
   not_connected: "Connect your Retell key first.",
   call_active: "A test call is already starting or running. Finish it first.",
+  already_open: "This call's live transcript is already open somewhere else.",
   not_found: "Overhear did not start that test call.",
   unreadable: "Retell sent back something Overhear could not read.",
   ...PULL_ERROR_MESSAGE,
