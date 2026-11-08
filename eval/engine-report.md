@@ -12,23 +12,23 @@ No cases yet.
 
 ## Constructed data
 
-33 cases (real 3, mutation 30, external 0). Engine outcomes: 33 reports, 0 with no content, 0 errors.
+34 cases (real 3, mutation 31, external 0). Engine outcomes: 34 reports, 0 with no content, 0 errors.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 100% (33 of 33) | 33 | 90% to 100% |
-| Verdict accuracy | 100% (33 of 33) | 33 | 90% to 100% |
+| Cases passing every check | 100% (34 of 34) | 34 | 90% to 100% |
+| Verdict accuracy | 100% (34 of 34) | 34 | 90% to 100% |
 | Precision of failed | 100% (14 of 14) | 14 | 78% to 100% |
 | Recall of failed | 100% (14 of 14) | 14 | 78% to 100% |
 | False failed on normal calls | 0% (0 of 6) | 6 | 0% to 39% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 33 | 100% (33 of 33) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 6) | 19% (6 of 31) |
+| promise_backed | 34 | 100% (34 of 34) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 6) | 19% (6 of 31) |
 | verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 6) | no data (n = 0) |
-| spoken_matches_committed | 33 | 100% (33 of 33) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 6) | 22% (5 of 23) |
-| transfer_kept | 33 | 100% (33 of 33) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 6) | 22% (2 of 9) |
-| committed_matches_request | 33 | 100% (33 of 33) | no data (n = 0) | no data (n = 0) | 0% (0 of 6) | no data (n = 0) |
+| spoken_matches_committed | 34 | 100% (34 of 34) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 6) | 22% (5 of 23) |
+| transfer_kept | 34 | 100% (34 of 34) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 6) | 22% (2 of 9) |
+| committed_matches_request | 34 | 100% (34 of 34) | no data (n = 0) | no data (n = 0) | 0% (0 of 6) | no data (n = 0) |
 
 Verdicts, expected (rows) by what the engine said (columns):
 
@@ -37,7 +37,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | failed | 14 | 0 | 0 | 0 | 0 | 0 |
 | needs_review | 0 | 13 | 0 | 0 | 0 | 0 |
 | passed | 0 | 0 | 6 | 0 | 0 | 0 |
-| nothing_done | 0 | 0 | 0 | 0 | 0 | 0 |
+| nothing_done | 0 | 0 | 0 | 1 | 0 | 0 |
 
 ## Cases
 
@@ -60,6 +60,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-failed-booking-then-retry-worked | constructed | mutation | yes | passed | passed | yes |
 | mut-inferred-policy-time-fits-another-zone | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-provider-scrubbed-to-placeholder | constructed | mutation | yes | needs_review | needs_review | yes |
+| mut-short-empty-call | constructed | mutation | yes | nothing_done | nothing_done | yes |
 | mut-side-tool-between-booking-and-claim | constructed | mutation | yes | passed | passed | yes |
 | mut-side-tool-fails-between-booking-and-claim | constructed | mutation | yes | passed | passed | yes |
 | mut-slot-time-scrubbed-to-placeholder | constructed | mutation | yes | needs_review | needs_review | yes |

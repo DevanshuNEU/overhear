@@ -5,10 +5,16 @@
 // otherwise, with the notes that say why a pass is thin. The headline is the wording table's line (headlineFor), so
 // the dashboard and the engine say the same thing.
 //
+// nothing_done is the one case carved out of passed: a call where the caller said almost nothing and the agent did
+// nothing (see nothingDone). Precision over recall: a call that is not clearly empty stays passed.
+//
 // M1 has no request source, so an unanswered request is never a reason here.
 import { headlineFor } from "@/report/labels";
 import type { ContractResult, Detection, Evidence, Finding, Note, ReviewReason, Verdict } from "@/report/schema";
 import { deferralReasonText, formatTime } from "./wording";
+
+/** A caller who says this many words or fewer in a whole call has not asked for anything. */
+export const NOTHING_DONE_MAX_CALLER_WORDS = 10;
 
 export interface VerdictParts {
   verdict: Verdict;
@@ -37,11 +43,27 @@ export function verdictFor(results: ContractResult[], detections: Detection[], e
   }
 
   const ran = results.filter((r) => r.result !== "not_run");
+  if (nothingDone(ran, detections, ev)) return { verdict: "nothing_done", notes: [], headline: headlineFor("nothing_done", [], []), reasons: [] };
   const notes: Note[] = [];
   if (ran.every((r) => r.result === "not_applicable")) notes.push("no_promises_made");
   if (results.some((r) => r.contract === "committed_matches_request" && r.result === "not_run")) notes.push("request_not_checked");
   return { verdict: "passed", notes, headline: headlineFor("passed", notes, []), reasons: [] };
 }
+
+/**
+ * True for a call that would have passed where every contract that ran did not apply, nothing was done (no tool
+ * call, no backend action), the agent claimed no completion, transfer, refusal or deferral, and the caller said at
+ * most NOTHING_DONE_MAX_CALLER_WORDS words. ran is the results that are not not_run.
+ */
+function nothingDone(ran: ContractResult[], detections: Detection[], ev: Evidence): boolean {
+  if (!ran.every((r) => r.result === "not_applicable")) return false;
+  if (ev.items.some((it) => it.kind === "tool_call" || it.kind === "backend_action")) return false;
+  if (detections.some((d) => d.cls === "completion" || d.cls === "transfer" || d.cls === "refusal" || d.cls === "deferral")) return false;
+  const words = ev.items.reduce((n, it) => (it.kind === "turn" && it.role === "caller" ? n + wordCount(it.text) : n), 0);
+  return words <= NOTHING_DONE_MAX_CALLER_WORDS;
+}
+
+const wordCount = (text: string): number => (text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
 
 const sorted = (seqs: Iterable<number>): number[] => [...new Set(seqs)].sort((a, b) => a - b);
 
