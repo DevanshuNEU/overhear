@@ -300,9 +300,60 @@ describe("writePrivateFile and readPrivateFile", () => {
     expect(err).toBeInstanceOf(PrivateStoreError);
     expect(err.code).toBe("file_too_large");
   });
+
+  it("copes with a file that grew after the stat: still read in full under the cap, still refused over it", async () => {
+    await ensurePrivateDir(dir);
+    const small = path.join(dir, "pin-a.json");
+    const large = path.join(dir, "pin-b.json");
+    await writePrivateFile(dir, "pin-a.json", "y".repeat(40));
+    await writePrivateFile(dir, "pin-b.json", "y".repeat(400));
+    // The stat reports 3 bytes whatever the file holds, as if the file grew after it.
+    const realOpen = fs.promises.open.bind(fs.promises);
+    const open = vi.spyOn(fs.promises, "open").mockImplementation(async (...args: Parameters<typeof fs.promises.open>) => {
+      const handle = await realOpen(...args);
+      const realStat = handle.stat.bind(handle);
+      handle.stat = (async (...a: Parameters<typeof handle.stat>) => Object.assign(await realStat(...a), { size: 3 })) as typeof handle.stat;
+      return handle;
+    });
+    try {
+      expect(await readPrivateFile(small, { hint: HINT, maxBytes: 100 })).toBe("y".repeat(40));
+      expect((await refusal(() => readPrivateFile(large, { hint: HINT, maxBytes: 100 }))).code).toBe("file_too_large");
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("does not allocate the cap for a small file", async () => {
+    await ensurePrivateDir(dir);
+    await writePrivateFile(dir, "pin-a.json", "{}");
+    const alloc = vi.spyOn(Buffer, "alloc");
+    try {
+      expect(await readPrivateFile(path.join(dir, "pin-a.json"), { hint: HINT, maxBytes: 5 * 1024 * 1024 })).toBe("{}");
+      expect(Math.max(...alloc.mock.calls.map((c) => Number(c[0])))).toBeLessThan(1024);
+    } finally {
+      alloc.mockRestore();
+    }
+  });
 });
 
 describe("removeTemps", () => {
+  it("leaves a directory or other entry planted under a temp name alone, however old, and still removes the files", async () => {
+    await ensurePrivateDir(dir);
+    const pattern = tempNamePattern("pin-a.json");
+    const planted = path.join(dir, ".pin-a.json.0123456789abcdef.tmp");
+    const file = path.join(dir, ".pin-a.json.fedcba9876543210.tmp");
+    fs.mkdirSync(planted);
+    fs.writeFileSync(path.join(planted, "inner.txt"), "keep");
+    fs.writeFileSync(file, "secret", { mode: 0o600 });
+    const ago = new Date(Date.now() - 120_000);
+    fs.utimesSync(planted, ago, ago);
+    for (const options of [{}, { minAgeMs: 0 }]) {
+      await expect(removeTemps(dir, pattern, options)).resolves.toBeUndefined();
+      expect(fs.readFileSync(path.join(planted, "inner.txt"), "utf8")).toBe("keep");
+    }
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
   it("deletes only files that match the pattern, and is fine on a missing folder", async () => {
     await ensurePrivateDir(dir);
     const pattern = tempNamePattern("pin-a.json");

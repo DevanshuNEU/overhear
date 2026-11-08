@@ -82,8 +82,10 @@ const FUTURE_SLACK_MS = 5_000;
 
 /**
  * Deletes the files in `folder` whose names match `pattern` (temp files a crashed write left behind). Fine when the
- * folder is missing. It does not check the folder: callers must have passed it through ensurePrivateDir or
- * checkPrivateDir first, or a symlinked folder would have its files deleted.
+ * folder is missing. It does not check the folder: callers must have passed it through ensurePrivateDir,
+ * checkPrivateDir or checkDirIdentity first (any of them is enough), or a symlinked folder would have its files deleted.
+ * Only regular files and symlinks are removed (a symlink itself, never its target): a folder or other entry planted
+ * under a temp name is left alone, so it cannot make a save or a delete fail.
  *
  * A temp file changed within the last `minAgeMs` (default 60 seconds) is left alone: it may belong to a write that is
  * still running, and removing it would make that write's rename fail. Pass 0 to remove every match, as the key store
@@ -108,17 +110,18 @@ export async function removeTemps(folder: string, pattern: RegExp, options: { mi
       .filter((n) => matches.test(n))
       .map(async (n) => {
         const file = path.join(dir, n);
-        if (minAgeMs > 0) {
-          try {
-            // A time more than FUTURE_SLACK_MS ahead of the clock is a wrong clock or a planted time, not a running
-            // write, so that file counts as old. The slack covers the clock's own rounding.
-            const age = now - (await fs.lstat(file)).mtimeMs;
-            if (age < minAgeMs && age >= -FUTURE_SLACK_MS) return;
-          } catch (err) {
-            if (errno(err) === "ENOENT") return;
-            throw err;
-          }
+        let stat;
+        try {
+          stat = await fs.lstat(file);
+        } catch (err) {
+          if (errno(err) === "ENOENT") return;
+          throw err;
         }
+        if (!stat.isFile() && !stat.isSymbolicLink()) return;
+        // A time more than FUTURE_SLACK_MS ahead of the clock is a wrong clock or a planted time, not a running
+        // write, so that file counts as old. The slack covers the clock's own rounding.
+        const age = now - stat.mtimeMs;
+        if (minAgeMs > 0 && age < minAgeMs && age >= -FUTURE_SLACK_MS) return;
         await fs.rm(file, { force: true });
       }),
   );
@@ -206,10 +209,16 @@ export async function readPrivateFile(filePath: string, options: ReadPrivateFile
     if (cap === undefined) return await handle.readFile("utf8");
     if (stat.size > cap) throw new PrivateStoreError("file_too_large", `${file} is bigger than ${cap} bytes. ${options.hint}`);
     // A read may return fewer bytes than asked for, so keep reading until the end of the file or cap + 1 bytes. The
-    // extra byte is how a file that grew after the stat is still refused.
-    const buffer = Buffer.alloc(cap + 1);
+    // extra byte is how a file that grew after the stat is still refused. The buffer starts at the size the stat
+    // reported (not the cap, which can be megabytes) and grows only if the file did.
+    let buffer = Buffer.alloc(Math.min(stat.size, cap) + 1);
     let total = 0;
-    while (total < buffer.length) {
+    while (total < cap + 1) {
+      if (total === buffer.length) {
+        const bigger = Buffer.alloc(Math.min(buffer.length * 2, cap + 1));
+        buffer.copy(bigger, 0, 0, total);
+        buffer = bigger;
+      }
       const { bytesRead } = await handle.read(buffer, total, buffer.length - total, total);
       if (bytesRead === 0) break;
       total += bytesRead;

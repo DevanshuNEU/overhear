@@ -200,6 +200,19 @@ describe("temp files", () => {
     expect(fs.readdirSync(dir)).toEqual([]);
   });
 
+  it("a directory planted under a temp name cannot break save or delete", async () => {
+    const planted = tempName("0123456789abcdef");
+    makeDir();
+    fs.mkdirSync(path.join(dir, planted));
+    const ago = new Date(Date.now() - 120_000);
+    fs.utimesSync(path.join(dir, planted), ago, ago);
+    await expect(savePin(pinFor())).resolves.toBeDefined();
+    await expect(deletePin(pinIdFor("call_8f2a9c"))).resolves.toBeUndefined();
+    await savePin(pinFor());
+    await expect(deleteAllPins()).resolves.toEqual({ deleted: 1, skipped: [] });
+    expect(fs.readdirSync(dir)).toEqual([planted]);
+  });
+
   it("never removes a file that is not a pin temp", async () => {
     plant("notes.txt", "mine");
     plant(".config.json.0123456789abcdef.tmp", "key");

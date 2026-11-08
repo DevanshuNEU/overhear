@@ -12,6 +12,7 @@
 // network (src/pinned/boundaries.test.ts checks).
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { ZodError } from "zod";
 import { EvalCaseSchema, formatCase, parseCase, type EvalCase } from "@/engine/eval/case";
 import { overhearHome } from "@/local-store/home";
 import { checkDirIdentity, checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, writePrivateFile } from "@/local-store/private-dir";
@@ -187,10 +188,8 @@ async function refuseDirectoryAt(file: string, name: string): Promise<void> {
 }
 
 /** The first few places in a pin file that failed the schema, as paths only. A message could echo a value. */
-function issuePaths(raw: unknown): string {
-  const parsed = EvalCaseSchema.safeParse(raw);
-  if (parsed.success) return "";
-  const paths = [...new Set(parsed.error.issues.map((i) => i.path.map(String).join(".") || "(root)"))];
+function issuePaths(error: ZodError): string {
+  const paths = [...new Set(error.issues.map((i) => i.path.map(String).join(".") || "(root)"))];
   return paths.slice(0, 5).join(", ");
 }
 
@@ -223,7 +222,7 @@ async function readOne(dir: string, name: string): Promise<{ entry: PinEntry } |
     return { problem: "is not valid JSON" };
   }
   const parsed = EvalCaseSchema.safeParse(raw);
-  if (!parsed.success) return { problem: `is not a valid pin (check: ${issuePaths(raw)})` };
+  if (!parsed.success) return { problem: `is not a valid pin (check: ${issuePaths(parsed.error)})` };
   const pin = parsed.data;
   if (pin.pin === undefined) return { problem: "is a case but not a pinned call" };
   if (name !== `${pin.id}.json`) return { problem: "has a name that is not its pin id" };
