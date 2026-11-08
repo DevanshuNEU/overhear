@@ -42,18 +42,35 @@ describe("year read aloud for a near date", () => {
     expect(run([agent("Is the date of birth November 1, 2026?")])).toEqual({ ran: true, problems: [] });
   });
 
+  it("does not flag a near date when birth is named after it", () => {
+    expect(run([agent("Is November 20, 2026 the baby's date of birth?")])).toEqual({ ran: true, problems: [] });
+    expect(run([agent("Is November 8, 2026 their birthday?")])).toEqual({ ran: true, problems: [] });
+    // Past the sentence or 40 characters, birth is about something else.
+    expect(texts([agent("Is November 20, 2026 good for you? Also, what is the baby's date of birth?")])).toHaveLength(1);
+    expect(texts([agent("Is November 20, 2026 good for you, since the family lives far away from the clinic and the baby's birth was recent?")])).toHaveLength(1);
+  });
+
   it("does not flag a date more than 180 days from the call", () => {
     expect(run([agent("Your last visit was on March 3, 2026.")]).problems).toEqual([]);
     expect(run([agent("How about May 3, 2026?")]).problems).toEqual([]);
   });
 
-  it("flags 180 days either side of the call and not 181 (call on Jan 10, 2026)", () => {
+  it("flags a date 0 to 180 days after the call and not 181 (call on Jan 10, 2026)", () => {
     const jan10 = Date.parse("2026-01-10T15:00:00Z");
+    expect(texts([agent("January 10, 2026")], jan10, "UTC")).toHaveLength(1); // the same day
     expect(texts([agent("July 9, 2026")], jan10, "UTC")).toHaveLength(1); // 180 days after
     expect(texts([agent("July 10, 2026")], jan10, "UTC")).toEqual([]); // 181 days after
+  });
+
+  it("does not flag a past date: a record read back is normal speech", () => {
+    expect(texts([agent("Your last visit was on September 10, 2026.")])).toEqual([]);
+    expect(texts([agent("Your last visit was on November 4, 2026.")])).toEqual([]); // the day before
     const jul10 = Date.parse("2026-07-10T15:00:00Z");
-    expect(texts([agent("January 11, 2026")], jul10, "UTC")).toHaveLength(1); // 180 days before
-    expect(texts([agent("January 10, 2026")], jul10, "UTC")).toEqual([]); // 181 days before
+    expect(texts([agent("January 11, 2026")], jul10, "UTC")).toEqual([]); // 180 days before
+  });
+
+  it("flags the call's own day when the year is read", () => {
+    expect(texts([agent("That is today, November 5, 2026.")])).toHaveLength(1);
   });
 
   it("does not flag the year for a date in the next calendar year: it is helpful there", () => {
@@ -69,8 +86,8 @@ describe("year read aloud for a near date", () => {
 
   it("reads the calendar year in the report's zone", () => {
     const nye = Date.parse("2027-01-01T04:30:00Z"); // Dec 31, 2026 in New York, Jan 1, 2027 in UTC
-    expect(texts([agent("Your visit is December 30, 2026.")], nye, "UTC")).toEqual([]);
-    expect(texts([agent("Your visit is December 30, 2026.")], nye, NY)).toHaveLength(1);
+    expect(texts([agent("Your visit is December 31, 2026.")], nye, "UTC")).toEqual([]);
+    expect(texts([agent("Your visit is December 31, 2026.")], nye, NY)).toHaveLength(1);
   });
 
   it("skips the year rule without the call's start but still runs", () => {
@@ -134,6 +151,14 @@ describe("computer formats", () => {
     for (const said of ["3:00 PM", "3:00 p.m.", "9:00 a.m.", "12:30", "12:00 noon", "11:59", "10:15 in the morning", "13:00 pm"]) {
       expect(texts([agent(`See you at ${said}.`)]), said).toEqual([]);
     }
+  });
+
+  it("flags an ISO date only with a 19xx or 20xx year, not after a word character", () => {
+    for (const said of ["Your confirmation code is 4821-10-12.", "Your id is 0207-12-30.", "Order AB2026-11-06 is ready.", "Code x-2026-11-06."]) {
+      expect(texts([agent(said)]), said).toEqual([]);
+    }
+    expect(texts([agent("Booked for 2026-11-06.")])).toHaveLength(1);
+    expect(texts([agent("Booked for 1999-12-31.")])).toHaveLength(1);
   });
 
   it("does not flag numbers that only look like a time or a date", () => {
