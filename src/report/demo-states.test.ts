@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CallReportSchema } from "./schema";
-import { demoSource, spokenNumbersSample, unverifiedSample } from "./demo-states";
+import { cleanSample, demoSource, nothingDoneSample, spokenNumbersSample, unverifiedSample } from "./demo-states";
 import { getReport } from "./store";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -22,6 +22,14 @@ describe("the demo states", () => {
     const turns = spokenNumbersSample.evidence.items.flatMap((it) => (it.kind === "turn" ? [it.text] : []));
     expect(turns.some((t) => t.includes("five five five one two three four"))).toBe(true);
     expect(turns.some((t) => t.includes("fourteenth of March nineteen eighty five"))).toBe(true);
+  });
+
+  it("builds a clean passed call and a Nothing done call that the schema accepts", () => {
+    expect(cleanSample.verdict).toBe("passed");
+    expect(cleanSample.experience.problems).toEqual([]);
+    expect(cleanSample.experience.ran.length).toBeGreaterThan(0);
+    expect(nothingDoneSample.verdict).toBe("nothing_done");
+    expect(nothingDoneSample.headline).toBe("Nothing done. The caller said almost nothing, and the agent took no action.");
   });
 
   it("serves the demo ids only when the flag is on", async () => {

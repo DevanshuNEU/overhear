@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { CallReportView } from "./CallReportView";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
-import { unverifiedSample } from "@/report/demo-states";
+import { nothingDoneSample, unverifiedSample } from "@/report/demo-states";
 import { CONTRACT_TITLE, capitalize } from "@/report/labels";
 import { ABSENCE_VARIANTS, resultBeforeCall } from "@/report/samples/variants.fixture";
 
@@ -240,5 +240,51 @@ describe("CallReportView on variants the schema allows", () => {
       expect(screen.getByRole("complementary", { name: "What to do next" }), name).not.toHaveTextContent("The record shows");
       unmount();
     }
+  });
+});
+
+describe("CallReportView call experience", () => {
+  it("puts the call experience line right under the verdict, before the key facts", () => {
+    render(<CallReportView report={passedSample} />);
+    const header = screen.getByRole("banner");
+    const line = within(header).getByRole("region", { name: "Call experience: 2 problems" });
+    const facts = within(header).getByRole("list", { name: "Key facts" });
+    expect(screen.getByRole("heading", { level: 1 }).compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no call experience line for a report where no check ran", () => {
+    render(<CallReportView report={{ ...passedSample, experience: { ran: [], problems: [] } }} />);
+    expect(screen.queryByText(/Call experience/)).toBeNull();
+  });
+
+  it("does not change the verdict or the headline when there are problems", () => {
+    render(<CallReportView report={passedSample} />);
+    expect(screen.getByText("Passed")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(passedSample.headline);
+  });
+});
+
+describe("CallReportView on a Nothing done call", () => {
+  it("shows the neutral badge and the whole headline, with the reason after the first sentence in muted type", () => {
+    render(<CallReportView report={nothingDoneSample} />);
+    expect(screen.getByText("Nothing done")).toBeInTheDocument();
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent(nothingDoneSample.headline);
+    expect(h1.querySelector("[data-headline-rest]")).toHaveTextContent("The caller said almost nothing, and the agent took no action.");
+    expect(h1.querySelector("[data-headline-rest]")).toHaveClass("text-report-muted");
+  });
+
+  it("is not styled as a pass or an alarm", () => {
+    render(<CallReportView report={nothingDoneSample} />);
+    const badge = screen.getByText("Nothing done").closest("span");
+    expect(badge?.className).not.toMatch(/critical|warning|calm-mark/);
+  });
+
+  it("still shows its call experience line, and a problem on it does not alter the verdict", () => {
+    const withProblem = { ...nothingDoneSample, experience: { ran: nothingDoneSample.experience.ran, problems: [{ check: "agent_ends_call" as const, text: "The agent said goodbye 2 times (at 0:08 and 0:11) and didn't end the call.", seqs: [3] }] } };
+    render(<CallReportView report={withProblem} />);
+    expect(screen.getByRole("region", { name: "Call experience: 1 problem" })).toBeInTheDocument();
+    expect(screen.getByText("Nothing done")).toBeInTheDocument();
   });
 });

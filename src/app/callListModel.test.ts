@@ -23,6 +23,17 @@ describe("Nothing done calls", () => {
     expect(attention.map((r) => r.callId)).toEqual(["f1"]);
     expect(rest.map((r) => r.callId)).toEqual(["p1", "p2", "n1", "n2"]);
   });
+
+  it("sorts after the calls that still need something, a pending call or one with a Retry, as well as after passed calls", () => {
+    const { rest } = splitRows([report("n1", "nothing_done"), row("w1"), report("p1", "passed"), row("e1", { state: "error" }), row("c1", { state: "no_content" })]);
+    expect(rest.map((r) => r.callId)).toEqual(["w1", "p1", "e1", "c1", "n1"]);
+  });
+
+  it("is not a call to look at, so a list of only Nothing done calls has no look-at-these group", () => {
+    const { attention, rest } = splitRows([report("n1", "nothing_done"), report("n2", "nothing_done")]);
+    expect(attention).toEqual([]);
+    expect(rest).toHaveLength(2);
+  });
 });
 
 describe("splitRows", () => {

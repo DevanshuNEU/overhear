@@ -121,9 +121,9 @@ describe("vocabulary", () => {
   it("names the three experience checks", () => {
     expect(EXPERIENCE_CHECKS).toEqual(["agent_ends_call", "error_handled", "spoken_format"]);
     expect(EXPERIENCE_TITLE).toEqual({
-      agent_ends_call: "the agent ends the call",
-      error_handled: "errors handled well",
-      spoken_format: "dates and times read naturally",
+      agent_ends_call: "how the call ends",
+      error_handled: "how errors are handled",
+      spoken_format: "how dates and times are read",
     });
   });
 

@@ -5,7 +5,7 @@
 // turn shows skeleton bars where the verdict and the line will land, with the real time and length already there.
 import { ChevronRight, Loader2 } from "lucide-react";
 import type { PullRow } from "@/pull/pull";
-import { formatDuration } from "@/report/labels";
+import { experienceLine, formatDuration } from "@/report/labels";
 import { Badge, ResultBadge, VerdictBadge } from "@/components/report/StatusBadge";
 import { formatCallTime } from "./callListModel";
 import { LIST_WORDS } from "./callListWords";
@@ -45,13 +45,18 @@ function Verdict({ row, settled }: { row: PullRow; settled: boolean }) {
 
 function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; retryFailed: boolean }) {
   if (row.state === "report") {
-    // The sentence the call screen leads with says what went wrong; a passed call has none and keeps its short line.
-    const quiet = row.verdict === "passed";
+    // The sentence the call screen leads with says what went wrong; a passed or Nothing done call has none and keeps
+    // its short line, in quiet type. Call experience problems sit under it in the same quiet type, whatever the verdict,
+    // so a long sentence is never cut short to make room.
+    const quiet = row.verdict === "passed" || row.verdict === "nothing_done";
     const text = row.lead ?? row.headline;
     return (
-      <span title={text} className={`block truncate text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>
-        {text}
-      </span>
+      <>
+        <span title={text} className={`block truncate text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>
+          {text}
+        </span>
+        {row.experienceProblems ? <span className="mt-0.5 block text-[13px] leading-snug text-report-ink-2">{experienceLine(row.experienceProblems)}</span> : null}
+      </>
     );
   }
   if (row.state === "no_content") return <span className="text-sm leading-snug text-report-ink-2">{LIST_WORDS.noTranscript}</span>;

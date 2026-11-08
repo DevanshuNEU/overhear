@@ -56,8 +56,13 @@ The words below are the ones the screen uses (`src/report/labels.ts`).
 - **Failed.** "The call broke a rule, and the call record shows it." At least one rule was broken, and the proof is in the call record.
 - **Needs review.** No rule was broken, but a rule couldn't be checked, or the agent deferred the caller's request instead of completing it. A person needs to look. (The screen also has a line for a caller's request the agent neither did nor refused. Nothing sets it yet, because Overhear has no source for what the caller asked.)
 - **Passed.** "Every promise that applied was kept." None of the three checks that run found a broken rule, and none was left unchecked. A call where the agent made no promises also passes, and the report says so. A Passed call is not checked against what the caller asked for, and the report says that too.
+- **Nothing done.** "Nothing done. The caller said almost nothing, and the agent took no action." No rule applied, because the call had no promise and no action to check. It is not a pass and not an alarm, so the list shows it in a quiet outlined badge and sorts it after the other calls.
 
 "Couldn't check" is the result for one rule when the call record does not hold enough to decide it. For example, the tool calls are missing from the transcript, or a tool result gave no success signal. The report lists each gap under "What we couldn't check". A call with a rule it couldn't check is never marked Passed.
+
+### Call experience
+
+Below the verdict, the call screen has one line, "Call experience", that says how the call sounded to the caller. It reads "no problems found" or counts the problems, and it names the checks that ran: how the call ends (the agent says goodbye and then ends the call, instead of looping), how errors are handled (the agent doesn't read system details out loud), and how dates and times are read (the agent says them the way a person would). Each problem is a sentence with a link to the turn it rests on. These checks never change the verdict. A call that kept every promise still reads Passed when its goodbye went on for a minute, and the line is how you find out. The call list shows a quiet note on any row with problems.
 
 ### Settings
 

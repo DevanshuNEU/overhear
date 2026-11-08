@@ -28,10 +28,20 @@ export const CONTRACT_TITLE: Record<ContractId, string> = {
 
 /** The call experience checks, named the way CONTRACT_TITLE names a contract: lowercase, to sit in a sentence. */
 export const EXPERIENCE_TITLE: Record<ExperienceCheckId, string> = {
-  agent_ends_call: "the agent ends the call",
-  error_handled: "errors handled well",
-  spoken_format: "dates and times read naturally",
+  agent_ends_call: "how the call ends",
+  error_handled: "how errors are handled",
+  spoken_format: "how dates and times are read",
 };
+
+/** The line under the verdict that says how the call sounded to the caller. Never changes the verdict. */
+export const experienceLine = (problems: number): string => (problems === 0 ? "Call experience: no problems found" : `Call experience: ${problems} ${problems === 1 ? "problem" : "problems"}`);
+
+/** Which call experience checks ran, so "no problems" says what it rests on. Only checks that ran are named. */
+export function experienceChecked(ran: ExperienceCheckId[]): string {
+  const titles = ran.map((id) => EXPERIENCE_TITLE[id]);
+  const list = titles.length > 1 ? `${titles.slice(0, -1).join(", ")} and ${titles[titles.length - 1]}` : titles.join("");
+  return `Checked: ${list}.`;
+}
 
 /** The sentence a note adds to a passed call. */
 export const NOTE_LINE: Record<Note, string> = {
