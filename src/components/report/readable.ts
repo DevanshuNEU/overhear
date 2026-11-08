@@ -147,18 +147,37 @@ function year(r: Reader, i: number): Hit | null {
   return null;
 }
 
-const YEAR_CUE = new Set(["in", "since", "born", "of", "year", "birth"]);
+const YEAR_CUE = new Set(["in", "since", "born", "year", "birth"]);
+// What follows a number that makes it an amount, not a year: "in twenty thirty minutes", "twenty twenty dollars".
+const UNIT_AFTER = new Set(["minute", "minutes", "hour", "hours", "second", "seconds", "day", "days", "week", "weeks", "month", "months", "year", "years", "dollar", "dollars", "cent", "cents", "percent", "buck", "bucks", "per"]);
+const isMonth = (w: string) => monthOf(w) >= 0;
+const isDayWord = (w: string) => w in ORDINAL || /^\d{1,2}(st|nd|rd|th)$/.test(w);
 
 /**
- * A bare spoken year, which needs a cue right before it: "in", "since", "born", "of", "year", "birth", or "is" with
- * "birth" among the three words before ("date of birth is"). Without one it could be a price or a time
- * ("nineteen ninety nine dollars", "twenty thirty"), so it stays as written. A year inside a date needs no cue.
+ * A bare spoken year, which needs a cue right before it: "in", "since", "born", "year", "birth", "is" with "birth"
+ * among the three words before ("date of birth is"), or "of" right after a month, a day, "birth" or "year" ("year
+ * of nineteen ninety"; a bare "of" is too weak: "a total of twenty thirty"). Without a cue it could be a price or a
+ * time ("nineteen ninety nine dollars", "twenty thirty"), so it stays as written. A unit right after it ("in twenty
+ * thirty minutes", "twenty twenty a month") says it is an amount, so it stays as written too. A year inside a date
+ * needs no cue.
  */
 function cuedYear(r: Reader, i: number): Hit | null {
   const prev = i > 0 && joined(r, i) ? wordAt(r, i - 1) : undefined;
   if (prev === undefined) return null;
-  const cued = YEAR_CUE.has(prev) || (prev === "is" && r.toks.slice(Math.max(0, i - 3), i).some((t) => t.word === "birth"));
-  return cued ? year(r, i) : null;
+  const before = wordAt(r, i - 2) ?? "";
+  const cued =
+    YEAR_CUE.has(prev) ||
+    (prev === "is" && r.toks.slice(Math.max(0, i - 3), i).some((t) => t.word === "birth")) ||
+    (prev === "of" && (isMonth(before) || isDayWord(before) || before === "birth" || before === "year"));
+  if (!cued) return null;
+  const y = year(r, i);
+  if (!y) return null;
+  const end = i + y.count;
+  const next = joined(r, end) ? wordAt(r, end) : undefined;
+  if (next !== undefined && UNIT_AFTER.has(next)) return null;
+  // "a month", "an hour": a unit with its article.
+  if ((next === "a" || next === "an") && joined(r, end + 1) && UNIT_AFTER.has(wordAt(r, end + 1) ?? "")) return null;
+  return y;
 }
 
 /** A year after a date, with an optional comma before it. */
@@ -247,7 +266,9 @@ function candidatesAt(r: Reader, i: number): { hits: Hit[]; skip: number } {
     else if (hits.length === 0) return { hits, skip: o.count };
   }
   const c = cardinal(r, i);
-  if (c && (c.count > 1 || c.n >= 10)) hits.push({ count: c.count, shown: withCommas(c.n) });
+  // "ten hundred hours", "twenty two hundred hours": a time of day, read many ways.
+  const hundredHours = c !== null && wordAt(r, i + c.count - 1) === "hundred" && joined(r, i + c.count) && /^hours?$/.test(wordAt(r, i + c.count) ?? "");
+  if (c && !hundredHours && (c.count > 1 || c.n >= 10)) hits.push({ count: c.count, shown: withCommas(c.n) });
   const run = digitRun(r, i);
   if (run.hit) hits.push(run.hit);
   return { hits, skip: run.count >= 2 ? run.count : 1 };

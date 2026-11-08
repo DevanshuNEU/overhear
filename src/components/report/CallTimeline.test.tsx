@@ -214,6 +214,22 @@ describe("CallTimeline", () => {
       expect(marks.every((m) => m.querySelector("[data-readable]") === null)).toBe(true);
     });
 
+    it("offers no switch when the only number in the call sits inside a highlighted claim", () => {
+      const swap = (text: string) => text.replace("a nurse now", "a nurse in twenty two minutes now");
+      const report = {
+        ...failedSample,
+        evidence: {
+          ...failedSample.evidence,
+          items: failedSample.evidence.items.map((it) => (it.kind === "turn" && it.seq === 25 ? { ...it, text: swap(it.text) } : it)),
+        },
+        detections: failedSample.detections.map((d) => (d.seq === 25 ? { ...d, quote: swap(d.quote) } : d)),
+      };
+      render(<CallTimeline report={report} />);
+      expect(document.getElementById("item-25")!.querySelector("mark")!.textContent).toContain("twenty two");
+      expect(screen.queryByRole("button", { name: /Show exact words|Show numbers as digits/ })).not.toBeInTheDocument();
+      expect(document.querySelector("[data-readable]")).toBeNull();
+    });
+
     it("reads a number outside a highlighted claim in the same turn", () => {
       const report = {
         ...failedSample,

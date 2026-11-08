@@ -154,7 +154,7 @@ describe("precision: a wrong digit is worse than a word left as written", () => 
     expect(shown("since twenty twenty four")).toBe("since 2024");
     expect(shown("the year nineteen ninety")).toBe("the year 1990");
     expect(shown("a man born nineteen sixty")).toBe("a man born 1960");
-    expect(shown("one of twenty twenty")).toBe("one of 2020");
+    expect(shown("one of twenty twenty")).toBe("one of twenty twenty");
     expect(shown("my date of birth is nineteen eighty five")).toBe("my date of birth is 1985");
     expect(shown("birth date is nineteen eighty five")).toBe("birth date is 1985");
   });
@@ -182,6 +182,49 @@ describe("precision: a wrong digit is worse than a word left as written", () => 
     expect(shown("nineteen hundred and five")).toBe("nineteen hundred and five");
     expect(shown("nineteen hundred hours")).toBe("nineteen hundred hours");
     expect(shown("fifteen hundred")).toBe("fifteen hundred");
+    expect(shown("two hundred fifty")).toBe("250");
+  });
+});
+
+describe("precision, round two: a cue word is not enough", () => {
+  it("leaves a cued year as written when a unit follows, since it is an amount", () => {
+    expect(shown("call you back in twenty thirty minutes")).toBe("call you back in twenty thirty minutes");
+    expect(shown("in twenty twenty five minutes")).toBe("in twenty twenty five minutes");
+    expect(shown("copay of twenty twenty dollars")).toBe("copay of twenty twenty dollars");
+    expect(shown("in twenty twenty five hours")).toBe("in twenty twenty five hours");
+    expect(shown("since nineteen ninety days ago")).toBe("since nineteen ninety days ago");
+    expect(shown("in nineteen ninety per visit")).toBe("in nineteen ninety per visit");
+    expect(shown("it's in twenty thirty a month")).toBe("it's in twenty thirty a month");
+    expect(shown("in twenty twenty cents")).toBe("in twenty twenty cents");
+    expect(shown("in twenty twenty percent")).toBe("in twenty twenty percent");
+    expect(shown("born in nineteen ninety bucks")).toBe("born in nineteen ninety bucks");
+  });
+
+  it("takes 'of' as a year cue only after a month, a day, birth or year", () => {
+    expect(shown("copay of twenty twenty")).toBe("copay of twenty twenty");
+    expect(shown("a total of twenty thirty")).toBe("a total of twenty thirty");
+    expect(shown("year of nineteen ninety")).toBe("year of 1990");
+    expect(shown("in March of nineteen ninety")).toBe("in March of 1990");
+    expect(shown("the fourteenth of nineteen ninety")).toBe("the 14th of 1990");
+    expect(shown("date of birth of nineteen eighty five")).toBe("date of birth of 1985");
+    expect(shown("the fourteenth of March nineteen eighty five")).toBe("March 14, 1985");
+  });
+
+  it("still reads a cued year with no unit after it", () => {
+    expect(shown("born in nineteen eighty five.")).toBe("born in 1985.");
+    expect(shown("since twenty twenty four, we")).toBe("since 2024, we");
+    expect(shown("my date of birth is nineteen eighty five")).toBe("my date of birth is 1985");
+  });
+
+  it("leaves a bare year with no cue as written", () => {
+    expect(shown("twenty twenty-six")).toBe("twenty twenty-six");
+    expect(shown("it is twenty twenty six")).toBe("it is twenty twenty six");
+  });
+
+  it("leaves any hundred before hours as written", () => {
+    expect(shown("ten hundred hours")).toBe("ten hundred hours");
+    expect(shown("twenty two hundred hours")).toBe("twenty two hundred hours");
+    expect(shown("five hundred hours")).toBe("five hundred hours");
     expect(shown("two hundred fifty")).toBe("250");
   });
 });
