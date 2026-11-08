@@ -9,6 +9,7 @@ import { agentRecordOf } from "@/pinned/testing";
 import { failedSample } from "@/report/samples";
 import { analyzeCall } from "./analyzer";
 import { writeKey } from "./key-store";
+import { clearPulls } from "./pull";
 import { TEST_CALL_DID_NOT_CONNECT_MESSAGE } from "./labels";
 import { ACTIVE_TEST_CALL_MS, clearTestCalls, EMPTY_TRANSCRIPT_GRACE_MS, listAgentChoices, NETWORK_HOLD_MS, RESULT_TIMEOUT_MS, startTestCall, testCallResult } from "./test-call";
 
@@ -87,6 +88,52 @@ describe("listAgentChoices", () => {
       listAnswers = Array.from({ length: 6 }, () => () => new Response("secret body", { status }));
       expect(await listAgentChoices({ tuning: tuning() }), String(status)).toEqual({ ok: false, code });
     }
+  });
+});
+
+describe("the agent list", () => {
+  const item = (id: string, name: string) => ({ agent_id: id, agent_name: name, channel: "voice" });
+
+  it("sorts by name after a name that holds the key is shown as its id", async () => {
+    await writeKey(KEY);
+    agents = [item("agent_a", `Zzz ${KEY}`), item("agent_m", "Mid"), item("agent_k", "alpha")];
+    const res = await listAgentChoices({ tuning: tuning() });
+    expect(res).toEqual({
+      ok: true,
+      agents: [
+        { id: "agent_a", name: "agent_a" },
+        { id: "agent_k", name: "alpha" },
+        { id: "agent_m", name: "Mid" },
+      ],
+    });
+  });
+
+  it("reads at most 5 pages, drops an agent listed twice, and sorts the whole list", async () => {
+    await writeKey(KEY);
+    let n = 0;
+    listAnswers = Array.from({ length: 20 }, () => () => {
+      n++;
+      return Response.json({ items: [item(`agent_${n}`, `Agent ${10 - n}`), item("agent_dup", "Dup")], has_more: true, pagination_key: `k${n}` });
+    });
+    const res = await listAgentChoices({ tuning: tuning() });
+    expect(count("/v2/list-agents")).toBe(5);
+    expect(res.ok && res.agents.map((a) => a.id)).toEqual(["agent_5", "agent_4", "agent_3", "agent_2", "agent_1", "agent_dup"].sort((a, b) => {
+      const name = (id: string) => (id === "agent_dup" ? "dup" : `agent ${10 - Number(id.slice(6))}`);
+      return name(a) < name(b) ? -1 : 1;
+    }));
+  });
+
+  it("stops listing when Disconnect happens between pages", async () => {
+    await writeKey(KEY);
+    listAnswers = [
+      () => {
+        clearPulls();
+        return Response.json({ items: [item("agent_1", "One")], has_more: true, pagination_key: "k1" });
+      },
+      () => Response.json({ items: [item("agent_2", "Two")], has_more: false }),
+    ];
+    expect(await listAgentChoices({ tuning: tuning() })).toEqual({ ok: false, code: "not_connected" });
+    expect(count("/v2/list-agents")).toBe(1);
   });
 });
 
@@ -183,6 +230,33 @@ describe("startTestCall", () => {
   it("refuses an answer it cannot read, as unreadable", async () => {
     createAnswers = [() => Response.json({ ...WEB, access_token: "" }, { status: 201 })];
     expect(await startTestCall(AGENT, { tuning: tuning() })).toEqual({ ok: false, code: "unreadable" });
+  });
+
+  it("returns no credentials and records no call when Disconnect or a new key arrives while the start is in flight", async () => {
+    const disconnects: [string, () => void][] = [
+      ["disconnect", () => { clearPulls(); clearTestCalls(); }],
+      ["key replaced", () => clearPulls()],
+    ];
+    for (const [label, hit] of disconnects) {
+      for (const during of ["list", "create"] as const) {
+        clearTestCalls();
+        (globalThis as { __overhearPulls?: unknown }).__overhearPulls = undefined;
+        const before = count("/v3/create-web-call");
+        const answer = (res: () => Response) => () => {
+          hit();
+          return res();
+        };
+        listAnswers = during === "list" ? [answer(() => Response.json({ items: agents, has_more: false }))] : [];
+        createAnswers = during === "create" ? [answer(() => Response.json(WEB, { status: 201 }))] : [];
+        const res = await startTestCall(AGENT, { tuning: tuning() });
+        expect(res, `${label} during ${during}`).toEqual({ ok: false, code: "not_connected" });
+        expect(JSON.stringify(res)).not.toContain("tok_web");
+        if (during === "list") expect(count("/v3/create-web-call") - before, `${label} during list made a call`).toBe(0);
+        // Nothing was recorded: the result is not found, and the slot is free.
+        expect(await testCallResult("call_web_1", { tuning: tuning() })).toEqual({ ok: false, code: "not_found" });
+        expect((await startTestCall(AGENT, { tuning: tuning() })).ok, `${label} during ${during}: slot`).toBe(true);
+      }
+    }
   });
 
   it("holds the slot for about 10 seconds after a network failure on the create, so an immediate retry makes no second call", async () => {
@@ -324,16 +398,19 @@ describe("testCallResult", () => {
     expect(count("/v2/get-call/call_web_1")).toBe(1);
   });
 
-  it("reduces Retell's errors to codes", async () => {
+  it("reduces Retell's errors to codes, with one request per ask (a poll is never retried)", async () => {
     const cases: [number, string][] = [
       [401, "bad_key"],
       [404, "not_found"],
       [429, "rate_limited"],
       [500, "retell_down"],
+      [503, "retell_down"],
     ];
     for (const [status, code] of cases) {
+      const before = count("/v2/get-call/call_web_1");
       getAnswers = Array.from({ length: 6 }, () => () => new Response("secret body", { status }));
       expect(await testCallResult("call_web_1", { tuning: tuning() }), String(status)).toEqual({ ok: false, code });
+      expect(count("/v2/get-call/call_web_1") - before, `${status} retried`).toBe(1);
     }
   });
 

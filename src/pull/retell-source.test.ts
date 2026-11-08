@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeKey } from "./key-store";
-import { BASE_URL_REFUSED, checkKey, createWebCall, listAgents, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
+import { BASE_URL_REFUSED, checkKey, createWebCall, listAgentsPage, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
 
 const KEY = "key_SOURCETEST0123456789abcdef";
 
@@ -181,7 +181,7 @@ describe("storedRetell", () => {
   });
 });
 
-describe("listAgents", () => {
+describe("listAgentsPage", () => {
   const agent = (id: string, name: unknown, extra: Record<string, unknown> = {}) => ({
     agent_id: id,
     agent_name: name,
@@ -192,45 +192,42 @@ describe("listAgents", () => {
     ...extra,
   });
 
-  it("answers id and name only, voice agents only, sorted by name, built field by field", async () => {
+  it("answers id and name only, voice agents only, built field by field, and one request", async () => {
     const { fn, seen } = fakeFetch(
       json(200, {
-        items: [agent("agent_b", "zeta"), agent("agent_c", "Alpha"), agent("agent_chat", "Chat bot", { channel: "chat" }), agent("agent_a", "alpha"), agent("agent_d", null)],
+        items: [agent("agent_b", "zeta"), agent("agent_chat", "Chat bot", { channel: "chat" }), agent("agent_a", "alpha"), agent("agent_d", null), agent("bad id!", "x"), agent("agent_a", "dup")],
         has_more: false,
       }),
     );
-    const out = await listAgents(KEY, { fetch: fn });
-    expect(out).toEqual([
-      { id: "agent_d", name: "agent_d" },
-      { id: "agent_a", name: "alpha" },
-      { id: "agent_c", name: "Alpha" },
-      { id: "agent_b", name: "zeta" },
-    ]);
+    const out = await listAgentsPage(KEY, undefined, { fetch: fn });
+    expect(out).toEqual({
+      agents: [
+        { id: "agent_b", name: "zeta" },
+        { id: "agent_a", name: "alpha" },
+        { id: "agent_d", name: "agent_d" },
+      ],
+      next: undefined,
+    });
     expect(JSON.stringify(out)).not.toMatch(/SECRET|llm_|hooks/);
     expect(seen).toHaveLength(1);
     expect(new URL(seen[0].url).pathname).toBe("/v2/list-agents");
     expect(seen[0].headers.get("authorization")).toBe(`Bearer ${KEY}`);
   });
 
-  it("follows pagination up to a cap, and drops items with an unusable id, duplicates and control characters in names", async () => {
-    const page = (n: number, more: boolean) =>
-      json(200, { items: [agent(`agent_${n}`, `Agent ${n}`), agent("bad id!", "x"), agent(`agent_${n}`, "dup")], has_more: more, pagination_key: `k${n}` });
-    const { fn, seen } = fakeFetch(page(1, true), json(200, { items: [agent("agent_9", "Ni\u0000ne\n\u202Ex")], has_more: false }));
-    const out = await listAgents(KEY, { fetch: fn });
-    expect(out.map((a) => a.id)).toEqual(["agent_1", "agent_9"]);
-    expect(out[1].name).toBe("Nine x");
-    expect(seen).toHaveLength(2);
-    expect(new URL(seen[1].url).searchParams.get("pagination_key")).toBe("k1");
-    // A server that never stops saying has_more is read for at most 5 pages.
-    const endless = fakeFetch(...Array.from({ length: 20 }, (_, i) => page(i, true)));
-    await listAgents(KEY, { fetch: endless.fn });
-    expect(endless.seen.length).toBeLessThanOrEqual(5);
+  it("sends the page key it is given, answers the next one only when there are more, and strips control characters from names", async () => {
+    const { fn, seen } = fakeFetch(json(200, { items: [agent("agent_9", "Ni\u0000ne\n\u202Ex")], has_more: true, pagination_key: "k2" }), json(200, { items: [], has_more: true }));
+    const out = await listAgentsPage(KEY, "k1", { fetch: fn });
+    expect(out).toEqual({ agents: [{ id: "agent_9", name: "Nine x" }], next: "k2" });
+    expect(new URL(seen[0].url).searchParams.get("pagination_key")).toBe("k1");
+    // has_more with no key to follow is the end.
+    expect((await listAgentsPage(KEY, undefined, { fetch: fn })).next).toBeUndefined();
   });
 
-  it("gives an empty list for an answer with no items", async () => {
-    expect(await listAgents(KEY, { fetch: fakeFetch(json(200, {})).fn })).toEqual([]);
+  it("gives an empty page for an answer with no items", async () => {
+    expect(await listAgentsPage(KEY, undefined, { fetch: fakeFetch(json(200, {})).fn })).toEqual({ agents: [], next: undefined });
   });
 });
+
 
 describe("createWebCall", () => {
   const CALL = { access_token: "tok_abc", call_id: "call_web_1", transport: "gateway", ice_servers: [{ urls: ["stun:a.example"], username: "u", credential: "c", extra: "SECRET" }], agent_id: "agent_1", call_status: "registered", expires_at: 1, retell_llm_dynamic_variables: { a: "SECRET" } };

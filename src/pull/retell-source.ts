@@ -162,7 +162,6 @@ export const RETELL_ID = /^[A-Za-z0-9_-]{1,128}$/;
 /** What the test call line shows of an agent. Nothing else of an agent (prompts, LLM ids, webhook URLs) is ever kept. */
 export type AgentChoice = { id: string; name: string };
 
-const MAX_AGENT_PAGES = 5;
 const AGENT_PAGE = 100;
 const MAX_NAME = 120;
 // Controls, line and paragraph separators, zero-width and direction marks, bidi overrides and the byte order mark.
@@ -173,35 +172,38 @@ function agentName(raw: unknown, id: string): string {
   return text === "" ? id : text;
 }
 
-function byName(a: AgentChoice, b: AgentChoice): number {
-  const x = a.name.toLowerCase();
-  const y = b.name.toLowerCase();
-  if (x !== y) return x < y ? -1 : 1;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+/** The agents in name order (case-insensitive), the id breaking a tie. */
+export function sortAgents(agents: AgentChoice[]): AgentChoice[] {
+  return [...agents].sort((a, b) => {
+    const x = a.name.toLowerCase();
+    const y = b.name.toLowerCase();
+    if (x !== y) return x < y ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
 }
 
+/** How many pages of agents one listing reads, at most. */
+export const MAX_AGENT_PAGES = 5;
+
 /**
- * The user's voice agents as id and name, sorted by name, at most five pages of 100. Built field by field from each item.
- * Chat agents cannot take a web call, so they are left out. An item with no usable id is dropped.
+ * One page of the user's voice agents (up to 100) as id and name, built field by field from each item, and the key of the
+ * next page when Retell says there is one. Chat agents cannot take a web call, so they are left out. An item with no usable
+ * id, or an id already on the page, is dropped. The caller runs each page through the shared limiter, follows the pages
+ * (at most MAX_AGENT_PAGES) and sorts what it keeps.
  */
-export async function listAgents(key: string, opts: RetellOptions = {}): Promise<AgentChoice[]> {
-  const client = makeRetell(key, opts);
+export async function listAgentsPage(key: string, pageKey: string | undefined, opts: RetellOptions = {}): Promise<{ agents: AgentChoice[]; next: string | undefined }> {
+  const res = await makeRetell(key, opts).agent.list({ limit: AGENT_PAGE, ...(pageKey ? { pagination_key: pageKey } : {}) });
+  const items: unknown[] = Array.isArray(res?.items) ? res.items : [];
   const found = new Map<string, AgentChoice>();
-  let pageKey: string | undefined;
-  for (let page = 0; page < MAX_AGENT_PAGES; page++) {
-    const res = await client.agent.list({ limit: AGENT_PAGE, ...(pageKey ? { pagination_key: pageKey } : {}) });
-    const items: unknown[] = Array.isArray(res?.items) ? res.items : [];
-    for (const item of items) {
-      if (typeof item !== "object" || item === null) continue;
-      const r = item as Record<string, unknown>;
-      const id = str(r.agent_id);
-      if (id === null || !RETELL_ID.test(id) || found.has(id) || r.channel === "chat") continue;
-      found.set(id, { id, name: agentName(r.agent_name, id) });
-    }
-    pageKey = res?.has_more === true ? (str(res.pagination_key) ?? undefined) : undefined;
-    if (pageKey === undefined) break;
+  for (const item of items) {
+    if (typeof item !== "object" || item === null) continue;
+    const r = item as Record<string, unknown>;
+    const id = str(r.agent_id);
+    if (id === null || !RETELL_ID.test(id) || found.has(id) || r.channel === "chat") continue;
+    found.set(id, { id, name: agentName(r.agent_name, id) });
   }
-  return [...found.values()].sort(byName);
+  const next = res?.has_more === true ? (str(res.pagination_key) ?? undefined) : undefined;
+  return { agents: [...found.values()], next };
 }
 
 export type IceServer = { urls: string | string[]; username?: string; credential?: string };

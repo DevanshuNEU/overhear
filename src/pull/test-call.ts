@@ -19,10 +19,10 @@ import type { Outcome } from "@/engine/types";
 import { analyzeCall } from "./analyzer";
 import { KeyStoreError } from "./key-store";
 import { TEST_CALL_DID_NOT_CONNECT_MESSAGE, TEST_CALL_KEY_IN_CALL_MESSAGE, TEST_CALL_TIMEOUT_MESSAGE, type TestCallErrorCode } from "./labels";
-import type { PoolError } from "./pool";
-import { runLimited, type PullTuning } from "./pull";
+import type { PoolError, PoolResult } from "./pool";
+import { currentEpoch, runLimited, type PullTuning } from "./pull";
 import { redact } from "./redact";
-import { createWebCall, getCall, listAgents, readStoredKey, RETELL_ID, type AgentChoice, type WebCall } from "./retell-source";
+import { createWebCall, getCall, listAgentsPage, MAX_AGENT_PAGES, readStoredKey, RETELL_ID, sortAgents, type AgentChoice, type WebCall } from "./retell-source";
 
 /** How long one test call holds the slot if nobody asks for its result: 15 minutes. */
 export const ACTIVE_TEST_CALL_MS = 15 * 60 * 1000;
@@ -89,13 +89,32 @@ function scrub(agents: AgentChoice[], key: string): AgentChoice[] {
   return agents.filter((a) => !a.id.includes(key)).map((a) => (a.name.includes(key) ? { id: a.id, name: a.id } : a));
 }
 
+/**
+ * Every page of the user's voice agents (at most MAX_AGENT_PAGES), each page through the shared limiter, and all of them under
+ * one Disconnect count: if the key is disconnected or replaced part way, the listing stops as cancelled. Names and ids that
+ * hold the key are scrubbed first, then the whole list is sorted.
+ */
+async function listAll(key: string, deps: Deps, epoch: number): Promise<PoolResult<AgentChoice[]>> {
+  const found = new Map<string, AgentChoice>();
+  let pageKey: string | undefined;
+  for (let page = 0; page < MAX_AGENT_PAGES; page++) {
+    const res = await runLimited(() => listAgentsPage(key, pageKey, deps.tuning), { ...deps.tuning, epoch });
+    if (!res.ok) return res;
+    for (const agent of res.value.agents) if (!found.has(agent.id)) found.set(agent.id, agent);
+    pageKey = res.value.next;
+    if (pageKey === undefined) break;
+  }
+  return { ok: true, value: sortAgents(scrub([...found.values()], key)) };
+}
+
 /** The user's voice agents on the stored key, as id and name, sorted by name. A fresh request every time. */
 export async function listAgentChoices(deps: Deps = {}): Promise<{ ok: true; agents: AgentChoice[] } | Fail> {
   try {
+    const epoch = currentEpoch();
     const key = await readStoredKey();
-    if (key === null) return refuse("not_connected");
-    const listed = await runLimited(() => listAgents(key, deps.tuning), deps.tuning);
-    return listed.ok ? { ok: true, agents: scrub(listed.value, key) } : refuse(failureCode(listed.error));
+    if (key === null || currentEpoch() !== epoch) return refuse("not_connected");
+    const listed = await listAll(key, deps, epoch);
+    return listed.ok ? { ok: true, agents: listed.value } : refuse(failureCode(listed.error));
   } catch (err) {
     return refuse(thrownCode(err));
   }
@@ -106,20 +125,23 @@ export async function startTestCall(agentId: unknown, deps: Deps = {}): Promise<
   if (typeof agentId !== "string" || !RETELL_ID.test(agentId)) return refuse("bad_agent");
   const state = getState();
   let slot: State["active"] = null;
+  // Disconnect or a new key at any point of the start (the key read or either request) ends it: no credentials come back and
+  // no call is recorded.
+  const epoch = currentEpoch();
   try {
     const key = await readStoredKey();
-    if (key === null) return refuse("not_connected");
+    if (key === null || currentEpoch() !== epoch) return refuse("not_connected");
     // The check and the take run with no await between them.
     const now = clock(deps);
     if (state.active && now - state.active.since < ACTIVE_TEST_CALL_MS) return refuse("call_active");
     slot = { callId: null, since: now };
     state.active = slot;
 
-    const listed = await runLimited(() => listAgents(key, deps.tuning), deps.tuning);
+    const listed = await listAll(key, deps, epoch);
     if (!listed.ok) return release(state, slot, refuse(failureCode(listed.error)));
-    if (!scrub(listed.value, key).some((agent) => agent.id === agentId)) return release(state, slot, refuse("bad_agent"));
+    if (!listed.value.some((agent) => agent.id === agentId)) return release(state, slot, refuse("bad_agent"));
 
-    const made = await runLimited(() => createWebCall(key, agentId, deps.tuning), { ...deps.tuning, retries: 0 });
+    const made = await runLimited(() => createWebCall(key, agentId, deps.tuning), { ...deps.tuning, retries: 0, epoch });
     if (!made.ok && made.error.code === "network") {
       // The request may have reached Retell. Keep the slot a little longer (it ends NETWORK_HOLD_MS from now), so an
       // immediate retry is not a second call.
@@ -131,6 +153,7 @@ export async function startTestCall(agentId: unknown, deps: Deps = {}): Promise<
       const refused = made.error.status === 400 || made.error.status === 404 || made.error.status === 422;
       return release(state, slot, refuse(refused ? "bad_agent" : failureCode(made.error)));
     }
+    if (currentEpoch() !== epoch) return release(state, slot, refuse("not_connected"));
     // A call that holds the key (a Retell that echoes it) is not passed on: the browser must never get it.
     if (holdsKey(made.value, key)) return release(state, slot, refuse("unreadable"));
     slot.callId = made.value.callId;
@@ -190,7 +213,8 @@ async function resultOf(callId: string, known: Known, deps: Deps): Promise<Resul
   try {
     const key = await readStoredKey();
     if (key === null) return refuse("not_connected");
-    const fetched = await runLimited(() => getCall(key, callId, deps.tuning), deps.tuning);
+    // One request per ask: the client asks again, so a 429 or 5xx is not retried here.
+    const fetched = await runLimited(() => getCall(key, callId, deps.tuning), { ...deps.tuning, retries: 0 });
     if (!fetched.ok) return refuse(failureCode(fetched.error));
     const raw = fetched.value;
     if (!isRec(raw) || raw.call_id !== callId) return refuse("unreadable");
