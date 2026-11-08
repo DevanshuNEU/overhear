@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { Outcome } from "@/engine/types";
 import { answerOf } from "@/components/report/answer";
 import type { CallReport, Verdict } from "@/report/schema";
-import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError } from "./pool";
+import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError, type PoolResult } from "./pool";
 import { PULL_ERROR_MESSAGE, type PullErrorCode } from "./labels";
 import { logSafe } from "./redact";
 import { getCall, listCalls, readStoredKey, toMeta, type CallMeta, type RetellOptions } from "./retell-source";
@@ -355,4 +355,24 @@ async function fetchOne(store: Store, callId: string, opts: { analyze: Analyze; 
   const opened = [...store.calls].filter(([, e]) => e.pullId === OPENED);
   for (const [id] of opened.slice(0, Math.max(0, opened.length - MAX_OPENED))) store.calls.delete(id);
   return outcome;
+}
+
+/**
+ * One get-call request for a pin, through the shared limiter like every other Retell request. The raw record goes to
+ * the caller and is kept nowhere here. A Disconnect while it waits or runs ends it as "cancelled".
+ */
+export async function fetchRecord(callId: string, key: string, opts: PullTuning = {}): Promise<PoolResult<unknown>> {
+  const store = getStore();
+  const epoch = store.epoch;
+  const [res] = await runPool([() => getCall(key, callId, opts)], {
+    size: 1,
+    limiter: store.limiter,
+    sleep: opts.sleep ?? defaultSleep,
+    jitter: opts.jitter ?? defaultJitter,
+    now: opts.now,
+    onWait: () => {},
+    shouldStop: () => store.epoch !== epoch,
+  });
+  // Disconnect happened while the request ran: the record is not ours to use.
+  return store.epoch !== epoch ? { ok: false, error: { code: "cancelled" } } : res;
 }

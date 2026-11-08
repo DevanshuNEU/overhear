@@ -141,6 +141,18 @@ async function openFolder(access: Access): Promise<string | null> {
 const pinNames = async (dir: string): Promise<string[]> => (await fs.readdir(dir)).filter((n) => PIN_FILE.test(n)).sort();
 
 /**
+ * Runs saves one at a time in this process, so the cap check and the write of one pin cannot interleave with another's:
+ * without it, several pins arriving together could each see 499 files and all be written. One failure does not stop the
+ * saves queued behind it.
+ */
+let saving: Promise<unknown> = Promise.resolve();
+function oneAtATime<T>(job: () => Promise<T>): Promise<T> {
+  const run = saving.then(job, job);
+  saving = run.catch(() => undefined);
+  return run;
+}
+
+/**
  * Saves one pinned call. The pin is checked as a whole first (parseCase), its id must be the one pinIdFor gives its call
  * id, and its record must carry that call id: a failed trim leaves an empty record, which is refused here. The file is the
  * case's canonical text (formatCase). Returns the pin's id.
@@ -163,16 +175,18 @@ export async function savePin(pin: EvalCase): Promise<{ id: string }> {
     throw new PinStoreError("too_large", `That call is bigger than ${MAX_PIN_BYTES} bytes, so it was not kept.`);
   }
 
-  const dir = (await openFolder("write")) as string;
-  const names = await pinNames(dir);
-  if (names.length >= MAX_PINS && !names.includes(name)) {
-    throw new PinStoreError("too_many", `${MAX_PINS} calls are already pinned. Delete some before pinning more.`);
-  }
-  // openFolder just checked the folder, which is what makes the clean-up safe.
-  await removeTemps(dir, PIN_TEMP);
-  await refuseDirectoryAt(path.join(dir, name), name);
-  await writePrivateFile(dir, name, text);
-  return { id: valid.id };
+  return oneAtATime(async () => {
+    const dir = (await openFolder("write")) as string;
+    const names = await pinNames(dir);
+    if (names.length >= MAX_PINS && !names.includes(name)) {
+      throw new PinStoreError("too_many", `${MAX_PINS} calls are already pinned. Delete some before pinning more.`);
+    }
+    // openFolder just checked the folder, which is what makes the clean-up safe.
+    await removeTemps(dir, PIN_TEMP);
+    await refuseDirectoryAt(path.join(dir, name), name);
+    await writePrivateFile(dir, name, text);
+    return { id: valid.id };
+  });
 }
 
 /** A directory planted at a pin's name cannot be renamed over or deleted as a file: say so, plainly. */

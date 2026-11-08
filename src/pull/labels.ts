@@ -34,3 +34,54 @@ export const PULL_ERROR_MESSAGE: Record<PullErrorCode, string> = {
   network: "Could not reach Retell.",
   retell_down: "Retell is having trouble right now.",
 };
+
+export type PinErrorCode =
+  | "bad_request"
+  | "bad_call_id"
+  | "bad_pin_id"
+  | "unsupported"
+  | "body_too_large"
+  | "not_connected"
+  | "not_found"
+  | "not_ended"
+  | "mismatch"
+  | "unreadable"
+  | "no_report"
+  | "changed"
+  | "key_in_call"
+  | "no_such_pin"
+  | "not_a_file"
+  | "too_many"
+  | "too_large"
+  | "in_repo"
+  | "store_unsafe"
+  | PullErrorCode
+  | "failed";
+
+/**
+ * What the pin routes say, by code. Each is a fixed sentence: none ever holds a word of the call, the key or what
+ * Retell answered. The pin screens show these as they are.
+ */
+export const PIN_MESSAGE: Record<PinErrorCode, string> = {
+  bad_request: "Send the call and the items to keep as JSON, with a note of at most 280 characters.",
+  bad_call_id: "That is not a Retell call id.",
+  bad_pin_id: "That is not a pinned call id.",
+  unsupported: "Send the request as JSON.",
+  body_too_large: "That request is too long.",
+  not_connected: "Connect your Retell key first.",
+  not_found: "Retell does not have that call.",
+  not_ended: "This call has not ended yet.",
+  mismatch: "Retell sent back a different call, so nothing was kept.",
+  unreadable: "Overhear could not read this call’s record, so nothing was kept.",
+  no_report: "This call has no report, so it cannot be kept as a test.",
+  changed: "This call reads differently now. Reload it and try again.",
+  key_in_call: "This call holds your Retell key, so it was not saved.",
+  no_such_pin: "No pinned call has that id.",
+  not_a_file: "Something in the pinned folder with that name is a folder, not a pinned call. Remove it yourself.",
+  too_many: "500 calls are already pinned. Delete some before pinning more.",
+  too_large: "That call is too big to keep.",
+  in_repo: "The pinned folder is inside a git repository, so Overhear won’t use it. Set OVERHEAR_HOME to a folder outside any repository.",
+  store_unsafe: "The pinned folder is open to other users or isn’t yours, so Overhear won’t use it. Run chmod 700 on it, or set OVERHEAR_HOME to a new folder.",
+  ...PULL_ERROR_MESSAGE,
+  failed: "Something went wrong. Nothing was kept.",
+};

@@ -300,7 +300,7 @@ describe("proxy on a hosted copy (OVERHEAR_LOCAL unset)", () => {
   it("answers 404 for the key, pull and call routes, on every method", async () => {
     vi.stubEnv("OVERHEAR_LOCAL", "");
     delete process.env.DASHBOARD_PASSWORD;
-    for (const path of ["/api/connect", "/api/connect/", "/api/pulls", "/api/pulls/p1", "/api/pulls/p1/cancel", "/api/calls/c1/refetch"]) {
+    for (const path of ["/api/connect", "/api/connect/", "/api/pulls", "/api/pulls/p1", "/api/pulls/p1/cancel", "/api/calls/c1/refetch", "/api/pins", "/api/pins/pin-x"]) {
       for (const method of ["GET", "POST", "DELETE"]) {
         const res = await proxy(reqOf(path, { host: "overhear.up.railway.app", origin: "https://overhear.up.railway.app" }, method));
         expect(res?.status, `${method} ${path}`).toBe(404);

@@ -14,6 +14,8 @@
 // - A call screen (/reports/...) opened by another website as an image, script, frame or fetch is refused: opening
 //   one can cost a Retell request, so a page that loops over made-up ids must not be able to spend them. Only a
 //   top-level navigation (the user following a link) may come from another site. See isCrossSiteSubresource.
+// - A read of the pinned calls (/api/pins) from another site or another port is refused however it is made, so a page
+//   that loops over it cannot make the server run the full check of every pin. See isCrossSitePinRead.
 // - Every answer forbids framing (FRAME_HEADERS), so a page on another site cannot frame the local server to
 //   clickjack a disconnect or a pull, or show transcripts inside its own page.
 // These checks run in src/proxy.ts for every path and again in each product route handler.
@@ -77,8 +79,8 @@ export function forbidFraming(headers: Headers): void {
 
 const SAFE_METHODS = new Set(["GET", "HEAD"]);
 
-// The routes that hold or use the key: the key itself, pulls and per-call refetches. Hosted copies answer 404.
-const PRODUCT_API_PREFIXES = ["/api/connect", "/api/pulls", "/api/calls"];
+// The routes that hold or use the key: the key itself, pulls, per-call refetches and pinned calls. Hosted copies answer 404.
+const PRODUCT_API_PREFIXES = ["/api/connect", "/api/pulls", "/api/calls", "/api/pins"];
 
 /** True for a path under one of the product API routes, matched on a path boundary. */
 export function isProductApiPath(pathname: string): boolean {
@@ -112,6 +114,24 @@ export function isCrossSiteSubresource(req: Request): boolean {
 }
 
 /**
+ * True for a GET or HEAD to /api/pins that another site (or another port on this computer) made, as a fetch or as a page:
+ * unlike a call screen, nothing here is meant to be opened from a link, so every Sec-Fetch-Site of cross-site or same-site
+ * is refused. The same origin, a typed address (`none`) and a client that sends no Fetch Metadata pass.
+ */
+export function isCrossSitePinRead(req: Request): boolean {
+  if (!SAFE_METHODS.has(req.method.toUpperCase())) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(req.url).pathname;
+  } catch {
+    return false;
+  }
+  if (pathname !== "/api/pins" && !pathname.startsWith("/api/pins/")) return false;
+  const site = req.headers.get("sec-fetch-site")?.toLowerCase();
+  return site === "cross-site" || site === "same-site";
+}
+
+/**
  * The local check for one request: a 403 when the server is not bound to 127.0.0.1, for a foreign Host, or for a
  * request that can change something without a same-origin Origin, and for a call screen another site loads as a
  * subresource; null when the request may go on. Does not look
@@ -122,7 +142,7 @@ export function checkLocalRequest(req: Request, env: Record<string, string | und
   const host = req.headers.get("host");
   if (!isLoopbackHost(host)) return refusal(403);
   if (!SAFE_METHODS.has(req.method.toUpperCase()) && !isSameOrigin(req.headers.get("origin"), host)) return refusal(403);
-  if (isCrossSiteSubresource(req)) return refusal(403);
+  if (isCrossSiteSubresource(req) || isCrossSitePinRead(req)) return refusal(403);
   return null;
 }
 

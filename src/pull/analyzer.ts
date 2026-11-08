@@ -5,7 +5,7 @@
 import { analyzeRetellCall } from "@/engine/analyze";
 import type { Outcome } from "@/engine/types";
 
-function machineZone(): string {
+export function machineZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
 
