@@ -238,9 +238,9 @@ export function lineLeftOpenText(seq: number, ev: Evidence): string {
   return `The agent said goodbye at ${formatTime(seq, ev)}, then left the line open until the call timed out.`;
 }
 
-/** The problem text for system details read to the caller: the agent said these words at this turn. */
-export function leakedInternalsText(seq: number, quote: string, ev: Evidence): string {
-  return `At ${formatTime(seq, ev)} the agent read system details to the caller: "${quote}".`;
+/** The problem text for system details read to the caller: the agent said these fragments at this turn, each quoted as it was said. */
+export function leakedInternalsText(seq: number, quotes: string[], ev: Evidence): string {
+  return `At ${formatTime(seq, ev)} the agent read system details to the caller: ${nameList(quotes.map((q) => `"${q}"`))}.`;
 }
 
 /** The problem text for a failed tool the agent offered no way forward from: the failure happened at this item. */
