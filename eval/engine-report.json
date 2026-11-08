@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "analyzeRetellCall",
-  "inputs": { "cases": 35, "fingerprint": "e8ac85a731f00cd1827d2d852ad938c8c319eb78494360438a89783b4c6a5c0d" },
+  "inputs": { "cases": 35, "fingerprint": "2fa53209f42334bee2395991670608d5ff497c146a55048bb96f9c0172b698d9" },
   "metrics": {
     "independent": {
       "n": 0,

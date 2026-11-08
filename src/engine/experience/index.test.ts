@@ -17,7 +17,7 @@ describe("runExperience", () => {
   });
 
   it("collects each check's problems under its id", () => {
-    const out = runExperience(ev([agent("Goodbye!"), agent("Goodbye!")]));
+    const out = runExperience(ev([agent("Goodbye!"), agent("Goodbye!"), agent("Goodbye!")]));
     expect(out.ran).toEqual(["agent_ends_call"]);
     expect(out.problems.map((p) => p.check)).toEqual(["agent_ends_call"]);
   });

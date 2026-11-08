@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { ExperienceProblemSchema } from "@/report/schema";
 import { ev, type ItemSpec } from "../testing/build";
-import { CLOSING_PHRASES, agentEndsCall, isGoodbye } from "./ends-call";
+import { CLOSING_PHRASES, GOODBYE_LOOP_MIN_TURNS, agentEndsCall, isGoodbye } from "./ends-call";
 
 const agent = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "agent", text, startSec, interrupted: null });
 const caller = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
@@ -29,19 +29,28 @@ describe("agentEndsCall", () => {
     ]);
   });
 
-  it("two goodbyes in a row is a loop, worded for two", () => {
-    const out = run([agent("Take care!", 4), agent("Goodbye!", 9)]);
-    expect(out.problems.map((p) => p.text)).toEqual(["The agent said goodbye 2 times (at 0:04 and 0:09) and didn't end the call."]);
+  it("the threshold is three agent turns", () => {
+    expect(GOODBYE_LOOP_MIN_TURNS).toBe(3);
+  });
+
+  it("a two-goodbye closing is how a call normally ends: no problem", () => {
+    expect(run([agent("Have a great day!", 4), caller("You too. Bye.", 7), agent("Goodbye!", 9)], "user_hangup")).toEqual({ ran: true, problems: [] });
+    expect(run([agent("Take care!", 4), agent("Goodbye!", 9)])).toEqual({ ran: true, problems: [] });
+  });
+
+  it("three goodbyes is a loop, worded for three", () => {
+    const out = run([agent("Take care!", 4), caller("Bye.", 6), agent("Goodbye!", 9), agent("Bye!", 11)]);
+    expect(out.problems.map((p) => p.text)).toEqual(["The agent said goodbye 3 times (at 0:04, 0:09 and 0:11) and didn't end the call."]);
   });
 
   it("uses turn numbers when the record has no times", () => {
-    const out = run([agent("Hi"), caller("Hi"), agent("Goodbye!"), caller("Bye"), agent("Goodbye!")]);
-    expect(out.problems[0].text).toBe("The agent said goodbye 2 times (at turn 3 and turn 5) and didn't end the call.");
+    const out = run([agent("Hi"), caller("Hi"), agent("Goodbye!"), caller("Bye"), agent("Goodbye!"), caller("Bye"), agent("Goodbye!")]);
+    expect(out.problems[0].text).toBe("The agent said goodbye 3 times (at turn 3, turn 5 and turn 7) and didn't end the call.");
   });
 
   it("tool calls and events between the goodbyes do not break the closing run", () => {
-    const out = run([agent("Goodbye!", 1), call, { kind: "tool_result", id: "tc_1", ok: null, platformOk: true, payload: {} }, agent("Take care!", 6)]);
-    expect(out.problems.map((p) => p.seqs)).toEqual([[1, 4]]);
+    const out = run([agent("Goodbye!", 1), call, { kind: "tool_result", id: "tc_1", ok: null, platformOk: true, payload: {} }, agent("Take care!", 6), agent("Bye!", 8)]);
+    expect(out.problems.map((p) => p.seqs)).toEqual([[1, 4, 5]]);
   });
 
   it("an early closing followed by more substance is not a loop", () => {
@@ -53,7 +62,7 @@ describe("agentEndsCall", () => {
   });
 
   it("an early goodbye loop that the call moved on from is not a closing run", () => {
-    const out = run([agent("Goodbye!", 1), caller("Wait.", 3), agent("Goodbye!", 5), caller("Actually, one more thing.", 8), agent("Sure, go ahead.", 10)]);
+    const out = run([agent("Goodbye!", 1), caller("Wait.", 3), agent("Goodbye!", 5), agent("Bye!", 6), caller("Actually, one more thing.", 8), agent("Sure, go ahead.", 10)]);
     expect(out).toEqual({ ran: true, problems: [] });
   });
 
@@ -65,8 +74,8 @@ describe("agentEndsCall", () => {
   });
 
   it("inactivity after a loop gives both problems", () => {
-    const out = run([agent("Goodbye!", 1), caller("Bye.", 4), agent("Goodbye!", 6)], "inactivity");
-    expect(out.problems.map((p) => p.seqs)).toEqual([[1, 3], [3]]);
+    const out = run([agent("Goodbye!", 1), caller("Bye.", 4), agent("Goodbye!", 6), caller("Bye.", 8), agent("Bye!", 10)], "inactivity");
+    expect(out.problems.map((p) => p.seqs)).toEqual([[1, 3, 5], [5]]);
   });
 
   it("inactivity with no closing at the end is not a line left open", () => {
@@ -87,7 +96,7 @@ describe("agentEndsCall", () => {
   });
 
   it("every problem cites only agent turns and validates", () => {
-    const e = ev([agent("Anything else?", 1), caller("Goodbye!", 3), agent("Goodbye!", 5), caller("Bye", 7), agent("Bye!", 9)], { callFields: { disconnection_reason: "inactivity" } });
+    const e = ev([agent("Anything else?", 1), caller("Goodbye!", 3), agent("Goodbye!", 5), caller("Bye", 7), agent("Bye!", 9), agent("Take care!", 11)], { callFields: { disconnection_reason: "inactivity" } });
     const out = agentEndsCall(e);
     expect(out.problems.length).toBeGreaterThan(0);
     for (const p of out.problems) {

@@ -10,16 +10,7 @@
     "ran": [
       "agent_ends_call"
     ],
-    "problems": [
-      {
-        "check": "agent_ends_call",
-        "text": "The agent said goodbye 2 times (at 2:22 and 2:33) and didn't end the call.",
-        "seqs": [
-          27,
-          29
-        ]
-      }
-    ]
+    "problems": []
   },
   "results": [
     {
