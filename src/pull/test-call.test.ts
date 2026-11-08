@@ -9,7 +9,8 @@ import { agentRecordOf } from "@/pinned/testing";
 import { failedSample } from "@/report/samples";
 import { analyzeCall } from "./analyzer";
 import { writeKey } from "./key-store";
-import { ACTIVE_TEST_CALL_MS, clearTestCalls, listAgentChoices, RESULT_TIMEOUT_MS, startTestCall, testCallResult } from "./test-call";
+import { TEST_CALL_DID_NOT_CONNECT_MESSAGE } from "./labels";
+import { ACTIVE_TEST_CALL_MS, clearTestCalls, EMPTY_TRANSCRIPT_GRACE_MS, listAgentChoices, NETWORK_HOLD_MS, RESULT_TIMEOUT_MS, startTestCall, testCallResult } from "./test-call";
 
 const KEY = "key_TESTCALLUNIT0123456789ab";
 const AGENT = "agent_one";
@@ -183,6 +184,21 @@ describe("startTestCall", () => {
     createAnswers = [() => Response.json({ ...WEB, access_token: "" }, { status: 201 })];
     expect(await startTestCall(AGENT, { tuning: tuning() })).toEqual({ ok: false, code: "unreadable" });
   });
+
+  it("holds the slot for about 10 seconds after a network failure on the create, so an immediate retry makes no second call", async () => {
+    createAnswers = [
+      () => {
+        throw new TypeError("fetch failed");
+      },
+    ];
+    expect(await startTestCall(AGENT, { tuning: tuning() })).toEqual({ ok: false, code: "network" });
+    expect(count("/v3/create-web-call")).toBe(1);
+    clock += NETWORK_HOLD_MS - 1;
+    expect(await startTestCall(AGENT, { tuning: tuning() })).toEqual({ ok: false, code: "call_active" });
+    expect(count("/v3/create-web-call")).toBe(1);
+    clock += 1;
+    expect((await startTestCall(AGENT, { tuning: tuning() })).ok).toBe(true);
+  });
 });
 
 describe("testCallResult", () => {
@@ -216,11 +232,73 @@ describe("testCallResult", () => {
     expect(count("/v2/get-call/call_web_1")).toBe(4);
   });
 
-  it("gives the engine's outcome for the full record, as the call list does (no_content for an empty transcript)", async () => {
+  it("waits up to 30 seconds after the call ended for an empty transcript to fill, then gives the engine's no_content", async () => {
     const quiet = { ...endedRecord(), transcript_with_tool_calls: [], transcript: "" };
-    getAnswers = [() => Response.json(quiet)];
+    getAnswers = [() => Response.json(quiet), () => Response.json(quiet)];
+    expect(await testCallResult("call_web_1", { tuning: tuning() })).toEqual({ ok: true, result: { status: "processing" } });
+    clock += EMPTY_TRANSCRIPT_GRACE_MS;
     const res = await testCallResult("call_web_1", { tuning: tuning() });
     expect(res).toEqual({ ok: true, result: { status: "ready", outcome: analyzeCall(quiet) } });
+    expect(res.ok && res.result.status === "ready" && res.result.outcome.kind).toBe("no_content");
+  });
+
+  it("gives the report when an empty transcript fills within 30 seconds", async () => {
+    const done = endedRecord();
+    getAnswers = [() => Response.json({ ...done, transcript_with_tool_calls: [] }), () => Response.json(done)];
+    expect(await testCallResult("call_web_1", { tuning: tuning() })).toEqual({ ok: true, result: { status: "processing" } });
+    clock += EMPTY_TRANSCRIPT_GRACE_MS - 1;
+    const res = await testCallResult("call_web_1", { tuning: tuning() });
+    expect(res).toEqual({ ok: true, result: { status: "ready", outcome: analyzeCall(done) } });
+    expect(res.ok && res.result.status === "ready" && res.result.outcome.kind).toBe("report");
+  });
+
+  it("never times out a live call and keeps the slot, however long it is polled", async () => {
+    const live = () => Response.json({ ...endedRecord(), call_status: "ongoing", transcript_with_tool_calls: undefined });
+    getAnswers = Array.from({ length: 40 }, () => live);
+    for (let i = 0; i < 36; i++) {
+      expect(await testCallResult("call_web_1", { tuning: tuning() }), `poll ${i}`).toEqual({ ok: true, result: { status: "processing" } });
+      clock += 5000;
+    }
+    expect(clock - 1_000_000).toBeGreaterThanOrEqual(3 * 60 * 1000);
+    expect(await startTestCall(AGENT, { tuning: tuning() })).toEqual({ ok: false, code: "call_active" });
+  });
+
+  it("counts the 2 minute wait from when the call ended, not from the first ask", async () => {
+    const live = () => Response.json({ ...endedRecord(), call_status: "ongoing", transcript_with_tool_calls: undefined });
+    const pending = () => Response.json({ ...endedRecord(), transcript_with_tool_calls: undefined });
+    getAnswers = [live, pending, pending];
+    await testCallResult("call_web_1", { tuning: tuning() });
+    clock += 5 * 60 * 1000;
+    expect(await testCallResult("call_web_1", { tuning: tuning() })).toEqual({ ok: true, result: { status: "processing" } });
+    clock += RESULT_TIMEOUT_MS;
+    const late = await testCallResult("call_web_1", { tuning: tuning() });
+    expect(late.ok && late.result.status).toBe("timeout");
+  });
+
+  it("answers at once, and frees the slot, for a call that ended in error or never connected", async () => {
+    for (const status of ["error", "not_connected"]) {
+      clearTestCalls();
+      createAnswers = [() => Response.json(WEB, { status: 201 })];
+      expect((await startTestCall(AGENT, { tuning: tuning() })).ok, status).toBe(true);
+      getAnswers = [() => Response.json({ ...endedRecord(), call_status: status, transcript_with_tool_calls: undefined })];
+      const res = await testCallResult("call_web_1", { tuning: tuning() });
+      expect(res.ok && res.result.status, status).toBe("did_not_connect");
+      expect(res.ok && res.result.status === "did_not_connect" && res.result.message).toBe(TEST_CALL_DID_NOT_CONNECT_MESSAGE);
+      createAnswers = [() => Response.json({ ...WEB, call_id: "call_web_2" }, { status: 201 })];
+      expect((await startTestCall(AGENT, { tuning: tuning() })).ok, `${status} slot`).toBe(true);
+    }
+  });
+
+  it("makes one Retell request for polls of one call that arrive together", async () => {
+    getAnswers = [() => Response.json({ ...endedRecord(), call_status: "ongoing" })];
+    const [a, b, c] = await Promise.all([testCallResult("call_web_1", { tuning: tuning() }), testCallResult("call_web_1", { tuning: tuning() }), testCallResult("call_web_1", { tuning: tuning() })]);
+    expect(count("/v2/get-call/call_web_1")).toBe(1);
+    expect(a).toEqual(b);
+    expect(b).toEqual(c);
+    // The next ask, after those, is a new request.
+    getAnswers = [() => Response.json({ ...endedRecord(), call_status: "ongoing" })];
+    await testCallResult("call_web_1", { tuning: tuning() });
+    expect(count("/v2/get-call/call_web_1")).toBe(2);
   });
 
   it("answers a plain message once about two minutes of processing have passed, and ready later if the call completes", async () => {

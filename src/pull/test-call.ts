@@ -18,7 +18,7 @@
 import type { Outcome } from "@/engine/types";
 import { analyzeCall } from "./analyzer";
 import { KeyStoreError } from "./key-store";
-import { TEST_CALL_KEY_IN_CALL_MESSAGE, TEST_CALL_TIMEOUT_MESSAGE, type TestCallErrorCode } from "./labels";
+import { TEST_CALL_DID_NOT_CONNECT_MESSAGE, TEST_CALL_KEY_IN_CALL_MESSAGE, TEST_CALL_TIMEOUT_MESSAGE, type TestCallErrorCode } from "./labels";
 import type { PoolError } from "./pool";
 import { runLimited, type PullTuning } from "./pull";
 import { redact } from "./redact";
@@ -26,22 +26,32 @@ import { createWebCall, getCall, listAgents, readStoredKey, RETELL_ID, type Agen
 
 /** How long one test call holds the slot if nobody asks for its result: 15 minutes. */
 export const ACTIVE_TEST_CALL_MS = 15 * 60 * 1000;
-/** How long a call may be "processing" (counted from the first ask for its result) before the answer is a plain message. */
+/** How long a call that Retell has ended may be "processing" (counted from when it first showed as ended) before the answer is a plain message. */
 export const RESULT_TIMEOUT_MS = 2 * 60 * 1000;
+/** How long an ended call with an empty transcript is waited on, in case Retell fills it in, before it is read as it is (no_content). */
+export const EMPTY_TRANSCRIPT_GRACE_MS = 30 * 1000;
+/** How long the slot is held after a network failure on the create, which may have reached Retell: a retry in that time is not a second call. */
+export const NETWORK_HOLD_MS = 10 * 1000;
 /** How many started calls are remembered, newest last. */
 const MAX_KNOWN = 20;
 
-export type TestCallResult = { status: "processing" } | { status: "ready"; outcome: Outcome } | { status: "timeout"; message: string };
+export type TestCallResult =
+  | { status: "processing" }
+  | { status: "ready"; outcome: Outcome }
+  | { status: "timeout"; message: string }
+  | { status: "did_not_connect"; message: string };
+type ResultAnswer = { ok: true; result: TestCallResult } | Fail;
 
 type Deps = { tuning?: PullTuning };
 type Fail = { ok: false; code: TestCallErrorCode };
 const refuse = (code: TestCallErrorCode): Fail => ({ ok: false, code });
 
+type Known = { endedAt: number | null; inflight: Promise<ResultAnswer> | null };
 type State = {
   /** The call that holds the slot: callId is null while Retell is still being asked to start it. */
   active: { callId: string | null; since: number } | null;
-  /** The calls this server started, with the time their result was first asked for. */
-  known: Map<string, { polledAt: number | null }>;
+  /** The calls this server started: when Retell first showed each as over, and the ask for its result that is under way. */
+  known: Map<string, Known>;
 };
 
 const g = globalThis as typeof globalThis & { __overhearTestCalls?: State };
@@ -110,6 +120,12 @@ export async function startTestCall(agentId: unknown, deps: Deps = {}): Promise<
     if (!scrub(listed.value, key).some((agent) => agent.id === agentId)) return release(state, slot, refuse("bad_agent"));
 
     const made = await runLimited(() => createWebCall(key, agentId, deps.tuning), { ...deps.tuning, retries: 0 });
+    if (!made.ok && made.error.code === "network") {
+      // The request may have reached Retell. Keep the slot a little longer (it ends NETWORK_HOLD_MS from now), so an
+      // immediate retry is not a second call.
+      slot.since = clock(deps) - ACTIVE_TEST_CALL_MS + NETWORK_HOLD_MS;
+      return refuse("network");
+    }
     if (!made.ok) {
       // Retell would not start a call with this agent (it is gone, or not a voice agent).
       const refused = made.error.status === 400 || made.error.status === 404 || made.error.status === 422;
@@ -118,7 +134,7 @@ export async function startTestCall(agentId: unknown, deps: Deps = {}): Promise<
     // A call that holds the key (a Retell that echoes it) is not passed on: the browser must never get it.
     if (holdsKey(made.value, key)) return release(state, slot, refuse("unreadable"));
     slot.callId = made.value.callId;
-    state.known.set(made.value.callId, { polledAt: null });
+    state.known.set(made.value.callId, { endedAt: null, inflight: null });
     for (const id of [...state.known.keys()].slice(0, Math.max(0, state.known.size - MAX_KNOWN))) state.known.delete(id);
     return { ok: true, call: made.value };
   } catch (err) {
@@ -147,36 +163,54 @@ function safeOutcome(outcome: Outcome, callId: string, key: string): Outcome {
 }
 
 /**
- * Where a test call stands: processing until Retell has ended it and its transcript with tool calls is there, then the
- * engine's outcome, or a plain timeout message once the wait has run about two minutes. Only for a call this server
- * started. One get-call request per ask. Never throws.
+ * Where a test call stands. While Retell has it registered or ongoing: processing, with no timeout (the slot's own cap covers a
+ * tab that was abandoned). Once it has ended: processing until its transcript with tool calls is there, then the engine's
+ * outcome. An empty transcript is waited on for EMPTY_TRANSCRIPT_GRACE_MS from when the call first showed as ended, then
+ * read as it is. A call that never filled in is a plain timeout message RESULT_TIMEOUT_MS after it ended. A call that ended
+ * in error or never connected is answered at once. Only for a call this server started. One get-call request per ask, and
+ * asks for one call that arrive together share it. Never throws.
  */
-export async function testCallResult(callId: string, deps: Deps = {}): Promise<{ ok: true; result: TestCallResult } | Fail> {
-  if (!RETELL_ID.test(callId)) return refuse("bad_call_id");
+export function testCallResult(callId: string, deps: Deps = {}): Promise<ResultAnswer> {
+  if (!RETELL_ID.test(callId)) return Promise.resolve(refuse("bad_call_id"));
+  const known = getState().known.get(callId);
+  if (!known) return Promise.resolve(refuse("not_found"));
+  if (known.inflight) return known.inflight;
+  const run = resultOf(callId, known, deps).finally(() => {
+    if (known.inflight === run) known.inflight = null;
+  });
+  known.inflight = run;
+  return run;
+}
+
+async function resultOf(callId: string, known: Known, deps: Deps): Promise<ResultAnswer> {
   const state = getState();
-  const known = state.known.get(callId);
-  if (!known) return refuse("not_found");
+  const freeSlot = () => {
+    if (state.active?.callId === callId) state.active = null;
+  };
   try {
     const key = await readStoredKey();
     if (key === null) return refuse("not_connected");
-    known.polledAt ??= clock(deps);
     const fetched = await runLimited(() => getCall(key, callId, deps.tuning), deps.tuning);
     if (!fetched.ok) return refuse(failureCode(fetched.error));
     const raw = fetched.value;
     if (!isRec(raw) || raw.call_id !== callId) return refuse("unreadable");
 
     const status = raw.call_status;
-    // The call is over (however it ended): the slot is free whether or not Retell has the transcript yet.
-    if (status === "ended" || status === "error" || status === "not_connected") {
-      if (state.active?.callId === callId) state.active = null;
+    const now = clock(deps);
+    if (status === "error" || status === "not_connected") {
+      freeSlot();
+      return { ok: true, result: { status: "did_not_connect", message: TEST_CALL_DID_NOT_CONNECT_MESSAGE } };
     }
-    if (status === "ended" && Array.isArray(raw.transcript_with_tool_calls)) {
+    if (status !== "ended") return { ok: true, result: { status: "processing" } };
+
+    // The call is over: the slot is free whether or not Retell has the transcript yet.
+    freeSlot();
+    known.endedAt ??= now;
+    const transcript = raw.transcript_with_tool_calls;
+    if (Array.isArray(transcript) && (transcript.length > 0 || now - known.endedAt >= EMPTY_TRANSCRIPT_GRACE_MS)) {
       return { ok: true, result: { status: "ready", outcome: safeOutcome(analyze(raw, callId), callId, key) } };
     }
-    if (clock(deps) - known.polledAt >= RESULT_TIMEOUT_MS) {
-      if (state.active?.callId === callId) state.active = null;
-      return { ok: true, result: { status: "timeout", message: TEST_CALL_TIMEOUT_MESSAGE } };
-    }
+    if (now - known.endedAt >= RESULT_TIMEOUT_MS) return { ok: true, result: { status: "timeout", message: TEST_CALL_TIMEOUT_MESSAGE } };
     return { ok: true, result: { status: "processing" } };
   } catch (err) {
     return refuse(thrownCode(err));

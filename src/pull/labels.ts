@@ -121,5 +121,8 @@ export const TEST_CALL_MESSAGE: Record<TestCallErrorCode, string> = {
 export const TEST_CALL_TIMEOUT_MESSAGE =
   "Retell has not finished processing this call yet. Open it from the call list in a few minutes, or run a pull.";
 
+/** What a test call says when Retell ended it in an error or it never connected: there is no call to check. */
+export const TEST_CALL_DID_NOT_CONNECT_MESSAGE = "The call did not connect, so there is nothing to check. Try again.";
+
 /** What a test call's outcome says when the call held the stored key, so it is not shown. */
 export const TEST_CALL_KEY_IN_CALL_MESSAGE = "This call holds your Retell key, so Overhear will not show it.";
