@@ -258,6 +258,45 @@ describe("checkCall", () => {
     });
   });
 
+  describe("a call where nothing was done", () => {
+    const GREETING = "Hello, this is Riley at Northwind Family Clinic. How may I help you today?";
+    const short = ev([agent(GREETING, 0), caller("Hello!", 4), caller("Hey, what's up.", 6), agent("Hi, how can I help?", 8)]);
+    const OPTS = { tz: "UTC", policySource: "preset" } as const;
+
+    it("reads Nothing done with every contract not_applicable or not_run, and validates", () => {
+      const r = parsed(checkCall(short, PRESET, OPTS));
+      expect(r.verdict).toBe("nothing_done");
+      expect(r.notes).toEqual([]);
+      expect(r.reasons).toEqual([]);
+      expect(r.headline).toBe("Nothing done. The caller said almost nothing, and the agent took no action.");
+      expect(r.results.map((c) => c.result)).toEqual(["not_applicable", "not_applicable", "not_applicable", "not_run"]);
+    });
+
+    it("the same call with one lookup is passed", () => {
+      const withLookup = ev([agent(GREETING, 0), caller("Hello!", 4), ...tool("tc_1", "check_availability", { date: "2026-11-06" }, { slots: [] })]);
+      expect(parsed(checkCall(withLookup, PRESET, OPTS)).verdict).toBe("passed");
+    });
+
+    it("a caller who asks a full question is passed with no_promises_made", () => {
+      const asked = ev([agent(GREETING, 0), caller("What time do you open on Saturday mornings, and when do you close?", 4), agent("We open at 8 a.m. and close at noon.", 9)]);
+      const r = parsed(checkCall(asked, PRESET, OPTS));
+      expect(r.verdict).toBe("passed");
+      expect(r.notes).toEqual(["no_promises_made", "request_not_checked"]);
+    });
+
+    it("the same short call with only the turns recorded is passed with no_promises_made", () => {
+      const turnsOnly = ev([agent(GREETING, 0), caller("Hello!", 4), caller("Hey, what's up.", 6), agent("Hi, how can I help?", 8)], { ordering: "none" });
+      const r = parsed(checkCall(turnsOnly, PRESET, OPTS));
+      expect(r.verdict).toBe("passed");
+      expect(r.notes).toEqual(["no_promises_made", "request_not_checked"]);
+    });
+
+    it("a short call where the agent defers is needs_review", () => {
+      const deferred = ev([agent(GREETING, 0), caller("Hello!", 4), agent("I'm sorry, the calendar is down right now. I can help once it's back online.", 8)]);
+      expect(parsed(checkCall(deferred, PRESET, OPTS)).verdict).toBe("needs_review");
+    });
+  });
+
   describe("every output validates", () => {
     const evidences: [string, Evidence][] = [
       ...SAMPLE_REPORTS.map((s): [string, Evidence] => [s.callId, s.evidence]),

@@ -178,6 +178,21 @@ function fromOtherAgent(record: Rec): Rec {
 const toolCall = (id: string, name: string, args: Rec): Rec => ({ role: "tool_call_invocation", tool_call_id: id, name, arguments: JSON.stringify(args) });
 const toolResult = (id: string, content: unknown, successful: boolean): Rec => ({ role: "tool_call_result", tool_call_id: id, content: JSON.stringify(content), successful });
 
+/** The call cut down to a 21 second opening: the caller says hello, the agent greets twice, nothing is asked or done. */
+function shortEmptyCall(record: Rec): Rec {
+  const word = (w: string, start: number) => ({ word: w, start, end: start });
+  record[TRANSCRIPT] = [
+    { role: "agent", content: "Hello, this is Riley at Northwind Family Clinic. How may I help you today?", words: [word("Hello,", 0.5)] },
+    { role: "user", content: "Hello! ", words: [word("Hello!", 4.5)] },
+    { role: "user", content: "Hey, what's up. ", words: [word("Hey,", 6.1)] },
+    { role: "agent", content: "Hi, this is Riley at Northwind Family Clinic. How can I help you today?", words: [word("Hi,", 7.4)] },
+  ];
+  record.duration_ms = 21000;
+  record.disconnection_reason = "user_hangup";
+  record.call_analysis = { call_successful: false, call_summary: "The caller greeted the agent and hung up without asking for anything.", user_sentiment: "Neutral", in_voicemail: false };
+  return record;
+}
+
 // The claim turns the edits look for.
 const BOOKED = "You’re booked for";
 const GOT_TRANSFER = "Transferring you to a nurse now";
@@ -459,6 +474,24 @@ export const MUTATIONS: readonly Mutation[] = [
     edit: (r) => appendTurn(r, "agent", DEFERRAL),
     expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
     cites: [{ contract: "transfer_kept", turn: GOT_TRANSFER }],
+    reasons: [],
+  },
+
+  // verdict: a call where the caller barely spoke and nothing was done is nothing_done, not passed.
+  {
+    id: "mut-short-empty-call",
+    parent: PASSED,
+    note: "The passed call cut down to the first 21 seconds: the caller says hello and that is all, the agent greets twice, and no tool is called. Nothing was promised, asked or done, so the call reads Nothing done, not Passed.",
+    edit: shortEmptyCall,
+    expect: { verdict: "nothing_done", promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
+    reasons: [],
+  },
+  {
+    id: "mut-short-empty-call-turns-only",
+    parent: PASSED,
+    note: "The short empty call as a record with just transcript_object: no tool items, so nothing shows whether the agent called a tool. Without the tool transcript the call cannot be said to have had no action, so it stays passed with no promises made, not Nothing done.",
+    edit: (r) => turnsOnly(shortEmptyCall(r)),
+    expect: { verdict: "passed", promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
     reasons: [],
   },
 ];

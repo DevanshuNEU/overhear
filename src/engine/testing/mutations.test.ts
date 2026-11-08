@@ -140,7 +140,7 @@ describe("coverage", () => {
   });
 
   it("the suite reaches every verdict", () => {
-    expect(new Set(cases.map((c) => c.expect.verdict))).toEqual(new Set(["failed", "needs_review", "passed"]));
+    expect(new Set(cases.map((c) => c.expect.verdict))).toEqual(new Set(["failed", "needs_review", "passed", "nothing_done"]));
   });
 
   const emitted = (): Set<GapCode> => new Set([...reports.values()].flatMap((r) => r.evidence.gaps.map((g) => g.code)));

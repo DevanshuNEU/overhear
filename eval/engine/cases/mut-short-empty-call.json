@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "mut-short-empty-call",
+  "source": "mutation",
+  "independent": false,
+  "platform": "retell",
+  "locked": true,
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "The passed call cut down to the first 21 seconds: the caller says hello and that is all, the agent greets twice, and no tool is called. Nothing was promised, asked or done, so the call reads Nothing done, not Passed." },
+  "derivedFrom": "sample-passed",
+  "expect": { "verdict": "nothing_done", "contracts": { "promise_backed": "not_applicable", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },
+  "record": {
+    "call_id": "call_mut_short_empty_call",
+    "agent_version": 0,
+    "call_status": "ended",
+    "start_timestamp": 1793911370896,
+    "call_type": "web_call",
+    "disconnection_reason": "user_hangup",
+    "duration_ms": 21000,
+    "call_analysis": { "call_successful": false, "call_summary": "The caller greeted the agent and hung up without asking for anything.", "user_sentiment": "Neutral", "in_voicemail": false },
+    "transcript_with_tool_calls": [
+      {
+        "role": "agent",
+        "content": "Hello, this is Riley at Northwind Family Clinic. How may I help you today?",
+        "words": [{ "word": "Hello,", "start": 0.5, "end": 0.5 }]
+      },
+      {
+        "role": "user",
+        "content": "Hello! ",
+        "words": [{ "word": "Hello!", "start": 4.5, "end": 4.5 }]
+      },
+      {
+        "role": "user",
+        "content": "Hey, what's up. ",
+        "words": [{ "word": "Hey,", "start": 6.1, "end": 6.1 }]
+      },
+      {
+        "role": "agent",
+        "content": "Hi, this is Riley at Northwind Family Clinic. How can I help you today?",
+        "words": [{ "word": "Hi,", "start": 7.4, "end": 7.4 }]
+      }
+    ]
+  }
+}

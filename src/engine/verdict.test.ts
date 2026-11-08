@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 import { REASON_LINE, headlineFor } from "@/report/labels";
 import type { ContractId, ContractResult, Detection, Finding, Gap, Result } from "@/report/schema";
 import { ev, type ItemSpec } from "./testing/build";
-import { verdictFor } from "./verdict";
+import { NOTHING_DONE_MAX_CALLER_WORDS, verdictFor } from "./verdict";
 
 const agent = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "agent", text, startSec, interrupted: null });
+const caller = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
 const call = (id: string, name: string): ItemSpec => ({ kind: "tool_call", id, name, args: {} });
 const result = (id: string): ItemSpec => ({ kind: "tool_result", id, ok: null, platformOk: true, payload: {} });
 
@@ -150,5 +151,106 @@ describe("verdictFor", () => {
     const refusal: Detection = { seq: 4, cls: "refusal", quote: "I can't", source: "code" };
     const v = verdictFor(NOT_APPLICABLE, [refusal], evidence());
     expect(v.verdict).toBe("passed");
+  });
+});
+
+describe("verdictFor: Nothing done", () => {
+  const GREETING = "Hello, this is Riley at Northwind Family Clinic. How may I help you today?";
+  const DEFERRAL_QUOTE = "I can help once it's back online";
+  const NOTHING_DONE = { verdict: "nothing_done", notes: [], reasons: [], headline: headlineFor("nothing_done", [], []) };
+  /** The 21-second shape: the caller says hello, the agent greets, and then silence. */
+  const short = () => ev([agent(GREETING, 0), caller("Hello!", 4), caller("Hey, what's up.", 6), agent("Hi, how can I help?", 8)]);
+
+  it("the word limit is 10", () => {
+    expect(NOTHING_DONE_MAX_CALLER_WORDS).toBe(10);
+  });
+
+  it("the 21-second shape is nothing_done, with no notes and no reasons", () => {
+    const v = verdictFor(NOT_APPLICABLE, [], short());
+    expect(v).toEqual(NOTHING_DONE);
+    expect(v.headline).toBe("Nothing done. The caller said almost nothing, and the agent took no action.");
+  });
+
+  it("a caller who says \"Sorry, wrong number\" is nothing_done", () => {
+    expect(verdictFor(NOT_APPLICABLE, [], ev([agent(GREETING, 0), caller("Sorry, wrong number.", 4)]))).toEqual(NOTHING_DONE);
+  });
+
+  it("a call with no caller turns counts as 0 words and is nothing_done", () => {
+    expect(verdictFor(NOT_APPLICABLE, [], ev([agent(GREETING, 0)]))).toEqual(NOTHING_DONE);
+  });
+
+  it("counts words split on whitespace after trimming: exactly 10 qualifies, 11 does not", () => {
+    const ten = "  one two three\nfour  five six seven eight nine ten  ";
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller(ten)])).verdict).toBe("nothing_done");
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("one two three four five"), caller("six seven eight nine ten eleven")])).verdict).toBe("passed");
+  });
+
+  it("an empty caller turn adds no words", () => {
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("   "), caller("Hello!")])).verdict).toBe("nothing_done");
+  });
+
+  it("the same short call with one lookup tool call is passed", () => {
+    const withLookup = ev([agent(GREETING, 0), caller("Hello!", 4), call("tc_1", "check_availability"), result("tc_1")]);
+    expect(verdictFor(NOT_APPLICABLE, [], withLookup).verdict).toBe("passed");
+  });
+
+  it("a backend action alone keeps a short call from nothing_done", () => {
+    const action: ItemSpec = { kind: "backend_action", id: null, toolCallId: null, tool: "lookup", args: {}, result: null, ok: true, ts: "2026-11-06T14:00:00Z", link: null };
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("Hello!", 1), action])).verdict).toBe("passed");
+  });
+
+  it("a caller who asks a full question about opening hours and gets an answer is passed with no_promises_made", () => {
+    const e = ev([agent(GREETING, 0), caller("What time do you open on Saturday mornings, and when do you close?", 4), agent("We open at 8 a.m. and close at noon.", 9)]);
+    const v = verdictFor(NOT_APPLICABLE, [], e);
+    expect(v.verdict).toBe("passed");
+    expect(v.notes).toEqual(["no_promises_made", "request_not_checked"]);
+  });
+
+  it("a short call with a refusal is passed", () => {
+    const refusal: Detection = { seq: 2, cls: "refusal", quote: "I can't", source: "code" };
+    expect(verdictFor(NOT_APPLICABLE, [refusal], ev([agent(GREETING, 0), agent("I can't help with that.", 5)])).verdict).toBe("passed");
+  });
+
+  it.each(["completion", "transfer"] as const)("a short call with a %s detection is passed", (cls) => {
+    const d: Detection = { seq: 2, cls, quote: "done", source: "code" };
+    expect(verdictFor(NOT_APPLICABLE, [d], ev([caller("Hello!", 1), agent("All done.", 5)])).verdict).toBe("passed");
+  });
+
+  it("a short call with a deferral stays needs_review", () => {
+    const e = ev([caller("Hello!", 1), agent(`Sorry. ${DEFERRAL_QUOTE}.`, 5)]);
+    expect(verdictFor(NOT_APPLICABLE, [deferral(2, DEFERRAL_QUOTE)], e).verdict).toBe("needs_review");
+  });
+
+  it("a short call whose tool calls cannot be seen (ordering none) is passed, not nothing_done", () => {
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("Hello!", 1), agent(GREETING, 0)], { ordering: "none" })).verdict).toBe("passed");
+  });
+
+  it("a short call with a missing_tool_transcript gap is passed, not nothing_done", () => {
+    const gap: Gap = { code: "missing_tool_transcript", detail: "Retell kept the conversation but not its tool calls.", seqs: [] };
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("Hello!", 1), agent(GREETING, 0)], { gaps: [gap] })).verdict).toBe("passed");
+  });
+
+  it("a call where no contract ran is not nothing_done", () => {
+    const notRun = NOT_APPLICABLE.map((c) => contract(c.contract, "not_run"));
+    expect(verdictFor(notRun, [], short()).verdict).toBe("passed");
+  });
+
+  // Accepted cost of the 10-word rule: a short real question answered with no tool reads nothing_done today. The
+  // label is neutral and the harm low, so it stays until real test calls say where the limit belongs.
+  it("a short real question answered without tools reads nothing_done today", () => {
+    const e = ev([agent(GREETING, 0), caller("What are your hours?", 4), agent("We are open eight to five on weekdays.", 8)]);
+    expect(verdictFor(NOT_APPLICABLE, [], e).verdict).toBe("nothing_done");
+  });
+
+  it("a short call with a violated or unverified contract keeps that verdict", () => {
+    const violated = withResult("transfer_kept", contract("transfer_kept", "violated", [finding("violated")]));
+    expect(verdictFor(violated, [], short()).verdict).toBe("failed");
+    const unverified = withResult("promise_backed", contract("promise_backed", "unverified", [finding("unverified")]));
+    expect(verdictFor(unverified, [], short()).verdict).toBe("needs_review");
+  });
+
+  it("a short call where a contract ran and passed is passed, not nothing_done", () => {
+    const kept = withResult("promise_backed", contract("promise_backed", "passed", [finding("passed")]));
+    expect(verdictFor(kept, [], short()).verdict).toBe("passed");
   });
 });
