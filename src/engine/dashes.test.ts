@@ -1,12 +1,12 @@
 // @vitest-environment node
-// No em or en dash in the engine or the pull layer: not in code, comments, strings or fixtures, because their
+// No em or en dash in the engine, the pull layer or the pinned-call code: not in code, comments, strings or fixtures, because their
 // words reach the screen. The characters are written as escapes so this file does not match itself.
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const DASH = /[\u2014\u2013]/;
-const ROOTS = ["engine", "pull", "local-store"].map((dir) => path.join(__dirname, "..", dir)).filter((dir) => fs.existsSync(dir));
+const ROOTS = ["engine", "pull", "local-store", "pinned"].map((dir) => path.join(__dirname, "..", dir)).filter((dir) => fs.existsSync(dir));
 
 /** Every file under the roots, as a path from src/. */
 function files(): string[] {
