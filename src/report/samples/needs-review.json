@@ -24,8 +24,19 @@
     }
   ],
   "experience": {
-    "ran": [],
-    "problems": []
+    "ran": [
+      "agent_ends_call"
+    ],
+    "problems": [
+      {
+        "check": "agent_ends_call",
+        "text": "The agent said goodbye 2 times (at 1:01 and 1:05) and didn't end the call.",
+        "seqs": [
+          18,
+          20
+        ]
+      }
+    ]
   },
   "results": [
     {
