@@ -7,7 +7,7 @@ import { CLOSING_PHRASES, GOODBYE_LOOP_MIN_TURNS, agentEndsCall, isGoodbye } fro
 
 const agent = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "agent", text, startSec, interrupted: null });
 const caller = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
-const NO_DETECTIONS = { detections: [] };
+const NO_DETECTIONS = { detections: [], tz: "UTC" };
 const call: ItemSpec = { kind: "tool_call", id: "tc_1", name: "lookup", args: {} };
 
 /** A call from its items and the reason it ended: the caller hung up unless told otherwise, null for no reason in the record. */

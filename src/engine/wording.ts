@@ -248,6 +248,16 @@ export function noWayForwardText(failedSeq: number, ev: Evidence): string {
   return `A tool failed at ${formatTime(failedSeq, ev)}, and the agent offered no way forward: no callback, no person to talk to, no time to try again.`;
 }
 
+/** The problem text for a year read aloud for a date close to the call: the agent said these dates at this turn, each quoted as it was said. */
+export function yearAloudText(seq: number, quotes: string[], ev: Evidence): string {
+  return `At ${formatTime(seq, ev)} the agent read the year aloud for a date this close: ${nameList(quotes.map((q) => `"${q}"`))}.`;
+}
+
+/** The problem text for a date or time read in computer format: the agent said these fragments at this turn, each quoted as it was said. */
+export function computerFormatText(seq: number, quotes: string[], ev: Evidence): string {
+  return `At ${formatTime(seq, ev)} the agent read a date or time in computer format: ${nameList(quotes.map((q) => `"${q}"`))}.`;
+}
+
 /** Why a promise is broken: the reason slot of the promise_backed template. */
 export type PromiseReason =
   | { why: "not_attempted"; kind?: ChangeKind }
