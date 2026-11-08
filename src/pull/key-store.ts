@@ -16,7 +16,7 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "@/local-store/private-dir";
+import { checkDirIdentity, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "@/local-store/private-dir";
 
 const CONFIG_FILE = "config.json";
 // Temp files from writeKey: `.config.json.<16 hex>.tmp`.
@@ -109,12 +109,14 @@ export async function hasKey(): Promise<boolean> {
 
 /**
  * Deletes the key file and any temp file a crashed write left behind. Fine when there is none, or no home folder.
- * Checks the home folder first, so a symlinked OVERHEAR_HOME cannot point the delete at another folder.
+ * Checks the home folder first, so a symlinked OVERHEAR_HOME cannot point the delete at another folder. Disconnecting is
+ * a safety action, so a home folder whose mode has loosened is still cleaned out: only a symlink, a non-directory or
+ * another user's folder is refused.
  */
 export async function removeKey(): Promise<void> {
   const dir = overhearHome();
   try {
-    await asKeyStoreError(() => checkPrivateDir(dir));
+    await asKeyStoreError(() => checkDirIdentity(dir));
   } catch (err) {
     if (errno(err) === "ENOENT" || errno(err) === "ENOTDIR") return;
     throw err;

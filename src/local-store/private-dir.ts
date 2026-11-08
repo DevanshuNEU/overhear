@@ -35,8 +35,12 @@ function ownedByOther(stat: Stats): boolean {
   return uid !== undefined && stat.uid !== uid;
 }
 
-/** Throws unless `dir` is a real directory, owned by this user, that no one else can open. Changes nothing. */
-export async function checkPrivateDir(folder: string): Promise<void> {
+/**
+ * Throws unless `dir` is a real directory (not a symlink) owned by this user. Says nothing about its mode, so it is the
+ * check for deleting from a folder whose mode has loosened: a delete must work then, but must never follow a symlink or
+ * touch another user's folder. Returns the folder's stat. Changes nothing.
+ */
+export async function checkDirIdentity(folder: string): Promise<Stats> {
   // path.resolve drops a trailing "/" or "/.", which would otherwise make lstat follow a symlinked folder.
   const dir = path.resolve(folder);
   const stat = await fs.lstat(dir);
@@ -46,6 +50,13 @@ export async function checkPrivateDir(folder: string): Promise<void> {
   if (ownedByOther(stat)) {
     throw new PrivateStoreError("dir_unsafe", `${dir} is not yours (owned by uid ${stat.uid}). Set OVERHEAR_HOME to a directory you own.`);
   }
+  return stat;
+}
+
+/** Throws unless `dir` is a real directory, owned by this user, that no one else can open. Changes nothing. */
+export async function checkPrivateDir(folder: string): Promise<void> {
+  const dir = path.resolve(folder);
+  const stat = await checkDirIdentity(dir);
   if ((stat.mode & 0o077) !== 0) {
     const mode = (stat.mode & 0o777).toString(8);
     throw new PrivateStoreError("dir_unsafe", `${dir} is open to other users (mode ${mode}). Run chmod 700 on it, or set OVERHEAR_HOME to a new directory.`);

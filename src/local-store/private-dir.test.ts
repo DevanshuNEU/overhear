@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "./private-dir";
+import { checkDirIdentity, checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "./private-dir";
 
 /** True where `mkfifo` exists and works (not Windows). Probed once, so the FIFO test skips instead of passing empty. */
 const HAS_MKFIFO = (() => {
@@ -97,6 +97,31 @@ describe("ensurePrivateDir", () => {
     const err = await refusal(() => ensurePrivateDir("/usr"));
     expect(err.code).toBe("dir_unsafe");
     expect(err.message).toMatch(/is not yours \(owned by uid \d+\)\. Set OVERHEAR_HOME to a directory you own\.$/);
+  });
+});
+
+describe("checkDirIdentity", () => {
+  it("passes a folder of any mode, and changes nothing", async () => {
+    fs.mkdirSync(dir, { mode: 0o700 });
+    for (const loose of [0o700, 0o755, 0o777]) {
+      fs.chmodSync(dir, loose);
+      await expect(checkDirIdentity(dir)).resolves.toBeDefined();
+      expect(mode(dir)).toBe(loose);
+    }
+  });
+
+  it("refuses a symlink (also spelled with a trailing slash) and a file", async () => {
+    const real = path.join(root, "real");
+    fs.mkdirSync(real, { mode: 0o700 });
+    fs.symlinkSync(real, dir);
+    for (const spelled of [dir, `${dir}/`]) expect((await refusal(() => checkDirIdentity(spelled))).code).toBe("dir_unsafe");
+    const file = path.join(root, "file");
+    fs.writeFileSync(file, "x");
+    expect((await refusal(() => checkDirIdentity(file))).code).toBe("dir_unsafe");
+  });
+
+  it.skipIf(process.getuid?.() === 0 || process.getuid === undefined)("refuses a folder owned by another user", async () => {
+    expect((await refusal(() => checkDirIdentity("/usr"))).message).toMatch(/is not yours \(owned by uid \d+\)\./);
   });
 });
 

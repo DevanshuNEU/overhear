@@ -35,6 +35,27 @@ describe("removeKey and the home folder", () => {
     expect(fs.readdirSync(target).sort()).toEqual([".config.json.0123456789abcdef.tmp", "config.json"]);
   });
 
+  it("deletes the key and temps from a home folder whose mode has loosened, and leaves its mode alone", async () => {
+    await writeKey("key_REMOVETEST0123456789abcdef");
+    fs.writeFileSync(path.join(home, ".config.json.0123456789abcdef.tmp"), "x", { mode: 0o600 });
+    fs.writeFileSync(path.join(home, "notes.txt"), "keep");
+    for (const loose of [0o755, 0o750, 0o701]) {
+      fs.chmodSync(home, loose);
+      fs.writeFileSync(path.join(home, "config.json"), "{}", { mode: 0o600 });
+      await removeKey();
+      expect(fs.readdirSync(home).sort(), loose.toString(8)).toEqual(["notes.txt"]);
+      expect(fs.statSync(home).mode & 0o777).toBe(loose);
+    }
+  });
+
+  it("refuses a path that is a regular file instead of a home folder", async () => {
+    fs.writeFileSync(home, "x");
+    const err = await removeKey().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(KeyStoreError);
+    expect((err as KeyStoreError).code).toBe("home_unsafe");
+    expect(fs.readFileSync(home, "utf8")).toBe("x");
+  });
+
   it("is fine when the home folder does not exist", async () => {
     await expect(removeKey()).resolves.toBeUndefined();
     expect(fs.existsSync(home)).toBe(false);
