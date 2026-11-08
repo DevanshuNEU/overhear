@@ -7,10 +7,11 @@ import { CLOSING_PHRASES, GOODBYE_LOOP_MIN_TURNS, agentEndsCall, isGoodbye } fro
 
 const agent = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "agent", text, startSec, interrupted: null });
 const caller = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
+const NO_DETECTIONS = { detections: [] };
 const call: ItemSpec = { kind: "tool_call", id: "tc_1", name: "lookup", args: {} };
 
 /** A call from its items and the reason it ended: the caller hung up unless told otherwise, null for no reason in the record. */
-const run = (items: ItemSpec[], reason: string | null = "user_hangup") => agentEndsCall(ev(items, { callFields: reason === null ? {} : { disconnection_reason: reason } }));
+const run = (items: ItemSpec[], reason: string | null = "user_hangup") => agentEndsCall(ev(items, { callFields: reason === null ? {} : { disconnection_reason: reason } }), NO_DETECTIONS);
 const LOOP: ItemSpec[] = [agent("Have a great day!", 5), caller("Goodbye!", 8), agent("Goodbye!", 10), caller("Bye.", 13), agent("Bye!", 15)];
 
 describe("agentEndsCall", () => {
@@ -106,7 +107,7 @@ describe("agentEndsCall", () => {
 
   it("every problem cites only agent turns and validates", () => {
     const e = ev([agent("Anything else?", 1), caller("Goodbye!", 3), agent("Goodbye!", 5), caller("Bye", 7), agent("Bye!", 9), agent("Take care!", 11)], { callFields: { disconnection_reason: "inactivity" } });
-    const out = agentEndsCall(e);
+    const out = agentEndsCall(e, NO_DETECTIONS);
     expect(out.problems.length).toBeGreaterThan(0);
     for (const p of out.problems) {
       ExperienceProblemSchema.parse(p);

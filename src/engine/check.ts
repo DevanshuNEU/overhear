@@ -65,7 +65,7 @@ export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): 
     callId: evidence.callId,
     platform: evidence.platform,
     ...verdictFor(results, detections, evidence),
-    experience: runExperience(evidence),
+    experience: runExperience(evidence, { detections }),
     results,
     detections,
     llmUsed: false,

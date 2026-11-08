@@ -5,20 +5,21 @@ import { describe, expect, it } from "vitest";
 import { ev, type ItemSpec } from "../testing/build";
 import { runExperience } from "./index";
 
+const NO_DETECTIONS = { detections: [] };
 const agent = (text: string): ItemSpec => ({ kind: "turn", role: "agent", text, startSec: null, interrupted: null });
 
 describe("runExperience", () => {
   it("lists the checks that ran, in EXPERIENCE_CHECKS order, and leaves out checks not built", () => {
-    expect(runExperience(ev([agent("Hello.")]))).toEqual({ ran: ["agent_ends_call"], problems: [] });
+    expect(runExperience(ev([agent("Hello.")]), NO_DETECTIONS)).toEqual({ ran: ["agent_ends_call", "error_handled"], problems: [] });
   });
 
   it("leaves out a check that could not run", () => {
-    expect(runExperience(ev([]))).toEqual({ ran: [], problems: [] });
+    expect(runExperience(ev([]), NO_DETECTIONS)).toEqual({ ran: [], problems: [] });
   });
 
   it("collects each check's problems under its id", () => {
-    const out = runExperience(ev([agent("Goodbye!"), agent("Goodbye!"), agent("Goodbye!")], { callFields: { disconnection_reason: "user_hangup" } }));
-    expect(out.ran).toEqual(["agent_ends_call"]);
+    const out = runExperience(ev([agent("Goodbye!"), agent("Goodbye!"), agent("Goodbye!")], { callFields: { disconnection_reason: "user_hangup" } }), NO_DETECTIONS);
+    expect(out.ran).toEqual(["agent_ends_call", "error_handled"]);
     expect(out.problems.map((p) => p.check)).toEqual(["agent_ends_call"]);
   });
 });
