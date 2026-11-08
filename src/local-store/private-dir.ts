@@ -181,6 +181,12 @@ export type ReadPrivateFileOptions = {
   hint: string;
   /** Refuse a file bigger than this many bytes, before it is parsed. No cap when left out. */
   maxBytes?: number;
+  /**
+   * Default true. False turns the mode checks off, for files kept in a checkout (a checkout writes 0644): neither the
+   * file's mode nor its folder's mode is looked at. A symlink, a file that is not plain, another user's file and a file
+   * over the cap are still refused.
+   */
+  private?: boolean;
 };
 
 /**
@@ -201,10 +207,11 @@ export async function readPrivateFile(filePath: string, options: ReadPrivateFile
   }
   try {
     const stat = await handle.stat();
-    if (!stat.isFile() || ownedByOther(stat) || (stat.mode & 0o777) !== 0o600) {
-      throw new PrivateStoreError("file_unsafe", `${file} is not a 0600 file of yours. ${options.hint}`);
+    const strict = options.private ?? true;
+    if (!stat.isFile() || ownedByOther(stat) || (strict && (stat.mode & 0o777) !== 0o600)) {
+      throw new PrivateStoreError("file_unsafe", `${file} is not a ${strict ? "0600" : "plain"} file of yours. ${options.hint}`);
     }
-    await checkPrivateDir(path.dirname(file));
+    if (strict) await checkPrivateDir(path.dirname(file));
     const cap = options.maxBytes;
     if (cap === undefined) return await handle.readFile("utf8");
     if (stat.size > cap) throw new PrivateStoreError("file_too_large", `${file} is bigger than ${cap} bytes. ${options.hint}`);

@@ -194,7 +194,7 @@ function issuePaths(error: ZodError): string {
 }
 
 /** The pin in one file, or the fixed sentence that says why it cannot be used. null when the file vanished. */
-async function readOne(dir: string, name: string): Promise<{ entry: PinEntry } | { problem: string } | null> {
+async function readOne(dir: string, name: string, strict: boolean): Promise<{ entry: PinEntry } | { problem: string } | null> {
   const file = path.join(dir, name);
   let stat;
   try {
@@ -206,9 +206,11 @@ async function readOne(dir: string, name: string): Promise<{ entry: PinEntry } |
   if (!stat.isFile()) return { problem: "is not a plain file, so it was not read" };
   let text: string | null;
   try {
-    text = await readPrivateFile(file, { hint: "", maxBytes: MAX_PIN_BYTES });
+    text = await readPrivateFile(file, { hint: "", maxBytes: MAX_PIN_BYTES, private: strict });
   } catch (err) {
-    if (err instanceof PrivateStoreError && err.code === "file_unsafe") return { problem: "is not a 0600 file of yours, so it was not read" };
+    if (err instanceof PrivateStoreError && err.code === "file_unsafe") {
+      return { problem: strict ? "is not a 0600 file of yours, so it was not read" : "is not a plain file of yours, so it was not read" };
+    }
     if (err instanceof PrivateStoreError && err.code === "file_too_large") return { problem: "is bigger than 5 MB, so it was not read" };
     if (err instanceof PrivateStoreError) throw err;
     return { problem: "could not be read" };
@@ -235,15 +237,32 @@ async function readOne(dir: string, name: string): Promise<{ entry: PinEntry } |
  * Every pin in the folder, and a problem for each file that cannot be used. Never throws for one bad file. Throws only
  * when the folder itself cannot be trusted (PrivateStoreError, PinStoreError). At most 500 files are read; more is a
  * problem. Names that are not `pin-*.json` are ignored.
+ *
+ * With `dir`, reads that folder instead of `$OVERHEAR_HOME/pinned/`, such as an exported folder in a checkout. The folder
+ * must exist (PinStoreError not_found) and be a real directory of yours, and a git repo above it is fine. With
+ * `private: false` the mode checks are off too, since a checkout writes 0644 files in 0755 folders. A symlink, a file that
+ * is not plain, another user's file, a file over 5 MB and the read-back checks stay on either way.
  */
-export async function listPins(): Promise<PinListing> {
-  const dir = await openFolder("read");
+export async function listPins(options: { dir?: string; private?: boolean } = {}): Promise<PinListing> {
+  const strict = options.private ?? true;
+  let dir: string | null;
+  if (options.dir === undefined) {
+    dir = await openFolder("read");
+  } else {
+    dir = path.resolve(options.dir);
+    try {
+      await (strict ? checkPrivateDir(dir) : checkDirIdentity(dir));
+    } catch (err) {
+      if (isGone(err)) throw new PinStoreError("not_found", `${dir} does not exist.`);
+      throw err;
+    }
+  }
   if (dir === null) return { pins: [], problems: [] };
   const names = await pinNames(dir);
   const pins: PinEntry[] = [];
   const problems: PinProblem[] = [];
   for (const name of names.slice(0, MAX_PINS)) {
-    const one = await readOne(dir, name);
+    const one = await readOne(dir, name, strict);
     if (one === null) continue;
     if ("entry" in one) pins.push(one.entry);
     else problems.push({ file: shown(name), message: `${shown(name)} ${one.problem}.` });
