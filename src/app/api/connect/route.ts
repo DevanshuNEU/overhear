@@ -8,6 +8,7 @@ import { hasKey, KeyStoreError, removeKey, writeKey } from "@/pull/key-store";
 import { assertLocalRequest, FRAME_HEADERS } from "@/pull/local";
 import { CONNECT_MESSAGE, LOCAL_REFUSAL, type ConnectError } from "@/pull/labels";
 import { logSafe, safeError } from "@/pull/redact";
+import { clearTestCalls } from "@/pull/test-call";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,7 @@ export async function POST(request: Request): Promise<Response> {
     // A new key may be another account's. Pulls, calls and remembered misses from the old key go, as in Disconnect.
     // After the write, so a fetch that read the old key and is still running cannot store its answer.
     clearPulls();
+    clearTestCalls();
     return json({ connected: true });
   } catch (err) {
     logFailure("connect.failed", err);
@@ -109,6 +111,7 @@ export async function DELETE(request: Request): Promise<Response> {
     // A running pull holds the key in memory, and the pulls hold what it read. Stop and drop them first, so
     // disconnecting leaves nothing that can still reach Retell or show the account's calls.
     clearPulls();
+    clearTestCalls();
     await removeKey();
     return json({ connected: false });
   } catch (err) {

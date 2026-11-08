@@ -57,6 +57,8 @@ export type PoolOptions = {
   /** True once the caller cancelled: no new request starts, finished results are kept. */
   shouldStop?: () => boolean;
   onResult?: (index: number, result: PoolResult<unknown>) => void;
+  /** How many times a 429 or 5xx is retried (default 4). Zero for a request that is not safe to repeat. */
+  maxRetries?: number;
 };
 
 export async function runPool<T>(tasks: (() => Promise<T>)[], opts: PoolOptions): Promise<PoolResult<T>[]> {
@@ -159,7 +161,7 @@ export async function runPool<T>(tasks: (() => Promise<T>)[], opts: PoolOptions)
         const wait = Math.min(error.retryAfterMs ?? BASE_WAIT_MS * 2 ** attempt + opts.jitter(), MAX_WAIT_MS);
         // A 429 pauses everyone, also when this was the last try: queued calls must not start during the cooldown.
         if (error.status === 429) pause(wait);
-        if (attempt >= MAX_RETRIES) return finish(i, { ok: false, error });
+        if (attempt >= (opts.maxRetries ?? MAX_RETRIES)) return finish(i, { ok: false, error });
         if (error.status !== 429) await untilCancelled(opts.sleep(wait));
         continue;
       }

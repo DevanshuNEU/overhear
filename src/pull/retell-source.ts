@@ -155,3 +155,84 @@ export async function getCall(key: string, id: string, opts: RetellOptions = {})
 export async function readStoredKey(): Promise<string | null> {
   return readKey();
 }
+
+/** Retell's ids (calls and agents) are short tokens. Anything else is not an id, and is not sent to Retell. */
+export const RETELL_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** What the test call line shows of an agent. Nothing else of an agent (prompts, LLM ids, webhook URLs) is ever kept. */
+export type AgentChoice = { id: string; name: string };
+
+const MAX_AGENT_PAGES = 5;
+const AGENT_PAGE = 100;
+const MAX_NAME = 120;
+// Controls, line and paragraph separators, zero-width and direction marks, bidi overrides and the byte order mark.
+const NAME_CONTROLS = /[\u0000-\u001f\u007f-\u009f\u{200B}-\u{200F}\u{2028}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]/gu;
+
+function agentName(raw: unknown, id: string): string {
+  const text = typeof raw === "string" ? raw.replace(/[\r\n]+/g, " ").replace(NAME_CONTROLS, "").replace(/\s+/g, " ").trim().slice(0, MAX_NAME) : "";
+  return text === "" ? id : text;
+}
+
+function byName(a: AgentChoice, b: AgentChoice): number {
+  const x = a.name.toLowerCase();
+  const y = b.name.toLowerCase();
+  if (x !== y) return x < y ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * The user's voice agents as id and name, sorted by name, at most five pages of 100. Built field by field from each item.
+ * Chat agents cannot take a web call, so they are left out. An item with no usable id is dropped.
+ */
+export async function listAgents(key: string, opts: RetellOptions = {}): Promise<AgentChoice[]> {
+  const client = makeRetell(key, opts);
+  const found = new Map<string, AgentChoice>();
+  let pageKey: string | undefined;
+  for (let page = 0; page < MAX_AGENT_PAGES; page++) {
+    const res = await client.agent.list({ limit: AGENT_PAGE, ...(pageKey ? { pagination_key: pageKey } : {}) });
+    const items: unknown[] = Array.isArray(res?.items) ? res.items : [];
+    for (const item of items) {
+      if (typeof item !== "object" || item === null) continue;
+      const r = item as Record<string, unknown>;
+      const id = str(r.agent_id);
+      if (id === null || !RETELL_ID.test(id) || found.has(id) || r.channel === "chat") continue;
+      found.set(id, { id, name: agentName(r.agent_name, id) });
+    }
+    pageKey = res?.has_more === true ? (str(res.pagination_key) ?? undefined) : undefined;
+    if (pageKey === undefined) break;
+  }
+  return [...found.values()].sort(byName);
+}
+
+export type IceServer = { urls: string | string[]; username?: string; credential?: string };
+/** What the browser needs to join a web call: the same four fields the hosted demo's widget uses. */
+export type WebCall = { callId: string; accessToken: string; transport: "gateway" | "livekit"; iceServers: IceServer[] };
+
+const UNREADABLE = "unreadable web call";
+
+function iceServer(item: unknown): IceServer {
+  if (typeof item !== "object" || item === null) throw new Error(UNREADABLE);
+  const r = item as Record<string, unknown>;
+  const urls = typeof r.urls === "string" ? r.urls : Array.isArray(r.urls) && r.urls.every((u) => typeof u === "string") ? (r.urls as string[]) : null;
+  if (urls === null) throw new Error(UNREADABLE);
+  return { urls, ...(typeof r.username === "string" ? { username: r.username } : {}), ...(typeof r.credential === "string" ? { credential: r.credential } : {}) };
+}
+
+/**
+ * Starts a web call to one agent and keeps only the four fields the browser needs, built field by field: the call's access
+ * token is a per-call credential, and nothing else of the call is passed on. Throws an Error that says only "unreadable web
+ * call" when Retell's answer does not have them; an SDK error propagates as it is, for toPoolError.
+ */
+export async function createWebCall(key: string, agentId: string, opts: RetellOptions = {}): Promise<WebCall> {
+  const res: unknown = await makeRetell(key, opts).call.createWebCall({ agent_id: agentId });
+  if (typeof res !== "object" || res === null) throw new Error(UNREADABLE);
+  const r = res as Record<string, unknown>;
+  const callId = str(r.call_id);
+  const accessToken = str(r.access_token);
+  const transport = r.transport;
+  if (callId === null || !RETELL_ID.test(callId) || accessToken === null || accessToken === "") throw new Error(UNREADABLE);
+  if (transport !== "gateway" && transport !== "livekit") throw new Error(UNREADABLE);
+  const ice = r.ice_servers === undefined ? [] : r.ice_servers;
+  if (!Array.isArray(ice)) throw new Error(UNREADABLE);
+  return { callId, accessToken, transport, iceServers: ice.map(iceServer) };
+}

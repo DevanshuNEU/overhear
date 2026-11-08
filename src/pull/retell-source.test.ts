@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeKey } from "./key-store";
-import { BASE_URL_REFUSED, checkKey, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
+import { BASE_URL_REFUSED, checkKey, createWebCall, listAgents, localRetellBase, makeRetell, RETELL_API_BASE, storedRetell } from "./retell-source";
 
 const KEY = "key_SOURCETEST0123456789abcdef";
 
@@ -178,5 +178,82 @@ describe("storedRetell", () => {
     await client!.call.list({ limit: 1 });
     expect(seen[0].headers.get("authorization")).toBe(`Bearer ${KEY}`);
     expect(client!.maxRetries).toBe(0);
+  });
+});
+
+describe("listAgents", () => {
+  const agent = (id: string, name: unknown, extra: Record<string, unknown> = {}) => ({
+    agent_id: id,
+    agent_name: name,
+    channel: "voice",
+    response_engine: { type: "retell-llm", llm_id: "llm_SECRET" },
+    webhook_url: "https://hooks.example/SECRET",
+    voice_id: "v1",
+    ...extra,
+  });
+
+  it("answers id and name only, voice agents only, sorted by name, built field by field", async () => {
+    const { fn, seen } = fakeFetch(
+      json(200, {
+        items: [agent("agent_b", "zeta"), agent("agent_c", "Alpha"), agent("agent_chat", "Chat bot", { channel: "chat" }), agent("agent_a", "alpha"), agent("agent_d", null)],
+        has_more: false,
+      }),
+    );
+    const out = await listAgents(KEY, { fetch: fn });
+    expect(out).toEqual([
+      { id: "agent_d", name: "agent_d" },
+      { id: "agent_a", name: "alpha" },
+      { id: "agent_c", name: "Alpha" },
+      { id: "agent_b", name: "zeta" },
+    ]);
+    expect(JSON.stringify(out)).not.toMatch(/SECRET|llm_|hooks/);
+    expect(seen).toHaveLength(1);
+    expect(new URL(seen[0].url).pathname).toBe("/v2/list-agents");
+    expect(seen[0].headers.get("authorization")).toBe(`Bearer ${KEY}`);
+  });
+
+  it("follows pagination up to a cap, and drops items with an unusable id, duplicates and control characters in names", async () => {
+    const page = (n: number, more: boolean) =>
+      json(200, { items: [agent(`agent_${n}`, `Agent ${n}`), agent("bad id!", "x"), agent(`agent_${n}`, "dup")], has_more: more, pagination_key: `k${n}` });
+    const { fn, seen } = fakeFetch(page(1, true), json(200, { items: [agent("agent_9", "Ni\u0000ne\n\u202Ex")], has_more: false }));
+    const out = await listAgents(KEY, { fetch: fn });
+    expect(out.map((a) => a.id)).toEqual(["agent_1", "agent_9"]);
+    expect(out[1].name).toBe("Nine x");
+    expect(seen).toHaveLength(2);
+    expect(new URL(seen[1].url).searchParams.get("pagination_key")).toBe("k1");
+    // A server that never stops saying has_more is read for at most 5 pages.
+    const endless = fakeFetch(...Array.from({ length: 20 }, (_, i) => page(i, true)));
+    await listAgents(KEY, { fetch: endless.fn });
+    expect(endless.seen.length).toBeLessThanOrEqual(5);
+  });
+
+  it("gives an empty list for an answer with no items", async () => {
+    expect(await listAgents(KEY, { fetch: fakeFetch(json(200, {})).fn })).toEqual([]);
+  });
+});
+
+describe("createWebCall", () => {
+  const CALL = { access_token: "tok_abc", call_id: "call_web_1", transport: "gateway", ice_servers: [{ urls: ["stun:a.example"], username: "u", credential: "c", extra: "SECRET" }], agent_id: "agent_1", call_status: "registered", expires_at: 1, retell_llm_dynamic_variables: { a: "SECRET" } };
+
+  it("posts the agent id and answers only the four connection fields", async () => {
+    const { fn, seen } = fakeFetch(json(201, CALL));
+    const out = await createWebCall(KEY, "agent_1", { fetch: fn });
+    expect(out).toEqual({ callId: "call_web_1", accessToken: "tok_abc", transport: "gateway", iceServers: [{ urls: ["stun:a.example"], username: "u", credential: "c" }] });
+    expect(JSON.stringify(out)).not.toContain("SECRET");
+    expect(new URL(seen[0].url).pathname).toBe("/v3/create-web-call");
+    expect(JSON.parse(seen[0].body)).toEqual({ agent_id: "agent_1" });
+    expect(seen[0].url).not.toContain(KEY);
+  });
+
+  it("refuses an answer that is missing a field or has a field of the wrong type", async () => {
+    for (const bad of [{ ...CALL, access_token: "" }, { ...CALL, call_id: "a b" }, { ...CALL, transport: "carrier-pigeon" }, { ...CALL, ice_servers: "x" }, { ...CALL, ice_servers: [{ urls: 5 }] }, null, "x"]) {
+      await expect(createWebCall(KEY, "agent_1", { fetch: fakeFetch(json(201, bad)).fn }), JSON.stringify(bad)).rejects.toThrow("unreadable web call");
+    }
+  });
+
+  it("lets an answer with no ice servers through as an empty list", async () => {
+    const { ice_servers: _unused, ...rest } = CALL;
+    void _unused;
+    expect((await createWebCall(KEY, "agent_1", { fetch: fakeFetch(json(201, rest)).fn })).iceServers).toEqual([]);
   });
 });
