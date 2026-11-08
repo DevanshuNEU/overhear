@@ -509,6 +509,9 @@ export const CallReportSchema = z
         bad(["verdict"], "nothing_done needs every contract that ran to be not_applicable");
       }
       if (deferred) bad(["verdict"], "a call with a deferral is never nothing_done");
+      if (items.some((it) => it.kind === "tool_call" || it.kind === "backend_action")) {
+        bad(["verdict"], "a nothing_done call has no tool calls or backend actions");
+      }
     }
 
     // Notes ride only on a passed call.

@@ -24,7 +24,7 @@ A `CallReport` answers three questions for one call.
 
 A report that breaks one of these does not validate.
 
-1. The verdict follows the results: `failed` if any contract is violated, else `needs_review` if any is unverified or there is a reason, else `passed`. A call where no contract applied can instead be `nothing_done`, which needs: no violated or unverified contract, no `reasons`, no `notes`, every contract that ran `not_applicable`, no deferral, and its own headline line.
+1. The verdict follows the results: `failed` if any contract is violated, else `needs_review` if any is unverified or there is a reason, else `passed`. A call where no contract applied can instead be `nothing_done`, which needs: no violated or unverified contract, no `reasons`, no `notes`, every contract that ran `not_applicable`, no deferral, no tool calls or backend actions in the evidence, and its own headline line.
 2. A contract's result is the worst of its findings.
 3. An LLM finding alone never produces `violated`. A finding that cites a claim only the model found must be `unverified` and name the `llm_code_disagreement` gap. `llmUsed` says whether a model ran; when it did, a claim only the code found is `unverified` too.
 4. A `violated` or `passed` finding cites no gap, and no evidence-level gap touches its seqs (a gap makes it `unverified`). A `violated` finding is never given when `ordering` is `none` for a contract that depends on order. A violated finding that cites an agent turn needs a detected claim at that turn. A `passed` finding has no field that differs or is unresolved, and a field with no committed value never matches.

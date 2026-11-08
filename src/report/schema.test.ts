@@ -579,9 +579,12 @@ describe("the engine and the dashboard share this folder", () => {
   });
 });
 
-/** A valid nothing_done report: the passed sample with every promise taken out, so nothing applied. */
+/** A valid nothing_done report: the passed sample cut back to its opening turns, so no tool ran and no contract applied. */
 function nothingDone(): CallReport {
   const r = clone(passedSample);
+  const firstAction = r.evidence.items.findIndex((i) => i.kind !== "turn");
+  r.evidence.items = r.evidence.items.slice(0, firstAction);
+  r.evidence.gaps = r.evidence.gaps.filter((g) => g.seqs.every((q) => q <= firstAction));
   r.verdict = "nothing_done";
   r.notes = [];
   r.headline = headlineFor("nothing_done", [], []);
@@ -615,6 +618,20 @@ describe("the Nothing done verdict", () => {
     c.result = "unverified";
     c.findings = [{ result: "unverified", text: "x", said: [agentSeq(r)], did: [], asked: [], gaps: [], fields: [] }];
     expect(issues(r).join("\n")).toMatch(/verdict is nothing_done but the results give needs_review/);
+  });
+
+  it("is rejected when the evidence holds a tool call", () => {
+    const r = nothingDone();
+    const at = r.evidence.items.length + 1;
+    r.evidence.items.push({ kind: "tool_call", seq: at, id: "call_x", name: "book_appointment", args: {} });
+    expect(issues(r).join("\n")).toMatch(/a nothing_done call has no tool calls or backend actions/);
+  });
+
+  it("is rejected when the evidence holds a backend action", () => {
+    const r = nothingDone();
+    const at = r.evidence.items.length + 1;
+    r.evidence.items.push({ kind: "backend_action", seq: at, id: null, toolCallId: null, tool: "book_appointment", args: {}, result: null, ok: true, ts: "t", link: null });
+    expect(issues(r).join("\n")).toMatch(/a nothing_done call has no tool calls or backend actions/);
   });
 
   it("is rejected with notes", () => {
