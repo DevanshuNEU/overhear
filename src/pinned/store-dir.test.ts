@@ -3,11 +3,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatCase, parseCase, type EvalCase } from "@/engine/eval/case";
 import { PrivateStoreError } from "@/local-store/private-dir";
 import { pinIdFor } from "./pin-id";
-import { listPins, MAX_PIN_BYTES, PinStoreError } from "./store";
+import { listPins, MAX_PIN_BYTES, PinStoreError, savePin } from "./store";
 
 let root: string;
 let given: string;
@@ -85,5 +85,39 @@ describe("listPins({ dir, private: false })", () => {
     const { pins, problems } = await listPins({ dir: given, private: false });
     expect(pins.map((p) => p.id)).toEqual([pin.id]);
     expect(problems.map((p) => p.file).sort()).toEqual(["pin-big-1.json", "pin-folder-1.json", "pin-link-1.json", "pin-renamed-1.json"]);
+  });
+});
+
+describe("ownership with the checks off", () => {
+  // Files and folders look owned by another user: a CI container often runs as a different uid than the checkout's owner.
+  const asOtherUser = () => vi.spyOn(process, "getuid").mockReturnValue((process.getuid?.() ?? 0) + 1);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("--dir reads a folder and files owned by another user, but the default pinned folder still refuses them", async () => {
+    const pin = pinFor();
+    plant(`${pin.id}.json`, formatCase(pin));
+    vi.stubEnv("OVERHEAR_HOME", path.join(root, "home"));
+    await savePin(pin);
+    asOtherUser();
+    expect(await listPins({ dir: given, private: false })).toEqual({ pins: [{ id: pin.id, pin }], problems: [] });
+    expect(await failure(() => listPins())).toBeInstanceOf(PrivateStoreError);
+    expect(await failure(() => listPins({ dir: given }))).toBeInstanceOf(PrivateStoreError);
+  });
+
+  it("still refuses a symlinked folder and a plain file in its place when the owner is not checked", async () => {
+    asOtherUser();
+    fs.mkdirSync(path.join(root, "real"));
+    fs.symlinkSync(path.join(root, "real"), given);
+    const err = await failure(() => listPins({ dir: given, private: false }));
+    expect(err).toBeInstanceOf(PrivateStoreError);
+    expect(err.message).toContain("is not a folder");
+    expect(err.message).not.toContain("OVERHEAR_HOME");
+    fs.rmSync(given);
+    fs.writeFileSync(given, "x");
+    expect(await failure(() => listPins({ dir: given, private: false }))).toBeInstanceOf(PrivateStoreError);
   });
 });

@@ -170,6 +170,30 @@ describe("exit codes", () => {
     expect(bad.stderr).toContain("Unknown option");
   });
 
+  it("a typed --dir cannot put an escape sequence in the message, and the message has no OVERHEAR_HOME hint", async () => {
+    const r = await run(["--dir", path.join(root, "\u001b[31mred")]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).not.toContain("\u001b");
+    expect(r.stderr).toContain("?[31mred");
+    expect(r.stderr).not.toContain("OVERHEAR_HOME");
+    const link = path.join(root, "link-to-dir");
+    fs.symlinkSync(exportTo([]), link);
+    expect((await run(["--dir", link])).stderr).not.toContain("OVERHEAR_HOME");
+  });
+
+  it("a relative --dir is read from where npm was run (INIT_CWD), else from the working folder", async () => {
+    const dir = exportTo([failedPin()], "relative-pins");
+    vi.stubEnv("INIT_CWD", root);
+    const viaNpm = await run(["--dir", "relative-pins"]);
+    expect(viaNpm.code).toBe(0);
+    expect(viaNpm.stdout).toContain("1 held");
+    expect((await run(["--json", "--dir", "relative-pins"])).stdout).toContain(JSON.stringify(dir).slice(1, -1));
+    vi.stubEnv("INIT_CWD", undefined);
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(root);
+    expect((await run(["--dir", "relative-pins"])).code).toBe(0);
+    cwd.mockRestore();
+  });
+
   it("2 when a pin file cannot be used, naming the file and never what it held, and still checks the rest", async () => {
     const dir = exportTo([failedPin()]);
     fs.writeFileSync(path.join(dir, "pin-broken-12345678.json"), `{"not json ${MARKER}`);

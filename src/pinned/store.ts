@@ -15,7 +15,7 @@ import path from "node:path";
 import type { ZodError } from "zod";
 import { EvalCaseSchema, formatCase, parseCase, type EvalCase } from "@/engine/eval/case";
 import { overhearHome } from "@/local-store/home";
-import { checkDirIdentity, checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, writePrivateFile } from "@/local-store/private-dir";
+import { checkDirIdentity, checkPrivateDir, checkRealDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, writePrivateFile } from "@/local-store/private-dir";
 import { pinIdFor } from "./pin-id";
 
 const FOLDER = "pinned";
@@ -209,7 +209,7 @@ async function readOne(dir: string, name: string, strict: boolean): Promise<{ en
     text = await readPrivateFile(file, { hint: "", maxBytes: MAX_PIN_BYTES, private: strict });
   } catch (err) {
     if (err instanceof PrivateStoreError && err.code === "file_unsafe") {
-      return { problem: strict ? "is not a 0600 file of yours, so it was not read" : "is not a plain file of yours, so it was not read" };
+      return { problem: strict ? "is not a 0600 file of yours, so it was not read" : "is not a plain file, so it was not read" };
     }
     if (err instanceof PrivateStoreError && err.code === "file_too_large") return { problem: "is bigger than 5 MB, so it was not read" };
     if (err instanceof PrivateStoreError) throw err;
@@ -239,9 +239,11 @@ async function readOne(dir: string, name: string, strict: boolean): Promise<{ en
  * problem. Names that are not `pin-*.json` are ignored.
  *
  * With `dir`, reads that folder instead of `$OVERHEAR_HOME/pinned/`, such as an exported folder in a checkout. The folder
- * must exist (PinStoreError not_found) and be a real directory of yours, and a git repo above it is fine. With
- * `private: false` the mode checks are off too, since a checkout writes 0644 files in 0755 folders. A symlink, a file that
- * is not plain, another user's file, a file over 5 MB and the read-back checks stay on either way.
+ * must exist (PinStoreError not_found), and a git repo above it is fine. By default it must be a private folder of yours,
+ * as the pinned folder is. With `private: false` the mode and owner checks are off, for the folder and its files: a
+ * checkout writes 0644 files in 0755 folders, and a CI container can run as another user than the checkout's owner. The
+ * folder must still be a real directory, not a symlink. A symlink, a file that is not plain, a file over 5 MB and the
+ * read-back checks stay on either way.
  */
 export async function listPins(options: { dir?: string; private?: boolean } = {}): Promise<PinListing> {
   const strict = options.private ?? true;
@@ -251,7 +253,7 @@ export async function listPins(options: { dir?: string; private?: boolean } = {}
   } else {
     dir = path.resolve(options.dir);
     try {
-      await (strict ? checkPrivateDir(dir) : checkDirIdentity(dir));
+      await (strict ? checkPrivateDir(dir) : checkRealDir(dir));
     } catch (err) {
       if (isGone(err)) throw new PinStoreError("not_found", `${dir} does not exist.`);
       throw err;

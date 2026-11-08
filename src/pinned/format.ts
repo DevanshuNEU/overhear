@@ -74,7 +74,7 @@ export function buildReport(
 export const formatJson = (report: CheckReport): string => JSON.stringify(report, null, 2);
 
 /** One line: a line break or tab becomes a space, any other control or line separator character becomes "?", and a long text is cut. */
-function plain(text: string, max = 300): string {
+export function plain(text: string, max = 300): string {
   const flat = text.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, (c) => (c === "\n" || c === "\r" || c === "\t" ? " " : "?"));
   return flat.length > max ? `${flat.slice(0, max)}...` : flat;
 }

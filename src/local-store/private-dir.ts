@@ -53,6 +53,18 @@ export async function checkDirIdentity(folder: string): Promise<Stats> {
   return stat;
 }
 
+/**
+ * Throws unless `folder` is a real directory (not a symlink). Says nothing about its owner or mode: it is for a folder the
+ * user named themselves, such as an exported one in a checkout. Changes nothing.
+ */
+export async function checkRealDir(folder: string): Promise<void> {
+  const dir = path.resolve(folder);
+  const stat = await fs.lstat(dir);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new PrivateStoreError("dir_unsafe", `${dir} is not a folder (a symlink or a file is not accepted). Give the folder itself.`);
+  }
+}
+
 /** Throws unless `dir` is a real directory, owned by this user, that no one else can open. Changes nothing. */
 export async function checkPrivateDir(folder: string): Promise<void> {
   const dir = path.resolve(folder);
@@ -182,9 +194,9 @@ export type ReadPrivateFileOptions = {
   /** Refuse a file bigger than this many bytes, before it is parsed. No cap when left out. */
   maxBytes?: number;
   /**
-   * Default true. False turns the mode checks off, for files kept in a checkout (a checkout writes 0644): neither the
-   * file's mode nor its folder's mode is looked at. A symlink, a file that is not plain, another user's file and a file
-   * over the cap are still refused.
+   * Default true. False turns the mode and owner checks off, for files kept in a checkout (a checkout writes 0644, and a CI
+   * container can run as another user than the checkout's owner): neither the file's mode and owner nor its folder's are
+   * looked at. A symlink, a file that is not plain and a file over the cap are still refused.
    */
   private?: boolean;
 };
@@ -208,8 +220,8 @@ export async function readPrivateFile(filePath: string, options: ReadPrivateFile
   try {
     const stat = await handle.stat();
     const strict = options.private ?? true;
-    if (!stat.isFile() || ownedByOther(stat) || (strict && (stat.mode & 0o777) !== 0o600)) {
-      throw new PrivateStoreError("file_unsafe", `${file} is not a ${strict ? "0600" : "plain"} file of yours. ${options.hint}`);
+    if (!stat.isFile() || (strict && (ownedByOther(stat) || (stat.mode & 0o777) !== 0o600))) {
+      throw new PrivateStoreError("file_unsafe", `${file} is not a ${strict ? "0600 file of yours" : "plain file"}. ${options.hint}`);
     }
     if (strict) await checkPrivateDir(path.dirname(file));
     const cap = options.maxBytes;

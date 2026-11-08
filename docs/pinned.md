@@ -52,7 +52,7 @@ Exit codes:
 
 The default folder must be a real directory of yours, closed to other users (mode 0700), with files of mode 0600, and neither it nor any folder above it may hold a `.git`. A pin file is read without following a symlink, must be a plain file of yours, and is skipped as a problem when it is over 5 MB or does not pass the pin schema.
 
-With `--dir` the mode checks are off, since a checkout writes 0644 files in 0755 folders, and a repo above the folder is expected. The folder must still be a real directory (not a symlink) that you own, and every file still gets the symlink, plain-file, owner, size and schema checks. The folder must hold at most 500 pin files.
+With `--dir` the mode and owner checks are off, since a checkout writes 0644 files in 0755 folders, a CI container can run as another user than the checkout's owner, and a repo above the folder is expected. The folder must still be a real directory (not a symlink), and every file still gets the symlink, plain-file, size and schema checks. The folder must hold at most 500 pin files. A relative `--dir` is read from the folder you ran `npm run` in.
 
 ## Check pins in CI
 
