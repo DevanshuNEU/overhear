@@ -14,6 +14,9 @@
 // into every field of the call, transcript and tool data included (the pin is refused and nothing is written), and into
 // every field the pin drops (the pin is saved and no file on disk holds the key but the key file).
 //
+// The test call line (src/pull/test-call.ts) runs here too, against a Retell that echoes the key into every field of the agent
+// list, the web call and the call record: nothing it passes on holds the key, and what would is refused or shown as an error.
+//
 // This calls the route handlers directly and never runs Next. `npm run canary:live` (scripts/canary-live.ts) runs
 // the same search against a real `next dev`, which adds Next's request log, error overlay and .next/ cache.
 import fs from "node:fs";
@@ -21,7 +24,10 @@ import os from "node:os";
 import path from "node:path";
 import { inspect } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GET as agentsGet } from "@/app/api/agents/route";
 import { DELETE, GET, POST } from "@/app/api/connect/route";
+import { GET as testCallResultGet } from "@/app/api/test-calls/[callId]/result/route";
+import { POST as testCallsPost } from "@/app/api/test-calls/route";
 import { DELETE as pinsDelete, GET as pinsGet, POST as pinsPost } from "@/app/api/pins/route";
 import { pinnedDir } from "@/pinned/store";
 import { agentRecordOf, sawOf } from "@/pinned/testing";
@@ -32,6 +38,7 @@ import { configPath, hasKey, readKey, removeKey, writeKey } from "./key-store";
 import { type Canary, forms } from "./canary-forms";
 import { logSafe, safeError } from "./redact";
 import { checkKey, storedRetell } from "./retell-source";
+import { clearTestCalls } from "./test-call";
 
 const HOST = "127.0.0.1:4100";
 const ORIGIN = `http://${HOST}`;
@@ -388,6 +395,122 @@ describe.each(CANARIES)("a canary key never appears anywhere: $label", (c) => {
     status = 200;
     await record((await step(() => pinsDelete(pinsRequest("DELETE"))))!);
     expect(pinned()).toEqual([]);
+    expectNoCanary();
+  });
+
+  it("through the test call line: a Retell that echoes the key into every field of the agent list, the web call and the call record", async () => {
+    const key = c.key;
+    const hex = Buffer.from(key).toString("hex");
+    const b64 = Buffer.from(key).toString("base64");
+    const callId = "call_canary_web";
+    const idLike = key.replace(/[^A-Za-z0-9_-]/g, "_");
+    let echo: "dropped" | "returned" = "dropped";
+    let status = 200;
+    let failOn = /./;
+    let drop = false;
+    // The fields the line never keeps: every one of them holds the key.
+    const echoed = { key, hex, b64, url: `https://x.example/${key}`, nested: { deeper: [key, { key }] } };
+    const callRecord = (): unknown => {
+      const rec = agentRecordOf(failedSample, callId, "agent_canary") as Record<string, unknown> & { transcript_with_tool_calls: Record<string, unknown>[] };
+      Object.assign(rec, { call_status: "ended", access_token: key, recording_url: `https://r.example/${key}`, metadata: echoed, retell_llm_dynamic_variables: echoed });
+      if (echo === "returned") {
+        for (const turn of rec.transcript_with_tool_calls) {
+          for (const field of ["content", "arguments"]) if (typeof turn[field] === "string") turn[field] = `${turn[field]} ${key}`;
+        }
+      }
+      return rec;
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        retellUrls.push(url);
+        const sent = new Headers(init?.headers);
+        retellCookies.push(sent.get("cookie") ?? "");
+        const auth = sent.get("authorization") ?? "";
+        if (drop) throw new TypeError(`fetch failed for ${url} with ${auth}`);
+        const p = new URL(url).pathname;
+        let body: unknown;
+        if (status !== 200 && failOn.test(p)) body = { message: `rejected ${auth}`, key, hex, b64 };
+        else if (p === "/v2/list-agents") {
+          const item = (id: string, name: string) => ({ agent_id: id, agent_name: name, channel: "voice", response_engine: { llm_id: key }, webhook_url: `https://h.example/${key}`, ...echoed });
+          body = {
+            items: [item("agent_canary", echo === "returned" ? `Line ${key}` : "Line"), ...(echo === "returned" ? [item(idLike, "Echo")] : [])],
+            has_more: false,
+            note: auth,
+          };
+        } else if (p === "/v3/create-web-call") {
+          body = { access_token: echo === "returned" ? key : "tok_ok", call_id: callId, transport: "gateway", ice_servers: [{ urls: "stun:s.example", ...echoed }], agent_id: key, ...echoed };
+        } else body = callRecord();
+        return new Response(JSON.stringify(body), { status: status !== 200 && failOn.test(p) ? status : 200, headers: { "content-type": "application/json", "x-echo": auth, "set-cookie": `k=${key}` } });
+      }),
+    );
+    const call = (method: string, p: string, payload?: unknown) =>
+      new Request(`http://${HOST}${p}`, {
+        method,
+        headers: { host: HOST, origin: ORIGIN, "content-type": "application/json" },
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+      });
+    const list = async () => (await step(() => agentsGet(call("GET", "/api/agents"))))!;
+    const startCall = async () => (await step(() => testCallsPost(call("POST", "/api/test-calls", { agentId: "agent_canary" }))))!;
+    const result = async () => (await step(() => testCallResultGet(call("GET", `/api/test-calls/${callId}/result`), { params: Promise.resolve({ callId }) })))!;
+    await writeKey(key);
+
+    // The key only in fields the line drops: listed, started and read, and not one answer holds it.
+    const listed = await list();
+    expect(listed.status).toBe(200);
+    await record(listed);
+    const started = await startCall();
+    expect(started.status).toBe(200);
+    expect(await started.clone().json()).toEqual({ callId, accessToken: "tok_ok", transport: "gateway", iceServers: [{ urls: "stun:s.example" }] });
+    await record(started);
+    const done = await result();
+    expect(((await done.clone().json()) as { status: string }).status).toBe("ready");
+    await record(done);
+
+    // The key in what the line passes on: the agent list shows the id for a name that holds it and drops an agent whose id holds
+    // it, a web call that holds it is refused, and a call that holds it in the transcript is answered as an error.
+    echo = "returned";
+    clearTestCalls();
+    const listedEcho = await list();
+    expect(((await listedEcho.clone().json()) as { agents: { id: string }[] }).agents.map((a) => a.id)).toEqual(["agent_canary"]);
+    await record(listedEcho);
+    const refused = await startCall();
+    expect(refused.status).toBe(502);
+    await record(refused);
+    echo = "dropped";
+    clearTestCalls();
+    await startCall();
+    echo = "returned";
+    const held = await result();
+    expect(((await held.clone().json()) as { outcome: { kind: string } }).outcome.kind).toBe("error");
+    await record(held);
+
+    // Retell refusing and not having the call, with the key in what it says, and the network failing. (429 and 500 wait and
+    // retry on a real clock for a list or a fetch; src/pull/test-call.test.ts covers them with an instant one.)
+    echo = "dropped";
+    for (const code of [401, 403, 404, 422]) {
+      status = code;
+      clearTestCalls();
+      await record(await list());
+      await record(await startCall());
+      await record(await result());
+    }
+    status = 200;
+    clearTestCalls();
+    await startCall();
+    drop = true;
+    await record(await list());
+    await record(await result());
+    drop = false;
+    // A web call is never retried, so 500 and 429 on the create answer at once.
+    failOn = /create-web-call/;
+    for (const code of [500, 429]) {
+      status = code;
+      clearTestCalls();
+      await record(await startCall());
+    }
+    expect(retellUrls.length).toBeGreaterThan(10);
     expectNoCanary();
   });
 

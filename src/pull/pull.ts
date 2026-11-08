@@ -362,9 +362,22 @@ async function fetchOne(store: Store, callId: string, opts: { analyze: Analyze; 
  * the caller and is kept nowhere here. A Disconnect while it waits or runs ends it as "cancelled".
  */
 export async function fetchRecord(callId: string, key: string, opts: PullTuning = {}): Promise<PoolResult<unknown>> {
+  return runLimited(() => getCall(key, callId, opts), opts);
+}
+
+/** The count of Disconnects and key replacements so far. A job that must not outlive one reads it first and passes it to runLimited. */
+export const currentEpoch = (): number => getStore().epoch;
+
+/**
+ * One Retell request of any kind, through the shared limiter like every other: five in flight and one 429 pause across the
+ * app. `retries` is how many times a 429 or 5xx is tried again (default 4; zero for a request that is not safe to repeat,
+ * such as starting a call). A Disconnect while it waits or runs ends it as "cancelled", and its answer is dropped. With `epoch` (from currentEpoch) the
+ * Disconnect is counted from that moment, not from this call, so a job of several requests stops as a whole.
+ */
+export async function runLimited<T>(task: () => Promise<T>, opts: PullTuning & { retries?: number; epoch?: number } = {}): Promise<PoolResult<T>> {
   const store = getStore();
-  const epoch = store.epoch;
-  const [res] = await runPool([() => getCall(key, callId, opts)], {
+  const epoch = opts.epoch ?? store.epoch;
+  const [res] = await runPool([task], {
     size: 1,
     limiter: store.limiter,
     sleep: opts.sleep ?? defaultSleep,
@@ -372,7 +385,8 @@ export async function fetchRecord(callId: string, key: string, opts: PullTuning 
     now: opts.now,
     onWait: () => {},
     shouldStop: () => store.epoch !== epoch,
+    maxRetries: opts.retries,
   });
-  // Disconnect happened while the request ran: the record is not ours to use.
+  // Disconnect happened while the request ran: the answer is not ours to use.
   return store.epoch !== epoch ? { ok: false, error: { code: "cancelled" } } : res;
 }

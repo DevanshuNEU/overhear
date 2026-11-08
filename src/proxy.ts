@@ -25,7 +25,8 @@
 //    this computer too, and it covers the server-rendered pages that show call transcripts. Every local-mode
 //    answer also forbids framing. The route handlers repeat this check.
 // 2. Excluded paths pass untouched.
-// 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`, `/api/pins`) answer 404.
+// 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`, `/api/pins`, `/api/agents`,
+//    `/api/test-calls`) answer 404.
 //    `/reports/` stays served, because there it shows only the samples.
 // 4. The shared password, when one is set.
 // 5. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This

@@ -92,7 +92,10 @@ describe("isProductApiPath", () => {
     for (const path of ["/api/connect", "/api/connect/", "/api/pulls", "/api/pulls/p1", "/api/pulls/p1/cancel", "/api/calls/c1/refetch"]) {
       expect(isProductApiPath(path), path).toBe(true);
     }
-    for (const path of ["/api/connection", "/api/pullsx", "/api/web-call", "/reports/call_sample_failed", "/", "/demo/calls/c1", "/calls/c1"]) {
+    for (const path of ["/api/agents", "/api/agents/", "/api/test-calls", "/api/test-calls/c1/result"]) {
+      expect(isProductApiPath(path), path).toBe(true);
+    }
+    for (const path of ["/api/agentsx", "/api/test-callsx", "/api/connection", "/api/pullsx", "/api/web-call", "/reports/call_sample_failed", "/", "/demo/calls/c1", "/calls/c1"]) {
       expect(isProductApiPath(path), path).toBe(false);
     }
   });
@@ -259,6 +262,21 @@ describe("pinned calls are read only by this site", () => {
     for (const headers of [{ "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" }, { "sec-fetch-site": "none", "sec-fetch-dest": "document" }, {}] as Record<string, string>[]) {
       expect(checkLocalRequest(read(headers), LOCAL)).toBeNull();
     }
+  });
+
+  it("refuses a GET of the agent list and of the test call routes from another site or port", () => {
+    for (const path of ["/api/agents", "/api/test-calls", "/api/test-calls/call_1/result"]) {
+      for (const site of ["cross-site", "same-site"]) {
+        for (const dest of ["empty", "document", "script"]) {
+          expect(checkLocalRequest(read({ "sec-fetch-site": site, "sec-fetch-dest": dest }, path), LOCAL)?.status, `${path} ${site} ${dest}`).toBe(403);
+        }
+      }
+      for (const headers of [{ "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" }, { "sec-fetch-site": "none" }, {}] as Record<string, string>[]) {
+        expect(checkLocalRequest(read(headers, path), LOCAL), path).toBeNull();
+      }
+    }
+    expect(checkLocalRequest(read({ "sec-fetch-site": "cross-site", "sec-fetch-dest": "empty" }, "/api/agentsx"), LOCAL)).toBeNull();
+    expect(checkLocalRequest(read({ "sec-fetch-site": "cross-site", "sec-fetch-dest": "empty" }, "/api/test-callsx"), LOCAL)).toBeNull();
   });
 
   it("leaves other API paths to their own rules", () => {

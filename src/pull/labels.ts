@@ -85,3 +85,44 @@ export const PIN_MESSAGE: Record<PinErrorCode, string> = {
   ...PULL_ERROR_MESSAGE,
   failed: "Something went wrong. Nothing was kept.",
 };
+
+export type TestCallErrorCode =
+  | "bad_request"
+  | "bad_agent"
+  | "bad_call_id"
+  | "unsupported"
+  | "body_too_large"
+  | "not_connected"
+  | "call_active"
+  | "not_found"
+  | "unreadable"
+  | PullErrorCode
+  | "failed";
+
+/**
+ * What the agent list and test call routes say, by code. Each is a fixed sentence: none ever holds a word of the call, the
+ * key or what Retell answered. The test call screen shows these as they are.
+ */
+export const TEST_CALL_MESSAGE: Record<TestCallErrorCode, string> = {
+  bad_request: "Send the agent to call as JSON.",
+  bad_agent: "That is not one of your Retell voice agents.",
+  bad_call_id: "That is not a Retell call id.",
+  unsupported: "Send the request as JSON.",
+  body_too_large: "That request is too long.",
+  not_connected: "Connect your Retell key first.",
+  call_active: "A test call is already starting or running. Finish it first.",
+  not_found: "Overhear did not start that test call.",
+  unreadable: "Retell sent back something Overhear could not read.",
+  ...PULL_ERROR_MESSAGE,
+  failed: "Something went wrong.",
+};
+
+/** What a test call says when Retell has not finished with it after about two minutes. */
+export const TEST_CALL_TIMEOUT_MESSAGE =
+  "Retell has not finished processing this call yet. Open it from the call list in a few minutes, or run a pull.";
+
+/** What a test call says when Retell ended it in an error or it never connected: there is no call to check. */
+export const TEST_CALL_DID_NOT_CONNECT_MESSAGE = "The call did not connect, so there is nothing to check. Try again.";
+
+/** What a test call's outcome says when the call held the stored key, so it is not shown. */
+export const TEST_CALL_KEY_IN_CALL_MESSAGE = "This call holds your Retell key, so Overhear will not show it.";

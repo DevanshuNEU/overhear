@@ -155,3 +155,86 @@ export async function getCall(key: string, id: string, opts: RetellOptions = {})
 export async function readStoredKey(): Promise<string | null> {
   return readKey();
 }
+
+/** Retell's ids (calls and agents) are short tokens. Anything else is not an id, and is not sent to Retell. */
+export const RETELL_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** What the test call line shows of an agent. Nothing else of an agent (prompts, LLM ids, webhook URLs) is ever kept. */
+export type AgentChoice = { id: string; name: string };
+
+const AGENT_PAGE = 100;
+const MAX_NAME = 120;
+// Controls, line and paragraph separators, zero-width and direction marks, bidi overrides and the byte order mark.
+const NAME_CONTROLS = /[\u0000-\u001f\u007f-\u009f\u{200B}-\u{200F}\u{2028}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]/gu;
+
+function agentName(raw: unknown, id: string): string {
+  const text = typeof raw === "string" ? raw.replace(/[\r\n]+/g, " ").replace(NAME_CONTROLS, "").replace(/\s+/g, " ").trim().slice(0, MAX_NAME) : "";
+  return text === "" ? id : text;
+}
+
+/** The agents in name order (case-insensitive), the id breaking a tie. */
+export function sortAgents(agents: AgentChoice[]): AgentChoice[] {
+  return [...agents].sort((a, b) => {
+    const x = a.name.toLowerCase();
+    const y = b.name.toLowerCase();
+    if (x !== y) return x < y ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+/** How many pages of agents one listing reads, at most. */
+export const MAX_AGENT_PAGES = 5;
+
+/**
+ * One page of the user's voice agents (up to 100) as id and name, built field by field from each item, and the key of the
+ * next page when Retell says there is one. Chat agents cannot take a web call, so they are left out. An item with no usable
+ * id, or an id already on the page, is dropped. The caller runs each page through the shared limiter, follows the pages
+ * (at most MAX_AGENT_PAGES) and sorts what it keeps.
+ */
+export async function listAgentsPage(key: string, pageKey: string | undefined, opts: RetellOptions = {}): Promise<{ agents: AgentChoice[]; next: string | undefined }> {
+  const res = await makeRetell(key, opts).agent.list({ limit: AGENT_PAGE, ...(pageKey ? { pagination_key: pageKey } : {}) });
+  const items: unknown[] = Array.isArray(res?.items) ? res.items : [];
+  const found = new Map<string, AgentChoice>();
+  for (const item of items) {
+    if (typeof item !== "object" || item === null) continue;
+    const r = item as Record<string, unknown>;
+    const id = str(r.agent_id);
+    if (id === null || !RETELL_ID.test(id) || found.has(id) || r.channel === "chat") continue;
+    found.set(id, { id, name: agentName(r.agent_name, id) });
+  }
+  const next = res?.has_more === true ? (str(res.pagination_key) ?? undefined) : undefined;
+  return { agents: [...found.values()], next };
+}
+
+export type IceServer = { urls: string | string[]; username?: string; credential?: string };
+/** What the browser needs to join a web call: the same four fields the hosted demo's widget uses. */
+export type WebCall = { callId: string; accessToken: string; transport: "gateway" | "livekit"; iceServers: IceServer[] };
+
+const UNREADABLE = "unreadable web call";
+
+function iceServer(item: unknown): IceServer {
+  if (typeof item !== "object" || item === null) throw new Error(UNREADABLE);
+  const r = item as Record<string, unknown>;
+  const urls = typeof r.urls === "string" ? r.urls : Array.isArray(r.urls) && r.urls.every((u) => typeof u === "string") ? (r.urls as string[]) : null;
+  if (urls === null) throw new Error(UNREADABLE);
+  return { urls, ...(typeof r.username === "string" ? { username: r.username } : {}), ...(typeof r.credential === "string" ? { credential: r.credential } : {}) };
+}
+
+/**
+ * Starts a web call to one agent and keeps only the four fields the browser needs, built field by field: the call's access
+ * token is a per-call credential, and nothing else of the call is passed on. Throws an Error that says only "unreadable web
+ * call" when Retell's answer does not have them; an SDK error propagates as it is, for toPoolError.
+ */
+export async function createWebCall(key: string, agentId: string, opts: RetellOptions = {}): Promise<WebCall> {
+  const res: unknown = await makeRetell(key, opts).call.createWebCall({ agent_id: agentId });
+  if (typeof res !== "object" || res === null) throw new Error(UNREADABLE);
+  const r = res as Record<string, unknown>;
+  const callId = str(r.call_id);
+  const accessToken = str(r.access_token);
+  const transport = r.transport;
+  if (callId === null || !RETELL_ID.test(callId) || accessToken === null || accessToken === "") throw new Error(UNREADABLE);
+  if (transport !== "gateway" && transport !== "livekit") throw new Error(UNREADABLE);
+  const ice = r.ice_servers === undefined ? [] : r.ice_servers;
+  if (!Array.isArray(ice)) throw new Error(UNREADABLE);
+  return { callId, accessToken, transport, iceServers: ice.map(iceServer) };
+}
