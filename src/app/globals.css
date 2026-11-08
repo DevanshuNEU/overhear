@@ -215,3 +215,38 @@ body:has(> .report) {
 @media (prefers-reduced-motion: reduce) {
   .report-delayed { animation: report-reveal 0s linear 250ms forwards; }
 }
+
+/* Spoken numbers in the call timeline. A converted number holds the digits and the exact words (readable.ts,
+   highlight.tsx); the box around the timeline says which shows (data-numbers, set by NumbersScope). With digits, a
+   dotted underline marks the change, and the exact words stay in the page for a screen reader and the tooltip,
+   out of a selection. With the exact words, the digits are gone. */
+.report [data-readable] {
+  text-decoration: underline dotted var(--report-line-strong);
+  text-underline-offset: 4px;
+}
+.report [data-readable] > [data-exact] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  user-select: none;
+}
+.report [data-numbers="exact"] [data-readable] {
+  text-decoration: none;
+}
+.report [data-numbers="exact"] [data-readable] > [data-digits] {
+  display: none;
+}
+.report [data-numbers="exact"] [data-readable] > [data-exact] {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  user-select: auto;
+}

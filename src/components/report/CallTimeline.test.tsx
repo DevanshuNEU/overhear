@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { CallTimeline } from "./CallTimeline";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
-import { unverifiedSample } from "@/report/demo-states";
+import { spokenNumbersSample, unverifiedSample } from "@/report/demo-states";
 import { mixedResultsOnOneTurn } from "@/report/samples/variants.fixture";
 
 const rowOf = (seq: number) => document.getElementById(`item-${seq}`)!.closest("li")!;
@@ -167,5 +167,79 @@ describe("CallTimeline", () => {
     render(<CallTimeline report={two} />);
     // The 2:22 finding's sentence quotes neither claim and the turn now holds two, so neither is marked.
     expect(Array.from(rowOf(27).querySelectorAll("mark"))).toHaveLength(0);
+  });
+
+  describe("spoken numbers", () => {
+    const scope = () => document.querySelector("[data-numbers]")!;
+
+    it("holds the digits and the exact words in the same place, the exact words for assistive tech", () => {
+      render(<CallTimeline report={spokenNumbersSample} />);
+      const digits = Array.from(document.querySelectorAll("[data-readable] [data-digits]"));
+      expect(digits.map((e) => e.textContent)).toContain("March 14, 1985");
+      expect(digits.map((e) => e.textContent)).toContain("555 1234");
+      for (const d of digits) expect(d.getAttribute("aria-hidden")).toBe("true");
+      const exact = Array.from(document.querySelectorAll("[data-readable] [data-exact]")).map((e) => e.textContent);
+      expect(exact).toContain("fourteenth of March nineteen eighty five");
+      expect(exact).toContain("five five five one two three four");
+    });
+
+    it("shows digits first, offers the exact words in one click, and the digits again in another", () => {
+      render(<CallTimeline report={spokenNumbersSample} />);
+      expect(scope()).toHaveAttribute("data-numbers", "digits");
+      fireEvent.click(screen.getByRole("button", { name: "Show exact words" }));
+      expect(scope()).toHaveAttribute("data-numbers", "exact");
+      fireEvent.click(screen.getByRole("button", { name: "Show numbers as digits" }));
+      expect(scope()).toHaveAttribute("data-numbers", "digits");
+    });
+
+    it("offers no switch on a call with no spoken numbers", () => {
+      render(<CallTimeline report={needsReviewSample} />);
+      expect(screen.queryByRole("button", { name: /Show exact words|Show numbers as digits/ })).not.toBeInTheDocument();
+    });
+
+    it("never turns the words of a highlighted claim into digits", () => {
+      const swap = (text: string) => text.replace("a nurse now", "a nurse in twenty two minutes now");
+      const report = {
+        ...failedSample,
+        evidence: {
+          ...failedSample.evidence,
+          items: failedSample.evidence.items.map((it) => (it.kind === "turn" && it.seq === 25 ? { ...it, text: swap(it.text) } : it)),
+        },
+        detections: failedSample.detections.map((d) => (d.seq === 25 ? { ...d, quote: swap(d.quote) } : d)),
+      };
+      render(<CallTimeline report={report} />);
+      const marks = Array.from(document.getElementById("item-25")!.querySelectorAll("mark"));
+      // The claim is marked with its words, and the number inside it is not read.
+      expect(marks.map((m) => m.textContent).join(" ")).toContain("a nurse in twenty two minutes now");
+      expect(marks.every((m) => m.querySelector("[data-readable]") === null)).toBe(true);
+    });
+
+    it("offers no switch when the only number in the call sits inside a highlighted claim", () => {
+      const swap = (text: string) => text.replace("a nurse now", "a nurse in twenty two minutes now");
+      const report = {
+        ...failedSample,
+        evidence: {
+          ...failedSample.evidence,
+          items: failedSample.evidence.items.map((it) => (it.kind === "turn" && it.seq === 25 ? { ...it, text: swap(it.text) } : it)),
+        },
+        detections: failedSample.detections.map((d) => (d.seq === 25 ? { ...d, quote: swap(d.quote) } : d)),
+      };
+      render(<CallTimeline report={report} />);
+      expect(document.getElementById("item-25")!.querySelector("mark")!.textContent).toContain("twenty two");
+      expect(screen.queryByRole("button", { name: /Show exact words|Show numbers as digits/ })).not.toBeInTheDocument();
+      expect(document.querySelector("[data-readable]")).toBeNull();
+    });
+
+    it("reads a number outside a highlighted claim in the same turn", () => {
+      const report = {
+        ...failedSample,
+        evidence: {
+          ...failedSample.evidence,
+          items: failedSample.evidence.items.map((it) => (it.kind === "turn" && it.seq === 25 ? { ...it, text: `${it.text} Your room is twenty two.` } : it)),
+        },
+      };
+      render(<CallTimeline report={report} />);
+      expect(document.getElementById("item-25")!.querySelector("[data-readable] [data-digits]")!.textContent).toBe("22");
+    });
   });
 });

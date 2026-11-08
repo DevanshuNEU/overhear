@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CallReportSchema } from "./schema";
-import { demoSource, unverifiedSample } from "./demo-states";
+import { demoSource, spokenNumbersSample, unverifiedSample } from "./demo-states";
 import { getReport } from "./store";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -15,11 +15,21 @@ describe("the demo states", () => {
     for (const c of unverifiedSample.results) for (const f of c.findings) if (f.result === "unverified") expect(f.gaps).toEqual(["unknown_success"]);
   });
 
+  it("builds a spoken numbers call that the schema accepts and that keeps the passed sample's results", () => {
+    expect(CallReportSchema.safeParse(spokenNumbersSample).success).toBe(true);
+    expect(spokenNumbersSample.callId).toBe("call_demo_spoken_numbers");
+    expect(spokenNumbersSample.verdict).toBe("passed");
+    const turns = spokenNumbersSample.evidence.items.flatMap((it) => (it.kind === "turn" ? [it.text] : []));
+    expect(turns.some((t) => t.includes("five five five one two three four"))).toBe(true);
+    expect(turns.some((t) => t.includes("fourteenth of March nineteen eighty five"))).toBe(true);
+  });
+
   it("serves the demo ids only when the flag is on", async () => {
     expect(await getReport("call_demo_unverified")).toEqual({ status: "not_found", callId: "call_demo_unverified" });
     vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
     expect((await getReport("call_demo_unverified")).status).toBe("found");
     expect((await getReport("call_demo_unreadable")).status).toBe("unreadable");
+    expect((await getReport("call_demo_spoken_numbers")).status).toBe("found");
     expect((await getReport("call_sample_failed")).status).toBe("found");
   });
 

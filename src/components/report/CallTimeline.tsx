@@ -8,7 +8,9 @@ import { RawDetail } from "./RawDetail";
 import { RESULT_TONE } from "./StatusBadge";
 import { timelineRows, type TimelineRow } from "./rows";
 import { citedClaims } from "./claims";
-import { markQuotes } from "./highlight";
+import { markedRanges, markQuotes } from "./highlight";
+import { NumbersScope } from "./NumbersScope";
+import { readableSpans, type Span } from "./readable";
 import { railColumns, railMarks, threadsOf, type Thread } from "./threads";
 
 const RAIL_STEP = 14;
@@ -65,8 +67,33 @@ function TagLinks({ threads }: { threads: Thread[] }) {
   ));
 }
 
+type Turn = Extract<TimelineRow, { kind: "speech" }>["turns"][number];
+
+/** The claim words of any broken or unchecked finding that cites this turn, each with its own finding's result. Broken first, so words two findings share take the broken mark. */
+function claimQuotes(turn: Turn, tags: Thread[], detections: Detection[]) {
+  return [...tags]
+    .sort((a, b) => Number(b.result === "violated") - Number(a.result === "violated"))
+    .flatMap((t) =>
+      t.contract
+        ? citedClaims({ text: t.text ?? "" }, t.contract, detections)
+            .filter((d) => d.seq === turn.seq)
+            .map((d) => ({ quote: d.quote, markClass: MARK_CLASS[t.result === "violated" ? "violated" : "unverified"] }))
+        : [],
+    );
+}
+
+/** What a turn shows: the findings tagged on it, and its words read once, with the spoken numbers outside any highlighted claim as spans. */
+type Reading = { tags: Thread[]; quotes: ReturnType<typeof claimQuotes>; spans: Span[] };
+
+function readTurn(turn: Turn, threads: Thread[], detections: Detection[]): Reading {
+  const tags = threads.filter((t) => t.seqs.includes(turn.seq));
+  const quotes = claimQuotes(turn, tags, detections);
+  // The marked words keep their exact words, so the numbers are read around them.
+  return { tags, quotes, spans: readableSpans(turn.text, markedRanges(turn.text, quotes, MARK_CLASS.unverified)) };
+}
+
 /** Turns by one speaker: when and who once, then each turn's words held to a readable line length. */
-function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind: "speech" }>; threads: Thread[]; detections: Detection[] }) {
+function Speech({ row, readings }: { row: Extract<TimelineRow, { kind: "speech" }>; readings: Map<number, Reading> }) {
   const first = row.turns[0];
   return (
     <div className="min-w-0 py-2.5 sm:grid sm:grid-cols-[3rem_4.5rem_1fr] sm:gap-x-3">
@@ -74,22 +101,11 @@ function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind
       <span className={`mr-2 text-[13px] font-medium sm:mr-0 sm:pt-0.5 ${row.role === "agent" ? "text-report-ink" : "text-report-muted"}`}>{SPEAKER_LABEL[row.role]}</span>
       <div className="min-w-0 space-y-1">
         {row.turns.map((turn, i) => {
-          const tags = threads.filter((t) => t.seqs.includes(turn.seq));
-          // The claim words of any broken or unchecked finding that cites this turn, marked as in the Said lane, each
-          // with its own finding's result. Broken first, so words two findings share take the broken mark.
-          const quotes = [...tags]
-            .sort((a, b) => Number(b.result === "violated") - Number(a.result === "violated"))
-            .flatMap((t) =>
-              t.contract
-                ? citedClaims({ text: t.text ?? "" }, t.contract, detections)
-                    .filter((d) => d.seq === turn.seq)
-                    .map((d) => ({ quote: d.quote, markClass: MARK_CLASS[t.result === "violated" ? "violated" : "unverified"] }))
-                : [],
-            );
+          const { tags, quotes, spans } = readings.get(turn.seq)!;
           return (
             <div key={turn.seq}>
               <p id={i === 0 ? undefined : `item-${turn.seq}`} className="max-w-[68ch] scroll-mt-6 [overflow-wrap:anywhere] text-[15px] leading-relaxed target:bg-report-accent-tint">
-                {markQuotes(turn.text, quotes, MARK_CLASS.unverified)}
+                {markQuotes(turn.text, quotes, MARK_CLASS.unverified, { spans })}
               </p>
               {tags.length > 0 ? (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -129,30 +145,40 @@ export function CallTimeline({ report }: { report: CallReport }) {
   const rows = timelineRows(report.evidence);
   const marks = railMarks(threads, rows.map((r) => r.seqs));
   const tagged = threads.filter(needsAttention);
+  // Each turn is read once: its tags, claim quotes and spoken numbers. The switch shows only when some number was changed.
+  const readings = new Map<number, Reading>();
+  for (const row of rows) if (row.kind === "speech") for (const turn of row.turns) readings.set(turn.seq, readTurn(turn, tagged, report.detections));
+  const hasNumbers = [...readings.values()].some((r) => r.spans.length > 0);
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className="mb-4 text-base font-semibold">
-        {HEADING.timeline}
-      </h2>
-      {report.evidence.ordering !== "sequence" ? <p className="mb-3 max-w-[62ch] text-sm text-report-ink-2">{ORDER_NOTE[report.evidence.ordering]}</p> : null}
-      <ol className="border-t border-report-line">
-        {rows.map((row, i) => (
-          <li
-            key={row.seqs[0]}
-            id={`item-${row.seqs[0]}`}
-            className="flex scroll-mt-6 gap-2 target:bg-report-accent-tint target:outline target:outline-2 target:-outline-offset-2 target:outline-report-accent has-[:target]:bg-report-accent-tint"
-          >
-            <Rails columns={columns} marks={marks[i]} />
-            <div className="min-w-0 flex-1">
-              {row.kind === "speech" ? (
-                <Speech row={row} threads={tagged} detections={report.detections} />
-              ) : (
-                <Action row={row} threads={tagged.filter((t) => t.seqs.some((s) => row.seqs.includes(s)))} />
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
+      <NumbersScope
+        hasNumbers={hasNumbers}
+        heading={
+          <h2 id={id} className="text-base font-semibold">
+            {HEADING.timeline}
+          </h2>
+        }
+      >
+        {report.evidence.ordering !== "sequence" ? <p className="mb-3 max-w-[62ch] text-sm text-report-ink-2">{ORDER_NOTE[report.evidence.ordering]}</p> : null}
+        <ol className="border-t border-report-line">
+          {rows.map((row, i) => (
+            <li
+              key={row.seqs[0]}
+              id={`item-${row.seqs[0]}`}
+              className="flex scroll-mt-6 gap-2 target:bg-report-accent-tint target:outline target:outline-2 target:-outline-offset-2 target:outline-report-accent has-[:target]:bg-report-accent-tint"
+            >
+              <Rails columns={columns} marks={marks[i]} />
+              <div className="min-w-0 flex-1">
+                {row.kind === "speech" ? (
+                  <Speech row={row} readings={readings} />
+                ) : (
+                  <Action row={row} threads={tagged.filter((t) => t.seqs.some((s) => row.seqs.includes(s)))} />
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </NumbersScope>
     </section>
   );
 }
