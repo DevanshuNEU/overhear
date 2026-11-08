@@ -35,6 +35,7 @@ function res(
     contracts,
     results,
     mustCite: [],
+    experience: [],
     pass: opts.pass ?? (isReport && expected === actual),
   };
 }

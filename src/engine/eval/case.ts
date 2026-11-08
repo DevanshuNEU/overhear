@@ -6,7 +6,7 @@
 // The schema is strict on purpose: a typo in a key, an unknown contract or a verdict that contradicts its own
 // contract results fails loudly when the case is read, never quietly as a wrong measurement.
 import { z } from "zod";
-import { CONTRACT_IDS, RESULTS, VERDICTS } from "@/report/schema";
+import { CONTRACT_IDS, EXPERIENCE_CHECKS, RESULTS, VERDICTS } from "@/report/schema";
 import { compactJson } from "./json";
 
 export const CASE_SCHEMA_VERSION = 1;
@@ -36,6 +36,41 @@ function isTimeZone(zone: string): boolean {
 
 const Contract = z.enum(CONTRACT_IDS);
 
+/** What a person kept for a call experience check: the engine must report a problem, or must stay clean. */
+export const EXPERIENCE_EXPECTS = ["problem", "clean"] as const;
+
+export type ExperienceExpect = (typeof EXPERIENCE_EXPECTS)[number];
+
+/** The longest note a pinned call carries. */
+export const PIN_NOTE_MAX = 280;
+
+/** Platform call and agent ids: letters, digits, hyphens and underscores. Copied from the pull side to keep the engine pure. */
+const PLATFORM_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** A pin file is untrusted text that is printed to terminals and logs, so its free-form fields get narrow shapes. */
+const AGENT_VERSION = /^[0-9A-Za-z._-]{1,64}$/;
+const PINNED_WITH = /^[0-9A-Za-z.+-]{1,64}$/;
+
+/**
+ * What a pinned call's note may not contain: C0 and C1 controls (newlines and escape sequences included), DEL, the
+ * Unicode line and paragraph separators, and invisible format characters: zero-width and direction marks
+ * (U+200B to U+200F), bidi embeddings, overrides and isolates (U+202A to U+202E, U+2066 to U+2069), the byte order
+ * mark and the tag characters. A bidi override can reorder a printed note in a terminal.
+ */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u{200B}-\u{200F}\u{2028}-\u{202E}\u{2066}-\u{2069}\u{FEFF}\u{E0000}-\u{E007F}]/u;
+
+/**
+ * Where a pinned call came from: the call and agent it was pinned from, the Overhear version that read it, and
+ * for a fix pin (a passing call of the same scenario) the id of the pinned case it fixes.
+ */
+const PinSchema = z.strictObject({
+  callId: z.string().regex(PLATFORM_ID, "must be letters, digits, hyphens and underscores"),
+  agentId: z.string().regex(PLATFORM_ID, "must be letters, digits, hyphens and underscores"),
+  agentVersion: z.string().regex(AGENT_VERSION, "must be letters, digits, dots, hyphens and underscores, at most 64").nullable(),
+  pinnedWith: z.string().regex(PINNED_WITH, "must be a version: letters, digits, dots, plus and hyphen, at most 64"),
+  fixes: z.string().regex(CASE_ID).optional(),
+});
+
 const ExpectSchema = z
   .strictObject({
     verdict: z.enum(VERDICTS),
@@ -43,6 +78,8 @@ const ExpectSchema = z
     contracts: z.partialRecord(Contract, z.enum(RESULTS)).optional(),
     // Turns and tool items the contract's findings must cite (said, did or asked), by evidence seq.
     mustCite: z.array(z.strictObject({ contract: Contract, seqs: z.array(z.number().int().positive()).min(1) })).optional(),
+    // Only the call experience checks a person kept. A check left out is not scored.
+    experience: z.partialRecord(z.enum(EXPERIENCE_CHECKS), z.enum(EXPERIENCE_EXPECTS)).optional(),
   })
   .superRefine((e, ctx) => {
     const results = Object.entries(e.contracts ?? {});
@@ -84,6 +121,8 @@ export const EvalCaseSchema = z
     derivedFrom: z.string().regex(CASE_ID).optional(),
     // The time zone the engine reads spoken times in when the agent's policy names none. Default UTC.
     tz: z.string().refine(isTimeZone, "must be an IANA time zone, such as UTC or America/New_York").optional(),
+    // Present only on a call a person pinned as a regression test (see docs/evals.md).
+    pin: PinSchema.optional(),
     expect: ExpectSchema,
     // The raw platform record, scrubbed, exactly as the platform's API returns it (Retell: GET /v2/get-call).
     record: z.record(z.string(), z.unknown()),
@@ -97,6 +136,33 @@ export const EvalCaseSchema = z
     }
     if (c.source === "mutation" && c.independent) {
       ctx.addIssue({ code: "custom", path: ["independent"], message: "a mutation is data we built, so it is never independent" });
+    }
+    if (c.pin !== undefined) {
+      const need = (ok: boolean, path: string, message: string): void => {
+        if (!ok) ctx.addIssue({ code: "custom", path: [path], message });
+      };
+      need(c.tz !== undefined, "tz", "a pinned call needs the time zone it was pinned in");
+      need(c.source === "real", "source", "a pinned call is a real call, so its source must be real");
+      need(c.locked, "locked", "a pinned call must be locked, or a changed reading would not fail");
+      need(!c.independent, "independent", "a pinned call is never independent");
+      const note = c.label.note;
+      if (note !== undefined && (note.length > PIN_NOTE_MAX || CONTROL_CHARS.test(note))) {
+        ctx.addIssue({ code: "custom", path: ["label", "note"], message: `a pinned call's note is one line of plain text, at most ${PIN_NOTE_MAX} characters` });
+      }
+      if (c.label.by !== "you") {
+        ctx.addIssue({ code: "custom", path: ["label", "by"], message: "a pinned call is labeled by you" });
+      }
+      need(c.platform === "retell", "platform", "a pinned call is a Retell call");
+      if (c.pin.fixes === c.id) {
+        ctx.addIssue({ code: "custom", path: ["pin", "fixes"], message: "a fix pin cannot fix itself" });
+      }
+      // The pin's claim about where the call came from must match the record it carries.
+      if (c.record.call_id !== c.pin.callId) {
+        ctx.addIssue({ code: "custom", path: ["record", "call_id"], message: "the record's call_id must equal pin.callId" });
+      }
+      if (c.record.agent_id !== undefined && c.record.agent_id !== c.pin.agentId) {
+        ctx.addIssue({ code: "custom", path: ["record", "agent_id"], message: "the record's agent_id must equal pin.agentId" });
+      }
     }
   });
 
@@ -112,7 +178,7 @@ export function parseCase(raw: unknown, where = "case"): EvalCase {
 }
 
 /** The order a case file's top-level keys are written in: who and what first, the long record last. */
-const KEY_ORDER: readonly string[] = ["schemaVersion", "id", "source", "independent", "platform", "locked", "label", "derivedFrom", "tz", "expect"];
+const KEY_ORDER: readonly string[] = ["schemaVersion", "id", "source", "independent", "platform", "locked", "label", "pin", "derivedFrom", "tz", "expect"];
 const order = (key: string): number => (key === "record" ? KEY_ORDER.length + 1 : KEY_ORDER.includes(key) ? KEY_ORDER.indexOf(key) : KEY_ORDER.length);
 
 /**
