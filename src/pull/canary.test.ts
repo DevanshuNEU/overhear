@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET, POST } from "@/app/api/connect/route";
 import { DELETE as pinsDelete, GET as pinsGet, POST as pinsPost } from "@/app/api/pins/route";
 import { pinnedDir } from "@/pinned/store";
-import { recordOf } from "@/pinned/testing";
+import { recordOf, sawOf } from "@/pinned/testing";
 import { failedSample } from "@/report/samples";
 import { proxy } from "@/proxy";
 import { NextRequest } from "next/server";
@@ -339,13 +339,15 @@ describe.each(CANARIES)("a canary key never appears anywhere: $label", (c) => {
         headers: { host: HOST, origin: ORIGIN, "content-type": "application/json" },
         body: payload === undefined ? undefined : JSON.stringify(payload),
       });
-    const ask = (callId: string, note?: string) => ({ callId, keep: { contracts: ["transfer_kept"], experience: ["agent_ends_call"] }, ...(note ? { note } : {}) });
+    // What the screen showed: the reading of the call Retell is about to return, or a placeholder when it will not return one.
+    const NOTHING = { verdict: "failed", contracts: {}, experience: {} };
+    const ask = (callId: string, saw: unknown, note?: string) => ({ callId, keep: { contracts: ["transfer_kept"], experience: ["agent_ends_call"] }, saw, ...(note ? { note } : {}) });
     const pinned = () => (fs.existsSync(pinnedDir()) ? fs.readdirSync(pinnedDir()) : []);
     await writeKey(key);
 
     // The key in the transcript and tool data: refused, and nothing is written.
     body = echoed("call_canary_a", "everywhere");
-    const refused = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_a")))))!;
+    const refused = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_a", sawOf(body))))))!;
     expect(refused.status).toBe(409);
     expect(((await refused.clone().json()) as { error: string }).error).toBe("key_in_call");
     await record(refused);
@@ -353,14 +355,14 @@ describe.each(CANARIES)("a canary key never appears anywhere: $label", (c) => {
 
     // The key in the note: refused too.
     body = echoed("call_canary_b", "dropped");
-    const noted = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_b", `see ${key}`)))))!;
+    const noted = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_b", sawOf(body), `see ${key}`)))))!;
     expect(noted.status).toBe(409);
     expect(((await noted.clone().json()) as { error: string }).error).toBe("key_in_call");
     await record(noted);
     expect(pinned()).toEqual([]);
 
     // The key only in what a pin drops: saved, listed and deleted without the key in any file or answer.
-    const saved = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_b")))))!;
+    const saved = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_b", sawOf(body))))))!;
     expect(saved.status).toBe(200);
     await record(saved);
     expect(pinned()).toHaveLength(1);
@@ -378,11 +380,11 @@ describe.each(CANARIES)("a canary key never appears anywhere: $label", (c) => {
     for (const code of [401, 404]) {
       status = code;
       body = { message: `rejected ${key}`, key };
-      const res = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_c")))))!;
+      const res = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_c", NOTHING)))))!;
       await record(res);
     }
     drop = true;
-    await record((await step(() => pinsPost(pinsRequest("POST", ask("call_canary_c")))))!);
+    await record((await step(() => pinsPost(pinsRequest("POST", ask("call_canary_c", NOTHING)))))!);
     status = 200;
     await record((await step(() => pinsDelete(pinsRequest("DELETE"))))!);
     expect(pinned()).toEqual([]);

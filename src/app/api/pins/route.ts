@@ -15,17 +15,32 @@ export const dynamic = "force-dynamic";
 // A pin request is a call id, a few names and a note of at most 280 characters.
 const MAX_BODY = 4096;
 
-/** The request's body text, or the code that refuses it. Nothing is read past the limit. */
+/**
+ * The request's body text, or the code that refuses it. The body is read chunk by chunk and the read stops, and the rest
+ * is cancelled, as soon as it passes 4 KB, so a chunked body with no Content-Length is never read in full.
+ */
 async function bodyText(request: Request): Promise<{ text: string } | { code: "unsupported" | "body_too_large" | "bad_request" }> {
   if (!/^application\/json\s*(;|$)/i.test(request.headers.get("content-type") ?? "")) return { code: "unsupported" };
   if (Number(request.headers.get("content-length") ?? "0") > MAX_BODY) return { code: "body_too_large" };
-  let text: string;
+  if (request.body === null) return { text: "" };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
   try {
-    text = await request.text();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY) {
+        await reader.cancel().catch(() => {});
+        return { code: "body_too_large" };
+      }
+      chunks.push(value);
+    }
   } catch {
     return { code: "bad_request" };
   }
-  return Buffer.byteLength(text, "utf8") > MAX_BODY ? { code: "body_too_large" } : { text };
+  return { text: Buffer.concat(chunks).toString("utf8") };
 }
 
 export async function POST(request: Request): Promise<Response> {

@@ -12,7 +12,7 @@ import { pinCall } from "./pin";
 
 const KEY = "key_PINUNIT0123456789abcdef";
 const CALL = "call_8f2a9c";
-const ASK = { callId: CALL, keep: { contracts: [], experience: [] } };
+const ASK = { callId: CALL, keep: { contracts: [], experience: [] }, saw: { verdict: "failed" as const, contracts: {}, experience: {} } };
 const TUNING = { sleep: async () => {}, jitter: () => 0 };
 
 let home: string;

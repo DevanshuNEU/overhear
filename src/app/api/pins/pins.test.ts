@@ -9,7 +9,7 @@ import { analyzeRetellCall } from "@/engine/analyze";
 import { parseCase } from "@/engine/eval/case";
 import { writeKey } from "@/pull/key-store";
 import { pinnedDir } from "@/pinned/store";
-import { failedPin, marked, passedPin, recordOf } from "@/pinned/testing";
+import { failedPin, marked, passedPin, recordOf, sawOf } from "@/pinned/testing";
 import { failedSample, passedSample } from "@/report/samples";
 import pkg from "../../../../package.json";
 import { DELETE as deleteOne } from "./[id]/route";
@@ -59,7 +59,8 @@ const send = (method: string, p: string, body?: unknown, headers: Record<string,
     body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
   });
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
-const ASK = { callId: CALL, keep: { contracts: ["transfer_kept"], experience: [] as string[] } };
+// What a client sends: the names to keep and what the screen showed for them.
+const ASK = { callId: CALL, keep: { contracts: ["transfer_kept"], experience: [] as string[] }, saw: sawOf(recordOf(failedSample, CALL)) };
 const files = () => (fs.existsSync(pinnedDir()) ? fs.readdirSync(pinnedDir()) : []);
 const read = async (res: Response) => ({ status: res.status, text: await res.clone().text(), body: (await res.json()) as Record<string, unknown> });
 
@@ -96,6 +97,30 @@ describe("local mode only", () => {
   });
 });
 
+describe("another site cannot make the server read the pins", () => {
+  const from = (site: string, dest: string) => GET(send("GET", "", undefined, { "sec-fetch-site": site, "sec-fetch-dest": dest }));
+
+  it("refuses a GET that another site or another port sends, as a fetch or as a page, and runs no check", async () => {
+    fs.mkdirSync(pinnedDir(), { recursive: true, mode: 0o700 });
+    const pin = failedPin(CALL);
+    fs.writeFileSync(path.join(pinnedDir(), `${pin.id}.json`), JSON.stringify(pin), { mode: 0o600 });
+    for (const site of ["cross-site", "same-site"]) {
+      for (const dest of ["empty", "document", "script", "image"]) {
+        const res = await from(site, dest);
+        expect(res.status, `${site} ${dest}`).toBe(403);
+        expect(await res.text()).not.toContain(CALL);
+      }
+    }
+    expect((await GET(send("GET", "", undefined, { "sec-fetch-site": "cross-site", "sec-purpose": "prefetch" }))).status).toBe(403);
+  });
+
+  it("answers the page itself (same-origin), a typed address (none) and a client that sends no Fetch Metadata", async () => {
+    expect((await from("same-origin", "empty")).status).toBe(200);
+    expect((await from("none", "document")).status).toBe(200);
+    expect((await GET(send("GET", ""))).status).toBe(200);
+  });
+});
+
 describe("bad input never reaches Retell", () => {
   const bad = async (body: unknown, headers: Record<string, string> = {}) => {
     await writeKey(KEY);
@@ -124,6 +149,9 @@ describe("bad input never reaches Retell", () => {
       { ...ASK, note: 5 },
       { ...ASK, note: "x".repeat(281) },
       { ...ASK, saw: { verdict: "failed" } },
+      { callId: CALL, keep: ASK.keep },
+      { ...ASK, saw: undefined },
+      { ...ASK, saw: null },
     ]) {
       const r = await bad(body);
       expect(r.status, JSON.stringify(body)).toBe(400);
@@ -139,6 +167,41 @@ describe("bad input never reaches Retell", () => {
     expect((await bad("{ not json")).status).toBe(400);
     expect((await bad(JSON.stringify(ASK), { "content-type": "text/plain" })).status).toBe(415);
     expect((await bad({ ...ASK, note: "x".repeat(5000) })).status).toBe(413);
+  });
+
+  it("stops reading a body past 4 KB when it has no Content-Length (413)", async () => {
+    await writeKey(KEY);
+    let pulled = 0;
+    const chunk = new TextEncoder().encode("x".repeat(1024));
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        if (pulled > 5000) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const req = new Request(url(), { method: "POST", headers: { host: HOST, origin: ORIGIN, "content-type": "application/json" }, body: stream, duplex: "half" } as RequestInit & { duplex: "half" });
+    expect(req.headers.get("content-length")).toBeNull();
+    const r = await read(await POST(req));
+    expect(r.status).toBe(413);
+    expect(r.body.error).toBe("body_too_large");
+    expect(pulled).toBeLessThan(20);
+    expect(requests).toEqual([]);
+    expect(files()).toEqual([]);
+  });
+
+  it("reads a body that arrives in several chunks and is within 4 KB", async () => {
+    await writeKey(KEY);
+    const text = new TextEncoder().encode(JSON.stringify(ASK));
+    const parts = [text.slice(0, 10), text.slice(10, 50), text.slice(50)];
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const part of parts) controller.enqueue(part);
+        controller.close();
+      },
+    });
+    const req = new Request(url(), { method: "POST", headers: { host: HOST, origin: ORIGIN, "content-type": "application/json" }, body: stream, duplex: "half" } as RequestInit & { duplex: "half" });
+    expect((await POST(req)).status).toBe(200);
   });
 
   it("says so when no key is stored: 409, no Retell request", async () => {
@@ -199,13 +262,14 @@ describe("pinning a call", () => {
   it("accepts what the screen showed when it still matches", async () => {
     await writeKey(KEY);
     const saw = { verdict: "failed", contracts: { transfer_kept: "violated" }, experience: {} };
+    expect(ASK.saw).toMatchObject(saw);
     expect((await POST(send("POST", "", { ...ASK, saw }))).status).toBe(200);
   });
 
   it("pins a passed call too", async () => {
     await writeKey(KEY);
     record = recordOf(passedSample, "call_c41d07");
-    const res = await POST(send("POST", "", { callId: "call_c41d07", keep: { contracts: [], experience: [] } }));
+    const res = await POST(send("POST", "", { callId: "call_c41d07", keep: { contracts: [], experience: [] }, saw: sawOf(record) }));
     expect(res.status).toBe(200);
     expect(parseCase(JSON.parse(fs.readFileSync(path.join(pinnedDir(), files()[0]), "utf8"))).expect.verdict).toBe("passed");
   });
@@ -267,7 +331,7 @@ describe("refusals write nothing", () => {
   it("a call that holds the stored key (409), and the key is in no pin file", async () => {
     await writeKey(KEY);
     record = withKeyInTranscript(KEY);
-    const r = await refused("key_in_call");
+    const r = await refused("key_in_call", 409, { ...ASK, saw: sawOf(record) });
     expect(r.text).not.toContain(KEY);
     expect(r.text).not.toContain("PINROUTE");
     expect(fs.existsSync(pinnedDir()) ? fs.readdirSync(pinnedDir()) : []).toEqual([]);
@@ -277,7 +341,7 @@ describe("refusals write nothing", () => {
     const odd = 'key_"quoted"\\slash_9f3b7c1d';
     await writeKey(odd);
     record = withKeyInTranscript(odd);
-    await refused("key_in_call");
+    await refused("key_in_call", 409, { ...ASK, saw: sawOf(record) });
   });
 
   it("a note that holds the stored key (409)", async () => {
@@ -300,7 +364,7 @@ describe("listing and deleting", () => {
   it("lists a summary with a fresh check, and never a word of the call", async () => {
     await writeKey(KEY);
     record = marked(recordOf(failedSample, CALL), MARKER);
-    const posted = await read(await POST(send("POST", "", { ...ASK, note: "transfer promised" })));
+    const posted = await read(await POST(send("POST", "", { ...ASK, saw: sawOf(record), note: "transfer promised" })));
     expect(posted.status).toBe(200);
     expect(posted.text).not.toContain(MARKER);
     requests = [];

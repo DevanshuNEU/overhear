@@ -53,3 +53,19 @@ export function pinOf(record: Record<string, unknown>, over: { note?: string; at
 export const failedPin = (callId = "call_8f2a9c", note?: string): EvalCase => pinOf(recordOf(failedSample, callId), { note });
 /** The passed sample as a pin that holds. */
 export const passedPin = (callId = "call_c41d07"): EvalCase => pinOf(recordOf(passedSample, callId));
+
+/** What a call's screen shows, as a client would send it in `saw`: the verdict and the result of every contract and check. */
+export function sawOf(record: unknown, tz: string = Intl.DateTimeFormat().resolvedOptions().timeZone): {
+  verdict: string;
+  contracts: Record<string, string>;
+  experience: Record<string, string>;
+} {
+  const out = analyzeRetellCall(record, { tz });
+  if (out.kind !== "report") throw new Error("the fixture record gives no report");
+  const { report } = out;
+  return {
+    verdict: report.verdict,
+    contracts: Object.fromEntries(report.results.map((r) => [r.contract, r.result])),
+    experience: Object.fromEntries(report.experience.ran.map((c) => [c, report.experience.problems.some((p) => p.check === c) ? "problem" : "clean"])),
+  };
+}

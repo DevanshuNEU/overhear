@@ -7,10 +7,10 @@
 //   3. The record is for the same call id, and the call has ended.
 //   4. The record is trimmed to what the engine reads (minimizeRecord), then analyzed with this machine's zone and no
 //      demo agent. Only a report can be pinned.
-//   5. What the user kept is built from the fresh report. How "what the screen showed" reaches the server: the keep lists
-//      are names only, so the server reads each kept item's result from the fresh report and a name the report does not
-//      have is refused. A client that wants the strict version also sends `saw` (the verdict and the result of each item
-//      it showed); every kept item and the verdict must then equal the fresh reading, or the pin is refused as changed.
+//   5. What the user kept is built from the fresh report. The keep lists are names only, so the client also sends `saw`,
+//      required: the verdict and the result of each item it showed. The verdict and every kept item must equal the fresh
+//      reading, and a kept name the report does not have is refused, or the pin is refused as changed. A pin is never
+//      made from a reading the user did not see.
 //   6. The pin is refused, and nothing written, when its text holds the stored key.
 //   7. savePin writes it. The answer is the pin's id and nothing else.
 // Every refusal is a PinErrorCode: a fixed sentence (PIN_MESSAGE), never a word of the call, the key or Retell's answer.
@@ -45,7 +45,7 @@ const BodySchema = z.strictObject({
     experience: z.array(z.enum(EXPERIENCE_CHECKS)).max(KEEP_MAX),
   }),
   note: z.string().max(PIN_NOTE_MAX * 4).optional(),
-  saw: SawSchema.optional(),
+  saw: SawSchema,
 });
 
 export type PinInput = {
@@ -53,7 +53,8 @@ export type PinInput = {
   keep: { contracts: ContractId[]; experience: ExperienceCheckId[] };
   /** One line of plain text, at most 280 characters, control characters already gone. */
   note?: string;
-  saw?: z.infer<typeof SawSchema>;
+  /** What the screen showed: the verdict, and a result for every kept contract and check. */
+  saw: z.infer<typeof SawSchema>;
 };
 
 export type PinOutcome = { ok: true; id: string } | { ok: false; code: PinErrorCode };
@@ -95,7 +96,7 @@ export function parsePinBody(text: string): { ok: true; input: PinInput } | { ok
       callId,
       keep: { contracts: [...new Set(keep.contracts)], experience: [...new Set(keep.experience)] },
       ...(clean ? { note: clean } : {}),
-      ...(saw ? { saw } : {}),
+      saw,
     },
   };
 }
@@ -191,15 +192,15 @@ export async function pinCall(input: PinInput, deps: { tuning?: PullTuning; now?
     const contracts: Partial<Record<ContractId, Result>> = {};
     for (const name of input.keep.contracts) {
       const now = contractResult.get(name);
-      if (now === undefined || (input.saw && input.saw.contracts[name] !== now)) return refuse("changed");
+      if (now === undefined || input.saw.contracts[name] !== now) return refuse("changed");
       contracts[name] = now;
     }
     const experience: Partial<Record<ExperienceCheckId, ExperienceExpect>> = {};
     for (const name of input.keep.experience) {
-      if (!ran.has(name) || (input.saw && input.saw.experience[name] !== experienceNow(name))) return refuse("changed");
+      if (!ran.has(name) || input.saw.experience[name] !== experienceNow(name)) return refuse("changed");
       experience[name] = experienceNow(name);
     }
-    if (input.saw && input.saw.verdict !== report.verdict) return refuse("changed");
+    if (input.saw.verdict !== report.verdict) return refuse("changed");
 
     const pin: EvalCase = {
       schemaVersion: 1,

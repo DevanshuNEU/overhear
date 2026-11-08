@@ -243,3 +243,26 @@ describe("checkLocalRequest: cross-site subresources of /reports/", () => {
     expect(get("/reportsx/a", "cross-site", "image")).toBeNull();
   });
 });
+
+describe("pinned calls are read only by this site", () => {
+  const read = (headers: Record<string, string>, path = "/api/pins") => req("GET", { host: "localhost:3000", ...headers }, path);
+  it("refuses a GET of /api/pins from another site or port, whatever it loads it as", () => {
+    for (const site of ["cross-site", "same-site"]) {
+      for (const dest of ["empty", "document", "script"]) {
+        expect(checkLocalRequest(read({ "sec-fetch-site": site, "sec-fetch-dest": dest }), LOCAL)?.status, `${site} ${dest}`).toBe(403);
+      }
+    }
+    expect(checkLocalRequest(read({ "sec-fetch-site": "cross-site", "sec-fetch-dest": "empty" }, "/api/pins/pin-x"), LOCAL)?.status).toBe(403);
+  });
+
+  it("lets through the same origin, a typed address and a client with no Fetch Metadata", () => {
+    for (const headers of [{ "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" }, { "sec-fetch-site": "none", "sec-fetch-dest": "document" }, {}] as Record<string, string>[]) {
+      expect(checkLocalRequest(read(headers), LOCAL)).toBeNull();
+    }
+  });
+
+  it("leaves other API paths to their own rules", () => {
+    expect(checkLocalRequest(read({ "sec-fetch-site": "cross-site", "sec-fetch-dest": "empty" }, "/api/pulls/x"), LOCAL)).toBeNull();
+    expect(checkLocalRequest(read({ "sec-fetch-site": "cross-site", "sec-fetch-dest": "empty" }, "/api/pinsx"), LOCAL)).toBeNull();
+  });
+});
