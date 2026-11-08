@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -43,6 +44,21 @@ describe("ensurePrivateDir", () => {
     expect(err).toBeInstanceOf(PrivateStoreError);
     expect(err.code).toBe("dir_unsafe");
     expect(err.message).toBe(`${dir} is not a directory. Set OVERHEAR_HOME to a directory of its own.`);
+    expect(fs.readdirSync(real)).toEqual([]);
+  });
+
+  it("refuses a symlinked folder given with a trailing slash or dot, which would otherwise be followed", async () => {
+    const real = path.join(root, "real");
+    fs.mkdirSync(real, { mode: 0o700 });
+    fs.symlinkSync(real, dir);
+    for (const spelled of [`${dir}/`, `${dir}//`, `${dir}/.`]) {
+      const err = await refusal(() => ensurePrivateDir(spelled));
+      expect(err, spelled).toBeInstanceOf(PrivateStoreError);
+      expect(err.code).toBe("dir_unsafe");
+      expect(err.message).toBe(`${dir} is not a directory. Set OVERHEAR_HOME to a directory of its own.`);
+      expect((await refusal(() => checkPrivateDir(spelled))).code).toBe("dir_unsafe");
+      await expect(writePrivateFile(spelled, "pin-a.json", "x"), spelled).rejects.toBeInstanceOf(PrivateStoreError);
+    }
     expect(fs.readdirSync(real)).toEqual([]);
   });
 
@@ -123,6 +139,38 @@ describe("writePrivateFile and readPrivateFile", () => {
     fs.mkdirSync(path.join(dir, "pin-a.json"), { mode: 0o700 });
     await expect(writePrivateFile(dir, "pin-a.json", "x")).rejects.toThrow();
     expect(fs.readdirSync(dir)).toEqual(["pin-a.json"]);
+  });
+
+  it("refuses a file name that is not a plain name, and writes nothing", async () => {
+    await ensurePrivateDir(dir);
+    for (const bad of ["", ".", "..", "../escape.json", "sub/pin-a.json", "/abs.json", "a/../b.json"]) {
+      await expect(writePrivateFile(dir, bad, "x"), JSON.stringify(bad)).rejects.toThrow(/not a plain file name/);
+    }
+    expect(fs.readdirSync(dir)).toEqual([]);
+    expect(fs.readdirSync(root)).toEqual(["pinned"]);
+  });
+
+  it("opens the folder read-only to sync it after the rename", async () => {
+    await ensurePrivateDir(dir);
+    const open = vi.spyOn(fs.promises, "open");
+    await writePrivateFile(dir, "pin-a.json", "x");
+    const opened = open.mock.calls.map(([p, flags]) => `${String(p)}|${String(flags)}`);
+    open.mockRestore();
+    expect(opened).toContain(`${dir}|r`);
+    expect(mode(path.join(dir, "pin-a.json"))).toBe(0o600);
+  });
+
+  it.skipIf(process.platform === "win32")("refuses a pipe at the file's place without hanging", async () => {
+    await ensurePrivateDir(dir);
+    const fifo = path.join(dir, "pin-a.json");
+    try {
+      execFileSync("mkfifo", ["-m", "600", fifo]);
+    } catch {
+      return; // no mkfifo here
+    }
+    const err = await refusal(() => readPrivateFile(fifo, { hint: HINT }));
+    expect(err).toBeInstanceOf(PrivateStoreError);
+    expect(err.code).toBe("file_unsafe");
   });
 
   it("returns null when the file is missing", async () => {

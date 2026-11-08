@@ -36,7 +36,9 @@ function ownedByOther(stat: Stats): boolean {
 }
 
 /** Throws unless `dir` is a real directory, owned by this user, that no one else can open. Changes nothing. */
-export async function checkPrivateDir(dir: string): Promise<void> {
+export async function checkPrivateDir(folder: string): Promise<void> {
+  // path.resolve drops a trailing "/" or "/.", which would otherwise make lstat follow a symlinked folder.
+  const dir = path.resolve(folder);
   const stat = await fs.lstat(dir);
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
     throw new PrivateStoreError("dir_unsafe", `${dir} is not a directory. Set OVERHEAR_HOME to a directory of its own.`);
@@ -51,7 +53,8 @@ export async function checkPrivateDir(dir: string): Promise<void> {
 }
 
 /** Creates the folder 0700 when it is missing, then checks it. Never changes a folder it did not create. */
-export async function ensurePrivateDir(dir: string): Promise<void> {
+export async function ensurePrivateDir(folder: string): Promise<void> {
+  const dir = path.resolve(folder);
   const created = await fs.mkdir(dir, { recursive: true, mode: 0o700 });
   if (created !== undefined) await fs.chmod(dir, 0o700);
   await checkPrivateDir(dir);
@@ -63,8 +66,13 @@ export function tempNamePattern(name: string): RegExp {
   return new RegExp(`^\\.${literal}\\.[0-9a-f]{16}\\.tmp$`);
 }
 
-/** Deletes the files in `dir` whose names match `pattern` (temp files a crashed write left behind). Fine when `dir` is missing. */
-export async function removeTemps(dir: string, pattern: RegExp): Promise<void> {
+/**
+ * Deletes the files in `folder` whose names match `pattern` (temp files a crashed write left behind). Fine when the
+ * folder is missing. It does not check the folder: callers must have passed it through ensurePrivateDir or
+ * checkPrivateDir first, or a symlinked folder would have its files deleted.
+ */
+export async function removeTemps(folder: string, pattern: RegExp): Promise<void> {
+  const dir = path.resolve(folder);
   let names: string[];
   try {
     names = await fs.readdir(dir);
@@ -76,10 +84,16 @@ export async function removeTemps(dir: string, pattern: RegExp): Promise<void> {
 }
 
 /**
- * Writes `text` to `dir/name`, mode 0600, through a fresh temp file renamed into place. The caller makes sure `dir` is
- * private first (ensurePrivateDir) and clears old temps (removeTemps with tempNamePattern(name)).
+ * Writes `text` to `folder/name`, mode 0600, through a fresh temp file renamed into place, then syncs the folder. `name`
+ * must be a plain file name. The folder is checked again here (checkPrivateDir), on the same normalized path the read
+ * checks. The caller creates it first (ensurePrivateDir) and clears old temps (removeTemps with tempNamePattern(name)).
  */
-export async function writePrivateFile(dir: string, name: string, text: string): Promise<void> {
+export async function writePrivateFile(folder: string, name: string, text: string): Promise<void> {
+  if (name === "" || name === "." || name === ".." || path.basename(name) !== name) {
+    throw new Error("That is not a plain file name.");
+  }
+  const dir = path.resolve(folder);
+  await checkPrivateDir(dir);
   const target = path.join(dir, name);
   const temp = path.join(dir, `.${name}.${randomBytes(8).toString("hex")}.tmp`);
   // "wx" fails if the temp name exists, so this never writes through a planted file or symlink.
@@ -88,14 +102,33 @@ export async function writePrivateFile(dir: string, name: string, text: string):
     try {
       await handle.writeFile(text, "utf8");
       await handle.sync();
+      await handle.chmod(0o600);
     } finally {
       await handle.close();
     }
-    await fs.chmod(temp, 0o600);
     await fs.rename(temp, target);
   } catch (err) {
     await fs.rm(temp, { force: true });
     throw err;
+  }
+  await syncDir(dir);
+}
+
+/** Flushes a folder's entries to disk so a rename survives a crash. Where the platform will not open a folder, skips it. */
+async function syncDir(dir: string): Promise<void> {
+  let handle: FileHandle;
+  try {
+    handle = await fs.open(dir, "r");
+  } catch (err) {
+    if (errno(err) === "EISDIR" || errno(err) === "EINVAL" || errno(err) === "EPERM") return;
+    throw err;
+  }
+  try {
+    await handle.sync();
+  } catch (err) {
+    if (errno(err) !== "EISDIR" && errno(err) !== "EINVAL" && errno(err) !== "EPERM") throw err;
+  } finally {
+    await handle.close();
   }
 }
 
@@ -110,7 +143,8 @@ export type ReadPrivateFileOptions = {
  * The file's text, or null when there is no file. Throws PrivateStoreError when the file or its folder cannot be
  * trusted: a symlink, not a plain file, not this user's, not mode 0600, or over `maxBytes`.
  */
-export async function readPrivateFile(file: string, options: ReadPrivateFileOptions): Promise<string | null> {
+export async function readPrivateFile(filePath: string, options: ReadPrivateFileOptions): Promise<string | null> {
+  const file = path.resolve(filePath);
   let handle: FileHandle;
   try {
     // O_NOFOLLOW: a symlink at the file's place fails here (ELOOP) instead of being read through.
