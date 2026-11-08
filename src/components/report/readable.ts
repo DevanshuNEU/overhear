@@ -149,14 +149,13 @@ function year(r: Reader, i: number): Hit | null {
 
 const YEAR_CUE = new Set(["in", "since", "born", "year", "birth"]);
 // What follows a number that makes it an amount, not a year: "in twenty thirty minutes", "twenty twenty dollars".
-const UNIT_AFTER = new Set(["minute", "minutes", "hour", "hours", "second", "seconds", "day", "days", "week", "weeks", "month", "months", "year", "years", "dollar", "dollars", "cent", "cents", "percent", "buck", "bucks", "per"]);
+const UNIT_AFTER = new Set(["minute", "minutes", "hour", "hours", "second", "seconds", "day", "days", "week", "weeks", "month", "months", "year", "years", "dollar", "dollars", "cent", "cents", "percent", "buck", "bucks", "per", "min", "mins", "hr", "hrs", "visit", "visits", "patient", "patients", "people", "times", "miles", "pounds", "euros", "mg"]);
 const isMonth = (w: string) => monthOf(w) >= 0;
-const isDayWord = (w: string) => w in ORDINAL || /^\d{1,2}(st|nd|rd|th)$/.test(w);
 
 /**
  * A bare spoken year, which needs a cue right before it: "in", "since", "born", "year", "birth", "is" with "birth"
- * among the three words before ("date of birth is"), or "of" right after a month, a day, "birth" or "year" ("year
- * of nineteen ninety"; a bare "of" is too weak: "a total of twenty thirty"). Without a cue it could be a price or a
+ * among the three words before ("date of birth is"), or "of" right after a month, "birth" or "year" ("year
+ * of nineteen ninety"; a bare "of" is too weak: "a total of twenty thirty", "the twenty first of twenty twenty four patients"). Without a cue it could be a price or a
  * time ("nineteen ninety nine dollars", "twenty thirty"), so it stays as written. A unit right after it ("in twenty
  * thirty minutes", "twenty twenty a month") says it is an amount, so it stays as written too. A year inside a date
  * needs no cue.
@@ -168,13 +167,15 @@ function cuedYear(r: Reader, i: number): Hit | null {
   const cued =
     YEAR_CUE.has(prev) ||
     (prev === "is" && r.toks.slice(Math.max(0, i - 3), i).some((t) => t.word === "birth")) ||
-    (prev === "of" && (isMonth(before) || isDayWord(before) || before === "birth" || before === "year"));
+    (prev === "of" && (isMonth(before) || before === "birth" || before === "year"));
   if (!cued) return null;
   const y = year(r, i);
   if (!y) return null;
   const end = i + y.count;
   const next = joined(r, end) ? wordAt(r, end) : undefined;
   if (next !== undefined && UNIT_AFTER.has(next)) return null;
+  // A percent sign is not a word, so it is read off the text: "in twenty thirty %", "in twenty thirty%".
+  if (/^\s*%/.test(r.text.slice(r.toks[end - 1].end))) return null;
   // "a month", "an hour": a unit with its article.
   if ((next === "a" || next === "an") && joined(r, end + 1) && UNIT_AFTER.has(wordAt(r, end + 1) ?? "")) return null;
   return y;
@@ -258,7 +259,8 @@ function candidatesAt(r: Reader, i: number): { hits: Hit[]; skip: number } {
   if (o) {
     // From thirteenth up, so "the second time" and "first of all" are left alone. The day of a date that failed
     // above ("April thirty first", "the thirty first of April") is not a lone ordinal either.
-    const after = joined(r, i + o.count) && wordAt(r, i + o.count) === "of" && monthOf(wordAt(r, i + o.count + 1) ?? "") >= 0;
+    // "of" after it makes it the start of a date it did not finish ("the fourteenth of nineteen ninety"), so it stays.
+    const after = joined(r, i + o.count) && wordAt(r, i + o.count) === "of";
     const before = i > 0 && monthOf(wordAt(r, i - 1) ?? "") >= 0 && joined(r, i);
     // A lone ordinal reads as a day only after "the" ("on the twenty second"), never after "a" ("a twenty second wait").
     const the = i > 0 && joined(r, i) && wordAt(r, i - 1) === "the";

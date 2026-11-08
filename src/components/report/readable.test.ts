@@ -200,12 +200,24 @@ describe("precision, round two: a cue word is not enough", () => {
     expect(shown("born in nineteen ninety bucks")).toBe("born in nineteen ninety bucks");
   });
 
-  it("takes 'of' as a year cue only after a month, a day, birth or year", () => {
+  it("leaves a cued year as written before more units", () => {
+    expect(shown("in twenty thirty mins")).toBe("in twenty thirty mins");
+    expect(shown("in twenty thirty hrs")).toBe("in twenty thirty hrs");
+    expect(shown("since twenty twenty four patients")).toBe("since twenty twenty four patients");
+    for (const unit of ["visits", "visit", "people", "times", "miles", "pounds", "euros", "mg", "min", "hr"]) {
+      expect(shown(`in twenty thirty ${unit}`)).toBe(`in twenty thirty ${unit}`);
+    }
+    expect(shown("in twenty thirty %")).toBe("in twenty thirty %");
+    expect(shown("in twenty thirty%")).toBe("in twenty thirty%");
+  });
+
+  it("takes 'of' as a year cue only after a month, birth or year", () => {
     expect(shown("copay of twenty twenty")).toBe("copay of twenty twenty");
     expect(shown("a total of twenty thirty")).toBe("a total of twenty thirty");
     expect(shown("year of nineteen ninety")).toBe("year of 1990");
     expect(shown("in March of nineteen ninety")).toBe("in March of 1990");
-    expect(shown("the fourteenth of nineteen ninety")).toBe("the 14th of 1990");
+    expect(shown("the fourteenth of nineteen ninety")).toBe("the fourteenth of nineteen ninety");
+    expect(shown("the twenty first of twenty twenty four patients")).toBe("the twenty first of twenty twenty four patients");
     expect(shown("date of birth of nineteen eighty five")).toBe("date of birth of 1985");
     expect(shown("the fourteenth of March nineteen eighty five")).toBe("March 14, 1985");
   });
