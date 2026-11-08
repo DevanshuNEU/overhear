@@ -77,10 +77,33 @@ describe("year read aloud for a near date", () => {
     expect(run([agent("Should I book Friday, November 6, 2026?")], null)).toEqual({ ran: true, problems: [] });
   });
 
-  it("is one problem per turn, listing each date said", () => {
+  it("is one problem for a turn, listing each date said", () => {
     const out = run([agent("Is it November 6, 2026 or November 9, 2026?", 4)]);
     expect(out.problems).toHaveLength(1);
     expect(out.problems[0].text).toBe('At 0:04 the agent read the year aloud for a date this close: "November 6, 2026" and "November 9, 2026".');
+  });
+
+  it("groups several turns into one problem citing each, quoting the first date said", () => {
+    const out = run([
+      agent("Earliest is Friday, November 6, 2026, at 9:00 a.m.", 40),
+      caller("Fine."),
+      agent("Should I book November 6, 2026?", 79),
+      agent("You're booked for Friday, November 6, 2026.", 107),
+    ]);
+    expect(out.problems).toEqual([
+      {
+        check: "spoken_format",
+        text: 'The agent read the year aloud for a date this close 3 times (at 0:40, 1:19 and 1:47), for example "Friday, November 6, 2026".',
+        seqs: [1, 3, 4],
+      },
+    ]);
+    for (const p of out.problems) expect(ExperienceProblemSchema.safeParse(p).success).toBe(true);
+  });
+
+  it("groups two turns with the list helper's wording, and counts only turns that flagged", () => {
+    const out = run([agent("It is November 6, 2026.", 5), agent("Anything else?", 8), agent("See you November 9, 2026.", 12)]);
+    expect(out.problems.map((p) => p.text)).toEqual(['The agent read the year aloud for a date this close 2 times (at 0:05 and 0:12), for example "November 6, 2026".']);
+    expect(out.problems[0].seqs).toEqual([1, 3]);
   });
 
   it("cites the turn, not the caller", () => {
@@ -126,7 +149,24 @@ describe("computer formats", () => {
     });
   });
 
-  it("is one problem per turn, listing each fragment once", () => {
+  it("groups several turns into one problem citing each, quoting the first fragment said", () => {
+    const out = run([agent("You are booked for 2026-11-06.", 40), agent("Fine.", 50), agent("That is 15:00 on 2026-11-06.", 79), agent("Again, 2026-11-06T15:00:00Z.", 107)]);
+    expect(out.problems).toEqual([
+      {
+        check: "spoken_format",
+        text: 'The agent read a date or time in computer format 3 times (at 0:40, 1:19 and 1:47), for example "2026-11-06".',
+        seqs: [1, 3, 4],
+      },
+    ]);
+  });
+
+  it("groups two turns with the list helper's wording", () => {
+    const out = run([agent("How about 15:00?", 9), agent("Or 16:30?", 14)]);
+    expect(out.problems.map((p) => p.text)).toEqual(['The agent read a date or time in computer format 2 times (at 0:09 and 0:14), for example "15:00".']);
+    expect(out.problems[0].seqs).toEqual([1, 2]);
+  });
+
+  it("is one problem for a turn, listing each fragment once", () => {
     const out = run([agent("2026-11-06 at 15:00, again 2026-11-06 at 15:00.")]);
     expect(out.problems).toHaveLength(1);
     expect(out.problems[0].text).toBe('At turn 1 the agent read a date or time in computer format: "2026-11-06" and "15:00".');
@@ -168,12 +208,13 @@ describe("quotes", () => {
     needsReviewSample,
     passedSample,
   ];
-  const QUOTE = /: ("[^"]+"(?:, "[^"]+")*(?: and "[^"]+")?)\.$/;
+  const QUOTE = /(?:: |for example )("[^"]+"(?:, "[^"]+")*(?: and "[^"]+")?)\.$/;
   const quotesOf = (text: string): string[] => [...(QUOTE.exec(text)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 
   it("reads quotes back from the list wording", () => {
     expect(quotesOf('At 0:03 the agent read a date or time in computer format: "a" and "b".')).toEqual(["a", "b"]);
     expect(quotesOf('At 0:03 the agent read the year aloud for a date this close: "a".')).toEqual(["a"]);
+    expect(quotesOf('The agent read a date or time in computer format 2 times (at 0:03 and 0:09), for example "a".')).toEqual(["a"]);
   });
 
   it("every quote is a verbatim substring of the turn it cites, on every sample and eval case", () => {
@@ -184,6 +225,7 @@ describe("quotes", () => {
         expect(turn?.kind).toBe("turn");
         if (turn?.kind !== "turn") continue;
         expect(turn.role).toBe("agent");
+        for (const seq of p.seqs) expect(r.evidence.items.find((it) => it.seq === seq)).toMatchObject({ kind: "turn", role: "agent" });
         const quotes = quotesOf(p.text);
         expect(quotes.length, p.text).toBeGreaterThan(0);
         for (const q of quotes) expect(turn.text, `quote ${JSON.stringify(q)} of ${r.callId}`).toContain(q);

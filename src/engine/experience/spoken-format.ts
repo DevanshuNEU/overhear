@@ -3,10 +3,10 @@
 // computer format ("2026-11-06", "15:00").
 // Precision over recall: dates come from spoken.ts, the engine's one reader of spoken dates, so a date it is unsure
 // of is not flagged. A year said for a date in another calendar year is helpful, not robotic, and a date of birth
-// is never about the call.
+// is never about the call. Each rule gives one problem for the whole call, citing every turn that showed it.
 import type { Evidence, ExperienceProblem } from "@/report/schema";
 import { spokenYearDates } from "../spoken";
-import { computerFormatText, yearAloudText } from "../wording";
+import { computerFormatText, yearAloudText, type SaidAt } from "../wording";
 import type { ExperienceCheck } from "./common";
 
 /** A date this many days or fewer from the call's date, before or after, is close enough that saying the year is stiff. */
@@ -57,12 +57,17 @@ export const spokenFormat: ExperienceCheck = (ev: Evidence, ctx) => {
   // the call's start to measure from, and quietly finds nothing without it.
   if (agentTurns.length === 0) return { ran: false, problems: [] };
 
-  const problems: ExperienceProblem[] = [];
+  // One problem per rule for the whole call: the same habit shown at several turns is still one line, citing each turn.
+  const years: SaidAt[] = [];
+  const computer: SaidAt[] = [];
   for (const turn of agentTurns) {
-    const years = yearAloudDates(turn.text, ev.callStartMs, ctx.tz);
-    if (years.length > 0) problems.push({ check: "spoken_format", text: yearAloudText(turn.seq, years, ev), seqs: [turn.seq] });
-    const computer = computerFragments(turn.text);
-    if (computer.length > 0) problems.push({ check: "spoken_format", text: computerFormatText(turn.seq, computer, ev), seqs: [turn.seq] });
+    const dates = yearAloudDates(turn.text, ev.callStartMs, ctx.tz);
+    if (dates.length > 0) years.push({ seq: turn.seq, quotes: dates });
+    const fragments = computerFragments(turn.text);
+    if (fragments.length > 0) computer.push({ seq: turn.seq, quotes: fragments });
   }
+  const problems: ExperienceProblem[] = [];
+  if (years.length > 0) problems.push({ check: "spoken_format", text: yearAloudText(years, ev), seqs: years.map((t) => t.seq) });
+  if (computer.length > 0) problems.push({ check: "spoken_format", text: computerFormatText(computer, ev), seqs: computer.map((t) => t.seq) });
   return { ran: true, problems };
 };

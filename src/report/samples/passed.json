@@ -28,22 +28,10 @@
       },
       {
         "check": "spoken_format",
-        "text": "At 0:40 the agent read the year aloud for a date this close: \"Friday, November 6, 2026\".",
+        "text": "The agent read the year aloud for a date this close 3 times (at 0:40, 1:19 and 1:47), for example \"Friday, November 6, 2026\".",
         "seqs": [
-          14
-        ]
-      },
-      {
-        "check": "spoken_format",
-        "text": "At 1:19 the agent read the year aloud for a date this close: \"Friday, November 6, 2026\".",
-        "seqs": [
-          23
-        ]
-      },
-      {
-        "check": "spoken_format",
-        "text": "At 1:47 the agent read the year aloud for a date this close: \"Friday, November 6, 2026\".",
-        "seqs": [
+          14,
+          23,
           34
         ]
       }
