@@ -6,6 +6,10 @@
   "notes": [],
   "headline": "The call broke a rule, and the call record shows it.",
   "reasons": [],
+  "experience": {
+    "ran": [],
+    "problems": []
+  },
   "results": [
     {
       "contract": "promise_backed",

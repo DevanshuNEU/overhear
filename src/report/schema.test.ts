@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   CallReportSchema,
   CONTRACT_IDS,
+  EXPERIENCE_CHECKS,
   GAP_CODES,
   NOTES,
   RESULTS,
@@ -12,7 +13,7 @@ import {
   claimClass,
   type CallReport,
 } from "./schema";
-import { CONTRACT_TITLE, NOTE_LINE, RESULT_LABEL, VERDICT_LABEL, headlineFor } from "./labels";
+import { CONTRACT_TITLE, EXPERIENCE_TITLE, NOTE_LINE, RESULT_LABEL, VERDICT_LABEL, headlineFor } from "./labels";
 import { SAMPLE_REPORTS, failedSample, needsReviewSample, passedSample } from "./samples";
 
 /** A deep copy, so a test can break one field without touching the shared sample. */
@@ -111,8 +112,30 @@ describe("vocabulary", () => {
     );
   });
 
+  it("writes the Nothing done verdict and its headline word for word", () => {
+    expect(VERDICTS).toEqual(["failed", "needs_review", "passed", "nothing_done"]);
+    expect(VERDICT_LABEL.nothing_done).toBe("Nothing done");
+    expect(headlineFor("nothing_done", [], [])).toBe("Nothing done. The caller said almost nothing, and the agent took no action.");
+  });
+
+  it("names the three experience checks", () => {
+    expect(EXPERIENCE_CHECKS).toEqual(["agent_ends_call", "error_handled", "spoken_format"]);
+    expect(EXPERIENCE_TITLE).toEqual({
+      agent_ends_call: "the agent ends the call",
+      error_handled: "errors handled well",
+      spoken_format: "dates and times read naturally",
+    });
+  });
+
   it("uses no em or en dashes in any wording", () => {
-    const all = [...Object.values(RESULT_LABEL), ...Object.values(VERDICT_LABEL), ...Object.values(NOTE_LINE), ...Object.values(CONTRACT_TITLE)];
+    const all = [
+      ...Object.values(RESULT_LABEL),
+      ...Object.values(VERDICT_LABEL),
+      ...Object.values(NOTE_LINE),
+      ...Object.values(CONTRACT_TITLE),
+      ...Object.values(EXPERIENCE_TITLE),
+      headlineFor("nothing_done", [], []),
+    ];
     for (const s of all) expect(s).not.toMatch(/[–—]/);
     for (const r of SAMPLE_REPORTS) expect(JSON.stringify(r)).not.toMatch(/[–—]/);
   });
@@ -552,6 +575,137 @@ describe("the engine and the dashboard share this folder", () => {
     for (const file of ["schema.ts", "labels.ts", "samples/index.ts"]) {
       const src = fs.readFileSync(path.join(__dirname, file), "utf8");
       expect(src).not.toMatch(/["']node:|\bprocess\b|\brequire\(|\bBuffer\b|from ["'](fs|path|os|crypto)["']/);
+    }
+  });
+});
+
+/** A valid nothing_done report: the passed sample with every promise taken out, so nothing applied. */
+function nothingDone(): CallReport {
+  const r = clone(passedSample);
+  r.verdict = "nothing_done";
+  r.notes = [];
+  r.headline = headlineFor("nothing_done", [], []);
+  r.detections = [];
+  for (const c of r.results) {
+    if (c.result !== "not_run") {
+      c.result = "not_applicable";
+      c.findings = [];
+    }
+  }
+  return r;
+}
+const agentSeq = (r: CallReport) => r.evidence.items.find((i) => i.kind === "turn" && i.role === "agent")!.seq;
+const callerSeq = (r: CallReport) => r.evidence.items.find((i) => i.kind === "turn" && i.role === "caller")!.seq;
+
+describe("the Nothing done verdict", () => {
+  it("parses when no contract applied and there are no reasons or notes", () => {
+    expect(issues(nothingDone())).toEqual([]);
+  });
+
+  it("is rejected when a contract is violated", () => {
+    const r = clone(failedSample);
+    r.verdict = "nothing_done";
+    r.headline = headlineFor("nothing_done", [], []);
+    expect(issues(r).join("\n")).toMatch(/verdict/);
+  });
+
+  it("is rejected when a contract is unverified", () => {
+    const r = clone(needsReviewSample);
+    r.verdict = "nothing_done";
+    r.reasons = [];
+    r.headline = headlineFor("nothing_done", [], []);
+    expect(issues(r).join("\n")).toMatch(/verdict/);
+  });
+
+  it("is rejected with notes", () => {
+    const r = nothingDone();
+    r.notes = ["request_not_checked"];
+    expect(issues(r).join("\n")).toMatch(/notes/);
+  });
+
+  it("is rejected with reasons", () => {
+    const r = nothingDone();
+    r.reasons = [{ kind: "deferral", text: "x", seqs: [agentSeq(r)] }];
+    expect(issues(r).join("\n")).toMatch(/reasons/);
+  });
+
+  it("is rejected when a contract that ran passed", () => {
+    const r = nothingDone();
+    const turn = agentSeq(r);
+    result(r, "promise_backed").result = "passed";
+    result(r, "promise_backed").findings = [{ result: "passed", text: "x", said: [turn], did: [], asked: [], gaps: [], fields: [] }];
+    expect(issues(r).join("\n")).toMatch(/nothing_done/);
+  });
+
+  it("is rejected when a deferral was detected", () => {
+    const r = nothingDone();
+    const turn = r.evidence.items.find((i) => i.kind === "turn" && i.role === "agent")! as { seq: number; text: string };
+    r.detections.push({ seq: turn.seq, cls: "deferral", quote: turn.text.slice(0, 5), source: "code" });
+    expect(issues(r).join("\n")).toMatch(/deferral/);
+  });
+
+  it("is rejected with a headline other than its own line", () => {
+    const r = nothingDone();
+    r.headline = headlineFor("passed", [], []);
+    expect(issues(r).join("\n")).toMatch(/headline/);
+  });
+});
+
+describe("the call experience field", () => {
+  it("gets the default when a report stored before this change has no experience", () => {
+    const older: Record<string, unknown> = clone(passedSample);
+    delete older.experience;
+    const parsed = CallReportSchema.parse(older);
+    expect(parsed.experience).toEqual({ ran: [], problems: [] });
+    expect(parsed.schemaVersion).toBe(1);
+  });
+
+  it("accepts a problem whose check ran and whose seq is an agent turn", () => {
+    const r = clone(passedSample);
+    r.experience = { ran: ["agent_ends_call"], problems: [{ check: "agent_ends_call", text: "x", seqs: [agentSeq(r)] }] };
+    expect(issues(r)).toEqual([]);
+  });
+
+  it("rejects a problem whose check is not in ran", () => {
+    const r = clone(passedSample);
+    r.experience = { ran: ["error_handled"], problems: [{ check: "agent_ends_call", text: "x", seqs: [agentSeq(r)] }] };
+    expect(issues(r).join("\n")).toMatch(/experience/);
+  });
+
+  it("rejects a repeat in ran", () => {
+    const r = clone(passedSample);
+    r.experience = { ran: ["error_handled", "error_handled"], problems: [] };
+    expect(issues(r).join("\n")).toMatch(/experience/);
+  });
+
+  it("rejects a problem seq on a caller turn", () => {
+    const r = clone(passedSample);
+    r.experience = { ran: ["agent_ends_call"], problems: [{ check: "agent_ends_call", text: "x", seqs: [callerSeq(r)] }] };
+    expect(issues(r).join("\n")).toMatch(/agent turn/);
+  });
+
+  it("rejects a problem seq that is not in the evidence", () => {
+    const r = clone(passedSample);
+    r.experience = { ran: ["agent_ends_call"], problems: [{ check: "agent_ends_call", text: "x", seqs: [9999] }] };
+    expect(issues(r).join("\n")).toMatch(/not in the evidence/);
+  });
+
+  it("rejects a problem with no seqs or no text", () => {
+    const r = clone(passedSample);
+    r.experience = { ran: ["agent_ends_call"], problems: [{ check: "agent_ends_call", text: "", seqs: [] }] };
+    expect(issues(r).length).toBeGreaterThan(0);
+  });
+
+  it("rejects a key the field does not know", () => {
+    const r = { ...clone(passedSample), experience: { ran: [], problems: [], extra: 1 } };
+    expect(issues(r).length).toBeGreaterThan(0);
+  });
+
+  it("is on every sample, empty", () => {
+    for (const report of SAMPLE_REPORTS) expect(report.experience).toEqual({ ran: [], problems: [] });
+    for (const file of ["failed.json", "needs-review.json", "passed.json"]) {
+      const onDisk = JSON.parse(fs.readFileSync(path.join(__dirname, "samples", file), "utf8"));
+      expect(onDisk.experience).toEqual({ ran: [], problems: [] });
     }
   });
 });

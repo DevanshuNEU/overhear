@@ -75,6 +75,11 @@ describe("parseCase", () => {
     expect(problems(raw)).not.toBe("");
   });
 
+  it("accepts nothing_done as an expected verdict", () => {
+    const c = parseCase(valid({ expect: { verdict: "nothing_done", contracts: { promise_backed: "not_applicable" } } }));
+    expect(c.expect.verdict).toBe("nothing_done");
+  });
+
   it("rejects a mutation with no parent, and a non-mutation with one", () => {
     expect(problems(valid({ source: "mutation" }))).toContain("derivedFrom");
     expect(problems(valid({ derivedFrom: "sample-passed" }))).toContain("derivedFrom");
@@ -88,6 +93,8 @@ describe("parseCase", () => {
     ["a passed verdict with a violated contract", { verdict: "passed", contracts: { transfer_kept: "violated" } }],
     ["a needs_review verdict with a violated contract", { verdict: "needs_review", contracts: { transfer_kept: "violated" } }],
     ["a passed verdict with an unverified contract", { verdict: "passed", contracts: { promise_backed: "unverified" } }],
+    ["a nothing_done verdict with a violated contract", { verdict: "nothing_done", contracts: { transfer_kept: "violated" } }],
+    ["a nothing_done verdict with an unverified contract", { verdict: "nothing_done", contracts: { promise_backed: "unverified" } }],
     ["mustCite on a contract expected not to apply", { verdict: "passed", contracts: { transfer_kept: "not_applicable" }, mustCite: [{ contract: "transfer_kept", seqs: [3] }] }],
   ])("rejects an expectation that contradicts itself: %s", (_what, expectation) => {
     expect(problems(valid({ expect: expectation }))).toContain("expect");

@@ -357,6 +357,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
                 <Count label={VERDICT_LABEL.failed} n={counts.failed} tone="critical" />
                 <Count label={VERDICT_LABEL.needs_review} n={counts.needsReview} tone="warning" />
                 <Count label={VERDICT_LABEL.passed} n={counts.passed} />
+                {counts.nothingDone > 0 ? <Count label={VERDICT_LABEL.nothing_done} n={counts.nothingDone} /> : null}
                 {notChecked > 0 ? <Count label={RESULT_LABEL.not_run} n={notChecked} /> : null}
                 {counts.errored > 0 ? <Count label={LIST_WORDS.couldntLoad} n={counts.errored} tone="warning" /> : null}
               </div>

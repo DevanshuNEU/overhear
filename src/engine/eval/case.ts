@@ -51,8 +51,8 @@ const ExpectSchema = z
       if (result === "violated" && e.verdict !== "failed") {
         ctx.addIssue({ code: "custom", path: ["contracts", contract], message: `${contract} is violated, so the verdict must be failed` });
       }
-      if (result === "unverified" && e.verdict === "passed") {
-        ctx.addIssue({ code: "custom", path: ["contracts", contract], message: `${contract} is unverified, so the verdict cannot be passed` });
+      if (result === "unverified" && (e.verdict === "passed" || e.verdict === "nothing_done")) {
+        ctx.addIssue({ code: "custom", path: ["contracts", contract], message: `${contract} is unverified, so the verdict cannot be ${e.verdict}` });
       }
     }
     (e.mustCite ?? []).forEach((m, i) => {

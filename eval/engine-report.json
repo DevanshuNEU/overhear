@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "analyzeRetellCall",
-  "inputs": { "cases": 33, "fingerprint": "fc94a44c33bb02b852c8c2a4b14cd4cfa891d7b9bf7b768969c98ee9a68ac925" },
+  "inputs": { "cases": 33, "fingerprint": "c04b4941b98b86bb67bb0a21e14c142509469f2440b46f5753cece0fd3fe35fe" },
   "metrics": {
     "independent": {
       "n": 0,
@@ -9,7 +9,7 @@
       "outcomes": { "report": 0, "no_content": 0, "error": 0 },
       "passing": { "k": 0, "n": 0, "value": null, "ci": null },
       "overall": {
-        "confusion": { "failed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 } },
+        "confusion": { "failed": { "failed": 0, "needs_review": 0, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 0, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 }, "nothing_done": { "failed": 0, "needs_review": 0, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 } },
         "verdictAccuracy": { "k": 0, "n": 0, "value": null, "ci": null },
         "failedPrecision": { "k": 0, "n": 0, "value": null, "ci": null },
         "failedRecall": { "k": 0, "n": 0, "value": null, "ci": null },
@@ -69,7 +69,7 @@
       "outcomes": { "report": 33, "no_content": 0, "error": 0 },
       "passing": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
       "overall": {
-        "confusion": { "failed": { "failed": 14, "needs_review": 0, "passed": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 13, "passed": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 6, "no_content": 0, "error": 0 } },
+        "confusion": { "failed": { "failed": 14, "needs_review": 0, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 }, "needs_review": { "failed": 0, "needs_review": 13, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 }, "passed": { "failed": 0, "needs_review": 0, "passed": 6, "nothing_done": 0, "no_content": 0, "error": 0 }, "nothing_done": { "failed": 0, "needs_review": 0, "passed": 0, "nothing_done": 0, "no_content": 0, "error": 0 } },
         "verdictAccuracy": { "k": 33, "n": 33, "value": 1, "ci": [0.8957, 1] },
         "failedPrecision": { "k": 14, "n": 14, "value": 1, "ci": [0.7847, 1] },
         "failedRecall": { "k": 14, "n": 14, "value": 1, "ci": [0.7847, 1] },

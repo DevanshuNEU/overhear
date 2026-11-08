@@ -8,6 +8,10 @@
   ],
   "headline": "Every promise that applied was kept. The caller's request wasn't checked.",
   "reasons": [],
+  "experience": {
+    "ran": [],
+    "problems": []
+  },
   "results": [
     {
       "contract": "promise_backed",

@@ -26,6 +26,7 @@ export const VERDICT_TONE: Record<Verdict, Tone> = {
   failed: "critical",
   needs_review: "warning",
   passed: "calm",
+  nothing_done: "muted",
 };
 
 export function Badge({ tone, label }: { tone: Tone; label: string }) {

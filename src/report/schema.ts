@@ -22,7 +22,7 @@ export const GAP_CODES = [
   "llm_code_disagreement",
 ] as const;
 export const RESULTS = ["violated", "passed", "unverified", "not_applicable", "not_run"] as const;
-export const VERDICTS = ["failed", "needs_review", "passed"] as const;
+export const VERDICTS = ["failed", "needs_review", "passed", "nothing_done"] as const;
 export const NOTES = ["no_promises_made", "request_not_checked"] as const;
 export const CONTRACT_IDS = [
   "promise_backed",
@@ -33,6 +33,9 @@ export const CONTRACT_IDS = [
 ] as const;
 // tool_syntax is an agent turn that reads a tool call out loud (6.4). Code finds it by rule, so it needs no second detector.
 export const SPEECH_CLASSES = ["completion", "transfer", "intention", "offer", "deferral", "refusal", "tool_syntax"] as const;
+// The call experience checks: how the call sounded to the caller, apart from the contracts. A check that ran and
+// found nothing is listed in experience.ran with no problem.
+export const EXPERIENCE_CHECKS = ["agent_ends_call", "error_handled", "spoken_format"] as const;
 export const REVIEW_REASON_KINDS = ["unverified_result", "deferral", "unanswered_request"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
@@ -42,6 +45,7 @@ export type Result = (typeof RESULTS)[number];
 export type Verdict = (typeof VERDICTS)[number];
 export type Note = (typeof NOTES)[number];
 export type ContractId = (typeof CONTRACT_IDS)[number];
+export type ExperienceCheckId = (typeof EXPERIENCE_CHECKS)[number];
 export type ReviewReasonKind = (typeof REVIEW_REASON_KINDS)[number];
 export type SpeechClass = (typeof SPEECH_CLASSES)[number];
 
@@ -258,6 +262,13 @@ export const ReviewReasonSchema = z.strictObject({
   seqs: z.array(Seq),
 });
 
+// One thing about the call experience that a person should look at, with the agent turns it rests on.
+export const ExperienceProblemSchema = z.strictObject({
+  check: z.enum(EXPERIENCE_CHECKS),
+  text: z.string().min(1),
+  seqs: z.array(Seq).min(1), // agent turns
+});
+
 // ---------- The report ----------
 
 export const CallReportSchema = z
@@ -269,6 +280,10 @@ export const CallReportSchema = z
     notes: z.array(z.enum(NOTES)),
     headline: z.string(),
     reasons: z.array(ReviewReasonSchema),
+    // Absent in a report stored before the experience checks existed, which then reads as no check having run.
+    experience: z
+      .strictObject({ ran: z.array(z.enum(EXPERIENCE_CHECKS)), problems: z.array(ExperienceProblemSchema) })
+      .default({ ran: [], problems: [] }),
     results: z.array(ContractResultSchema),
     detections: z.array(DetectionSchema),
     // Whether a model helped find claims or the request. With it, a claim only the code found is unverified (6.4).
@@ -445,10 +460,27 @@ export const CallReportSchema = z
       });
     });
 
-    // Verdict and what supports it (6.6).
+    // The call experience: a problem belongs to a check that ran, and rests on agent turns.
+    const ran = r.experience.ran;
+    ran.forEach((id, i) => {
+      if (ran.indexOf(id) !== i) bad(["experience", "ran", i], `${id} is listed twice`);
+    });
+    r.experience.problems.forEach((p, i) => {
+      if (!ran.includes(p.check)) bad(["experience", "problems", i, "check"], `${p.check} found a problem but is not in experience.ran`);
+      p.seqs.forEach((s, si) => {
+        const at = ["experience", "problems", i, "seqs", si];
+        exists(at, s);
+        const it = bySeq.get(s);
+        if (it && !(it.kind === "turn" && it.role === "agent")) bad(at, `problem seq ${s} must be an agent turn`);
+      });
+    });
+
+    // Verdict and what supports it (6.6). With nothing violated or unverified and no reason, the call is passed, or
+    // nothing_done when nothing applied (below).
     const anyViolated = r.results.some((c) => c.result === "violated");
     const unverified = r.results.filter((c) => c.result === "unverified");
-    const expectedVerdict: Verdict = anyViolated ? "failed" : unverified.length > 0 || r.reasons.length > 0 ? "needs_review" : "passed";
+    const settled = !anyViolated && unverified.length === 0 && r.reasons.length === 0;
+    const expectedVerdict: Verdict = anyViolated ? "failed" : settled ? (r.verdict === "nothing_done" ? "nothing_done" : "passed") : "needs_review";
     if (r.verdict !== expectedVerdict) bad(["verdict"], `verdict is ${r.verdict} but the results give ${expectedVerdict}`);
 
     r.reasons.forEach((reason, i) => {
@@ -471,6 +503,14 @@ export const CallReportSchema = z
     if (deferred && r.verdict === "passed") bad(["verdict"], "a call with a deferral is never passed");
     if (r.requestSource === null && r.reasons.some((x) => x.kind === "unanswered_request")) bad(["reasons"], "unanswered_request needs a request source");
 
+    // Nothing done means no contract applied: the caller said almost nothing and the agent took no action.
+    if (r.verdict === "nothing_done") {
+      if (!r.results.filter((c) => c.result !== "not_run").every((c) => c.result === "not_applicable")) {
+        bad(["verdict"], "nothing_done needs every contract that ran to be not_applicable");
+      }
+      if (deferred) bad(["verdict"], "a call with a deferral is never nothing_done");
+    }
+
     // Notes ride only on a passed call.
     if (r.verdict !== "passed") {
       if (r.notes.length) bad(["notes"], "notes ride only on a passed call");
@@ -484,6 +524,7 @@ export const CallReportSchema = z
     if (r.headline !== headlineFor(r.verdict, r.notes, r.reasons)) bad(["headline"], "headline must be the wording table's line for this verdict (spec 6.8)");
   });
 
+export type ExperienceProblem = z.infer<typeof ExperienceProblemSchema>;
 export type Gap = z.infer<typeof GapSchema>;
 export type Item = z.infer<typeof ItemSchema>;
 export type Evidence = z.infer<typeof EvidenceSchema>;

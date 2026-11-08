@@ -7,6 +7,8 @@ export type Counts = {
   failed: number;
   needsReview: number;
   passed: number;
+  /** Calls where the caller said almost nothing and the agent took no action. */
+  nothingDone: number;
   /** Calls with no transcript, so there was nothing to check. */
   noContent: number;
   /** Calls Overhear could not fetch or check. */
@@ -16,13 +18,14 @@ export type Counts = {
 };
 
 export function countRows(rows: PullRow[]): Counts {
-  const counts: Counts = { total: rows.length, failed: 0, needsReview: 0, passed: 0, noContent: 0, errored: 0, pending: 0 };
+  const counts: Counts = { total: rows.length, failed: 0, needsReview: 0, passed: 0, nothingDone: 0, noContent: 0, errored: 0, pending: 0 };
   for (const row of rows) {
     if (row.state === "pending") counts.pending++;
     else if (row.state === "no_content") counts.noContent++;
     else if (row.state === "error") counts.errored++;
     else if (row.verdict === "failed") counts.failed++;
     else if (row.verdict === "needs_review") counts.needsReview++;
+    else if (row.verdict === "nothing_done") counts.nothingDone++;
     else counts.passed++;
   }
   return counts;
@@ -36,11 +39,13 @@ function attentionRank(row: PullRow): number | null {
   return null;
 }
 
-/** Failed and needs-review rows go first, in rank order; every other row keeps the order Retell listed them in (newest first). */
+/** Failed and needs-review rows go first, in rank order; every other row keeps the order Retell listed them in (newest first), except that Nothing done calls sit after the rest. */
 export function splitRows(rows: PullRow[]): { attention: PullRow[]; rest: PullRow[] } {
   const ranked = rows.map((row, index) => ({ row, index, rank: attentionRank(row) }));
   const attention = ranked.filter((r) => r.rank !== null).sort((a, b) => (a.rank as number) - (b.rank as number) || a.index - b.index);
-  return { attention: attention.map((r) => r.row), rest: ranked.filter((r) => r.rank === null).map((r) => r.row) };
+  const settled = (row: PullRow) => (row.state === "report" && row.verdict === "nothing_done" ? 1 : 0);
+  const rest = ranked.filter((r) => r.rank === null).sort((a, b) => settled(a.row) - settled(b.row) || a.index - b.index);
+  return { attention: attention.map((r) => r.row), rest: rest.map((r) => r.row) };
 }
 
 /** A call's start as "Nov 6, 15:42" in the reader's zone (or the one given). Null when the time cannot be printed. */

@@ -87,6 +87,7 @@ function minimalReport(e: Evidence, policy: Policy, detections: Detection[], spo
     notes,
     headline: headlineFor(verdict, notes, shown),
     reasons: shown,
+    experience: { ran: [], problems: [] },
     results,
     detections,
     llmUsed: false,

@@ -3,12 +3,25 @@ import type { PullRow } from "@/pull/pull";
 import { countRows, formatCallTime, secondsLeft, splitRows } from "./callListModel";
 
 const row = (callId: string, patch: Partial<PullRow> = {}): PullRow => ({ callId, startedAt: 1, durationMs: 1000, state: "pending", ...patch });
-const report = (callId: string, verdict: "failed" | "needs_review" | "passed") => row(callId, { state: "report", verdict, headline: "h" });
+const report = (callId: string, verdict: "failed" | "needs_review" | "passed" | "nothing_done") => row(callId, { state: "report", verdict, headline: "h" });
 
 describe("countRows", () => {
   it("counts every kind of row once, so the counts add up to the total", () => {
     const rows = [report("a", "failed"), report("b", "failed"), report("c", "needs_review"), report("d", "passed"), row("e"), row("f", { state: "no_content" }), row("g", { state: "error" })];
-    expect(countRows(rows)).toEqual({ total: 7, failed: 2, needsReview: 1, passed: 1, noContent: 1, errored: 1, pending: 1 });
+    expect(countRows(rows)).toEqual({ total: 7, failed: 2, needsReview: 1, passed: 1, nothingDone: 0, noContent: 1, errored: 1, pending: 1 });
+  });
+});
+
+describe("Nothing done calls", () => {
+  it("counts under their own nothingDone count, not under passed", () => {
+    const counts = countRows([report("a", "nothing_done"), report("b", "passed")]);
+    expect(counts).toMatchObject({ total: 2, passed: 1, nothingDone: 1 });
+  });
+
+  it("sorts after passed calls and does not go on top", () => {
+    const { attention, rest } = splitRows([report("n1", "nothing_done"), report("p1", "passed"), report("f1", "failed"), report("n2", "nothing_done"), report("p2", "passed")]);
+    expect(attention.map((r) => r.callId)).toEqual(["f1"]);
+    expect(rest.map((r) => r.callId)).toEqual(["p1", "p2", "n1", "n2"]);
   });
 });
 
