@@ -77,8 +77,8 @@ export function forbidFraming(headers: Headers): void {
 
 const SAFE_METHODS = new Set(["GET", "HEAD"]);
 
-// The routes that hold or use the key: the key itself, pulls and per-call refetches. Hosted copies answer 404.
-const PRODUCT_API_PREFIXES = ["/api/connect", "/api/pulls", "/api/calls"];
+// The routes that hold or use the key: the key itself, pulls, per-call refetches and pinned calls. Hosted copies answer 404.
+const PRODUCT_API_PREFIXES = ["/api/connect", "/api/pulls", "/api/calls", "/api/pins"];
 
 /** True for a path under one of the product API routes, matched on a path boundary. */
 export function isProductApiPath(pathname: string): boolean {

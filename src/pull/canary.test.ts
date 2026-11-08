@@ -10,6 +10,10 @@
 // found too), as Basic auth (`user:key` in base64), and as any 8-character window of the key or its marker
 // (the forms are in canary-forms.ts).
 //
+// Pinning a call (src/pull/pin.ts) re-fetches it with the key, so it runs here too: against a Retell that echoes the key
+// into every field of the call, transcript and tool data included (the pin is refused and nothing is written), and into
+// every field the pin drops (the pin is saved and no file on disk holds the key but the key file).
+//
 // This calls the route handlers directly and never runs Next. `npm run canary:live` (scripts/canary-live.ts) runs
 // the same search against a real `next dev`, which adds Next's request log, error overlay and .next/ cache.
 import fs from "node:fs";
@@ -18,6 +22,10 @@ import path from "node:path";
 import { inspect } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET, POST } from "@/app/api/connect/route";
+import { DELETE as pinsDelete, GET as pinsGet, POST as pinsPost } from "@/app/api/pins/route";
+import { pinnedDir } from "@/pinned/store";
+import { recordOf } from "@/pinned/testing";
+import { failedSample } from "@/report/samples";
 import { proxy } from "@/proxy";
 import { NextRequest } from "next/server";
 import { configPath, hasKey, readKey, removeKey, writeKey } from "./key-store";
@@ -286,6 +294,98 @@ describe.each(CANARIES)("a canary key never appears anywhere: $label", (c) => {
     // Bearer text in a log field is redacted whatever the key looks like.
     logSafe("canary.bearer", { header: `Bearer ${key}` });
 
+    expectNoCanary();
+  });
+
+  it("through pinning a call: the key echoed into every field of the call, then only into the fields a pin drops", async () => {
+    const key = c.key;
+    const echoed = (callId: string, where: "everywhere" | "dropped"): unknown => {
+      const rec = recordOf(failedSample, callId) as Record<string, unknown> & { transcript_with_tool_calls: Record<string, unknown>[] };
+      const dropped = {
+        access_token: key,
+        recording_url: `https://recordings.example/${key}`,
+        public_log_url: `https://logs.example/${encodeURIComponent(key)}`,
+        from_number: key,
+        metadata: { key, hex: Buffer.from(key).toString("hex") },
+        retell_llm_dynamic_variables: { key },
+        call_analysis: { call_summary: key, custom_analysis_data: { key } },
+      };
+      Object.assign(rec, dropped);
+      if (where === "everywhere") {
+        for (const turn of rec.transcript_with_tool_calls) {
+          for (const field of ["content", "arguments"]) if (typeof turn[field] === "string") turn[field] = `${turn[field]} ${key}`;
+        }
+        rec.agent_id = key.replace(/[^A-Za-z0-9_-]/g, "_");
+      }
+      return rec;
+    };
+    let body: unknown;
+    let status = 200;
+    let drop = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        retellUrls.push(String(input));
+        if (drop) throw new TypeError(`fetch failed for ${String(input)} with ${new Headers(init?.headers).get("authorization")}`);
+        const sent = new Headers(init?.headers);
+        retellCookies.push(sent.get("cookie") ?? "");
+        const echo = sent.get("authorization") ?? "";
+        return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "x-echo": echo, "set-cookie": `k=${key}` } });
+      }),
+    );
+    const pinsRequest = (method: string, payload?: unknown, path_ = "") =>
+      new Request(`http://${HOST}/api/pins${path_}`, {
+        method,
+        headers: { host: HOST, origin: ORIGIN, "content-type": "application/json" },
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+      });
+    const ask = (callId: string, note?: string) => ({ callId, keep: { contracts: ["transfer_kept"], experience: ["agent_ends_call"] }, ...(note ? { note } : {}) });
+    const pinned = () => (fs.existsSync(pinnedDir()) ? fs.readdirSync(pinnedDir()) : []);
+    await writeKey(key);
+
+    // The key in the transcript and tool data: refused, and nothing is written.
+    body = echoed("call_canary_a", "everywhere");
+    const refused = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_a")))))!;
+    expect(refused.status).toBe(409);
+    expect(((await refused.clone().json()) as { error: string }).error).toBe("key_in_call");
+    await record(refused);
+    expect(pinned()).toEqual([]);
+
+    // The key in the note: refused too.
+    body = echoed("call_canary_b", "dropped");
+    const noted = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_b", `see ${key}`)))))!;
+    expect(noted.status).toBe(409);
+    expect(((await noted.clone().json()) as { error: string }).error).toBe("key_in_call");
+    await record(noted);
+    expect(pinned()).toEqual([]);
+
+    // The key only in what a pin drops: saved, listed and deleted without the key in any file or answer.
+    const saved = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_b")))))!;
+    expect(saved.status).toBe(200);
+    await record(saved);
+    expect(pinned()).toHaveLength(1);
+    await record((await step(() => pinsGet(new Request(`http://${HOST}/api/pins`, { headers: { host: HOST } }))))!);
+    const held = fs.readdirSync(home, { recursive: true }) as string[];
+    for (const rel of held) {
+      const file = path.join(home, rel);
+      if (!fs.statSync(file).isFile() || file === configPath()) continue;
+      captured.push(`file ${rel}: ${fs.readFileSync(file, "utf8")}`);
+    }
+    expect(captured.some((line) => line.startsWith("file store/pinned/pin-call-canary-b"))).toBe(true);
+
+    // Retell refusing and not having the call, with the key in what it says. (429 and 500 wait and retry on a real clock;
+    // src/pull/pin.test.ts covers them with an instant one.)
+    for (const code of [401, 404]) {
+      status = code;
+      body = { message: `rejected ${key}`, key };
+      const res = (await step(() => pinsPost(pinsRequest("POST", ask("call_canary_c")))))!;
+      await record(res);
+    }
+    drop = true;
+    await record((await step(() => pinsPost(pinsRequest("POST", ask("call_canary_c")))))!);
+    status = 200;
+    await record((await step(() => pinsDelete(pinsRequest("DELETE"))))!);
+    expect(pinned()).toEqual([]);
     expectNoCanary();
   });
 

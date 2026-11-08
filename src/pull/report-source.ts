@@ -11,7 +11,7 @@ import { analyzeCall } from "./analyzer";
 import { fetchCall, getOutcome, type Analyze, type PullTuning } from "./pull";
 
 // Retell call ids are short tokens. Anything else is not a call, and is not sent to Retell.
-const CALL_ID = /^[A-Za-z0-9_-]{1,128}$/;
+export const CALL_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
 export function makePullSource(deps: { analyze?: Analyze; tuning?: PullTuning } = {}): ReportSource {
   const analyze = deps.analyze ?? analyzeCall;
