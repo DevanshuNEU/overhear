@@ -13,6 +13,7 @@ import { clearTestCalls } from "@/pull/test-call";
 import { GET as agentsGet } from "../agents/route";
 import { DELETE as disconnect } from "../connect/route";
 import { GET as resultGet } from "./[callId]/result/route";
+import { POST as releasePost } from "./[callId]/release/route";
 import { POST } from "./route";
 
 const KEY = "key_TCROUTE0123456789abcdef";
@@ -72,6 +73,7 @@ const send = (method: string, p: string, body?: unknown, headers: Record<string,
 const ctx = (callId: string) => ({ params: Promise.resolve({ callId }) });
 const read = async (res: Response) => ({ status: res.status, text: await res.clone().text(), body: (await res.json()) as Record<string, unknown>, res });
 const start = (body: unknown = { agentId: AGENT }, headers: Record<string, string> = {}) => POST(send("POST", "/api/test-calls", body, headers));
+const release = (id = CALL, headers: Record<string, string> = {}) => releasePost(send("POST", `/api/test-calls/${id}/release`, undefined, headers), ctx(id));
 const result = (id = CALL, headers: Record<string, string> = {}) => resultGet(send("GET", `/api/test-calls/${id}/result`, undefined, headers), ctx(id));
 
 describe("local mode only", () => {
@@ -81,6 +83,7 @@ describe("local mode only", () => {
     expect((await agentsGet(send("GET", "/api/agents"))).status).toBe(404);
     expect((await start()).status).toBe(404);
     expect((await result()).status).toBe(404);
+    expect((await release()).status).toBe(404);
     expect(requests).toEqual([]);
   });
 
@@ -91,6 +94,9 @@ describe("local mode only", () => {
     expect((await start({ agentId: AGENT }, { origin: "http://evil.com" })).status).toBe(403);
     expect((await start({ agentId: AGENT }, { origin: "null" })).status).toBe(403);
     expect((await result(CALL, { host: "evil.com" })).status).toBe(403);
+    expect((await release(CALL, { host: "evil.com" })).status).toBe(403);
+    expect((await release(CALL, { origin: "http://evil.com" })).status).toBe(403);
+    expect((await release(CALL, { origin: "null" })).status).toBe(403);
     expect(requests).toEqual([]);
   });
 
@@ -304,5 +310,45 @@ describe("GET /api/test-calls/{callId}/result", () => {
     expect(r.body.error).toBe("not_found");
     expect(r.text).not.toContain(MARKER);
     expect(r.text).not.toContain(KEY);
+  });
+});
+
+describe("POST /api/test-calls/{callId}/release", () => {
+  it("frees the slot of a call this server started, so the next start goes through, with no Retell request", async () => {
+    await writeKey(KEY);
+    await start();
+    const before = requests.length;
+    const r = await read(await release());
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ released: true });
+    expect(r.res.headers.get("cache-control")).toBe("no-store");
+    expect(r.res.headers.get("x-frame-options")).toBe("DENY");
+    expect(requests.length).toBe(before);
+    const base = retell;
+    retell = (p) => (p === "/v3/create-web-call" ? Response.json({ ...WEB, call_id: "call_web_2" }, { status: 201 }) : base(p));
+    expect((await start()).status).toBe(200);
+  });
+
+  it("says nothing was held when the slot was already free", async () => {
+    await writeKey(KEY);
+    await start();
+    await release();
+    expect((await read(await release())).body).toEqual({ released: false });
+  });
+
+  it("refuses an id that is not an id shape (400) and a call this server did not start (404), without a request", async () => {
+    await writeKey(KEY);
+    const bad = await read(await release("..%2Fx"));
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toBe("bad_call_id");
+    const unknown = await read(await release("call_unknown"));
+    expect(unknown.status).toBe(404);
+    expect(unknown.body.error).toBe("not_found");
+    expect(requests).toEqual([]);
+  });
+
+  it("answers no GET, so a page on another site cannot read or probe it", async () => {
+    const mod = (await import("./[callId]/release/route")) as Record<string, unknown>;
+    expect(mod.GET).toBeUndefined();
   });
 });

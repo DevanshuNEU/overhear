@@ -6,7 +6,6 @@ import { CONTRACT_TITLE, HEADING, capitalize, ruleCountLine } from "@/report/lab
 import { CallTimeline } from "./CallTimeline";
 import { ContractSection } from "./ContractSection";
 import { GapsSection } from "./GapsSection";
-import { KeepAsTest } from "./KeepAsTest";
 import { NextSteps } from "./NextSteps";
 import { OpenTarget } from "./OpenTarget";
 import { answerOf } from "./answer";
@@ -33,7 +32,7 @@ export function CallReportView({ report, keep = false, narrow = false }: { repor
   return (
     <div className="space-y-12">
       <OpenTarget />
-      <ReportHeader report={report} actions={keep ? <KeepAsTest report={report} /> : null} />
+      <ReportHeader report={report} keep={keep} />
       {/* One layout for every call: at 1280 and wider two columns, with the right one empty when there are no steps, so the main column never changes width between calls. Steps go under the answer in a narrow window. */}
       <div className={narrow ? "space-y-12" : "space-y-12 max-w-[1040px] xl:max-w-none xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0"}>
         <NextSteps report={report} className={narrow ? "" : "xl:order-2 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto"} />

@@ -12,8 +12,10 @@
 //      server's one-call slot is never taken.
 //   2. The server starts the call and the SDK's client joins it. `update` events carry the whole transcript so far; the screen
 //      shows the latest one. Nothing is written anywhere: the transcript lives in this tab.
-//   3. Only after the call has ended (call_ended, or a connection that failed) does the screen ask for the result, every
-//      3 seconds and never faster than every 2. It stops on ready, did_not_connect, timeout or a refusal that will not change.
+//   3. Only after a call that connected has ended (call_ended) does the screen ask for the result, every 3 seconds and
+//      never faster than every 2. It stops on ready, did_not_connect, timeout or a refusal that will not change. A call that
+//      never connected (the SDK failed to join, the person ended it first, or left the screen) has nothing to wait for: the
+//      screen tells the server (POST /api/test-calls/{id}/release) to free its one-call slot, so starting again is not a 409.
 //   4. The report is the engine's, from Retell's final record. The live transcript is for reading while talking: the two can
 //      differ slightly, and the screen says so.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -92,6 +94,14 @@ function outcomeOf(body: Record<string, unknown>): Outcome | null {
   return { kind: "problem", message: isRec(o) && typeof o.message === "string" ? o.message : "" };
 }
 
+/**
+ * Tells the server a call it started never connected, so it frees its one-call slot. Fire and forget: `keepalive` lets it
+ * finish while the page is going away, and a failure changes nothing here (the slot also frees itself after 15 minutes).
+ */
+function releaseSlot(callId: string): void {
+  fetch(`/api/test-calls/${encodeURIComponent(callId)}/release`, { method: "POST", keepalive: true, cache: "no-store" }).catch(() => {});
+}
+
 const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
 const PRIMARY =
@@ -155,13 +165,16 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   const [agentName, setAgentName] = useState("");
   const [callId, setCallId] = useState<string | null>(null);
   const [hasClient, setHasClient] = useState(false);
-  const [wentLive, setWentLive] = useState(false);
+  /** How a call that never connected ended, or null. */
+  const [unconnected, setUnconnected] = useState<"failed" | "cancelled" | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [pollNote, setPollNote] = useState<string | null>(null);
   const [pollFor, setPollFor] = useState<string | null>(null);
 
   const clientRef = useRef<Client | null>(null);
   const run = useRef({ connected: false, finished: false });
+  /** The call the server started for this screen, once it has said so. */
+  const callIdRef = useRef<string | null>(null);
   const mounted = useRef(true);
   const interval = Math.max(MIN_POLL_MS, pollMs);
 
@@ -191,6 +204,12 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
       // A call still going when the screen goes away must not keep the microphone.
       clientRef.current?.stopCall();
       clientRef.current?.removeAllListeners();
+      // A call that never connected holds the server's slot for nothing: free it.
+      const id = callIdRef.current;
+      if (id !== null && !run.current.connected && !run.current.finished) {
+        run.current.finished = true;
+        releaseSlot(id);
+      }
     };
   }, [loadAgents]);
 
@@ -234,15 +253,24 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     };
   }, [pollFor, interval]);
 
-  /** The call is over, one way or another. Said once: the SDK can report the end more than once. */
-  const finish = useCallback((id: string, failed: boolean) => {
+  /**
+   * The call is over, one way or another. Said once: the SDK can report the end more than once.
+   * "ended" is a call that connected: Retell has a record to wait for. "failed" and "cancelled" never connected, so there is
+   * nothing to wait for: the server's one-call slot is freed instead, and the person can start again at once.
+   */
+  const finish = useCallback((id: string, how: "ended" | "failed" | "cancelled") => {
     if (run.current.finished || !mounted.current) return;
     run.current.finished = true;
     setPhase("ended");
     setMic("off");
-    setConnection(failed ? "failed" : "ended");
-    if (failed) setProblem(TEST_WORDS.connectionFailed);
-    setPollFor(id);
+    setConnection(how === "failed" ? "failed" : "ended");
+    if (how === "ended") {
+      setPollFor(id);
+      return;
+    }
+    if (how === "failed") setProblem(TEST_WORDS.connectionFailed);
+    setUnconnected(how);
+    releaseSlot(id);
   }, []);
 
   function makeClient(): Client {
@@ -254,6 +282,8 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     const agent = agents.kind === "ready" ? agents.list.find((a) => a.id === agentId) : undefined;
     if (!agent || phase !== "idle") return;
     run.current = { connected: false, finished: false };
+    callIdRef.current = null;
+    setUnconnected(null);
     setProblem(null);
     setOutcome(null);
     setPollNote(null);
@@ -261,7 +291,6 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     setTurns([]);
     setCallId(null);
     setHasClient(false);
-    setWentLive(false);
     setAgentName(agent.name);
     setMic("asking");
     setConnection("idle");
@@ -292,7 +321,11 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     try {
       const res = await fetch("/api/test-calls", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ agentId: agent.id }), cache: "no-store" });
       const body: unknown = await res.json().catch(() => null);
-      if (!mounted.current) return;
+      if (!mounted.current) {
+        // The screen went away while the server was starting the call: nobody will join it, so free the slot it took.
+        if (res.ok && isRec(body) && typeof body.callId === "string") releaseSlot(body.callId);
+        return;
+      }
       if (!res.ok || !isRec(body) || typeof body.callId !== "string" || typeof body.accessToken !== "string") {
         setProblem(isRec(body) && typeof body.message === "string" ? body.message : TEST_WORDS.unreachable);
         setPhase("idle");
@@ -316,13 +349,13 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     const id = joined.callId;
     const client = makeClient();
     clientRef.current = client;
+    callIdRef.current = id;
     setCallId(id);
     setHasClient(true);
     client.on("call_started", () => {
       if (!mounted.current || clientRef.current !== client) return;
       run.current.connected = true;
       setPhase("live");
-      setWentLive(true);
       setMic("on");
       setConnection("connected");
     });
@@ -332,21 +365,21 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
       if (next) setTurns(next);
     });
     client.on("call_ended", () => {
-      if (clientRef.current === client) finish(id, false);
+      if (clientRef.current === client) finish(id, "ended");
     });
     client.on("error", () => {
       if (clientRef.current !== client) return;
       const wasConnected = run.current.connected;
       // The SDK says only that something failed; Overhear says it in its own words and ends the call.
       client.stopCall();
-      finish(id, !wasConnected);
+      finish(id, wasConnected ? "ended" : "failed");
       if (wasConnected) setProblem(TEST_WORDS.connectionFailed);
     });
     try {
       await client.startCall(joined);
     } catch {
       client.stopCall();
-      finish(id, !run.current.connected);
+      finish(id, run.current.connected ? "ended" : "failed");
     }
   }
 
@@ -356,12 +389,14 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     const wasConnected = run.current.connected;
     client.stopCall();
     // A call that had not connected has nothing to end the call with, so the end is said here.
-    if (!wasConnected) finish(callId, false);
+    if (!wasConnected) finish(callId, "cancelled");
   }
 
   function again() {
     clientRef.current?.removeAllListeners();
     clientRef.current = null;
+    callIdRef.current = null;
+    setUnconnected(null);
     setPhase("idle");
     setMic("idle");
     setConnection("idle");
@@ -372,13 +407,11 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     setPollFor(null);
     setCallId(null);
     setHasClient(false);
-    setWentLive(false);
   }
 
   const picker = phase === "idle";
   const finished = outcome !== null;
   const reportShown = outcome?.kind === "report";
-  const failedToConnect = phase === "ended" && !wentLive && problem === TEST_WORDS.connectionFailed;
 
   const headline = ((): { lead: string; next?: string } | null => {
     if (picker) return { lead: TEST_WORDS.idleLead, next: TEST_WORDS.idleNext };
@@ -398,11 +431,13 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
       case "refused":
         return { lead: TEST_WORDS.errorLead };
       default:
-        return failedToConnect ? { lead: TEST_WORDS.couldntConnectLead, next: TEST_WORDS.couldntConnectNext } : { lead: TEST_WORDS.processingLead, next: TEST_WORDS.processingNext };
+        if (unconnected === "failed") return { lead: TEST_WORDS.couldntConnectLead, next: TEST_WORDS.couldntConnectNext };
+        if (unconnected === "cancelled") return { lead: TEST_WORDS.cancelledLead, next: TEST_WORDS.cancelledNext };
+        return { lead: TEST_WORDS.processingLead, next: TEST_WORDS.processingNext };
     }
   })();
 
-  const processing = phase === "ended" && !finished && !failedToConnect;
+  const processing = phase === "ended" && !finished && unconnected === null;
   const showTranscript = !picker;
   const transcriptLabel = phase === "live" || phase === "connecting" ? TEST_WORDS.transcriptLive : TEST_WORDS.transcriptSaw;
   const startable = agents.kind === "ready" && agentId !== "";
@@ -527,7 +562,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
             </div>
           ) : null}
 
-          {phase === "ended" && finished ? (
+          {phase === "ended" && (finished || unconnected !== null) ? (
             <div className="mt-6">
               <button type="button" onClick={again} className={BUTTON}>
                 {TEST_WORDS.another}

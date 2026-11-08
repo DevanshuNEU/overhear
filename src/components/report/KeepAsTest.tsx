@@ -1,17 +1,20 @@
 "use client";
 
 // "Keep as a test" on a call report (local mode only; the call screen and the test call result both render it, the hosted
-// demo never does). It starts as one button. Opened, it lists what Overhear said about the call: the verdict, always kept,
-// then the rules and call experience checks with the ones that matter ticked (keepModel.ts says which). Keeping posts to
-// /api/pins with what is ticked and what the screen showed, and the server refuses when the call reads differently now.
-// Every refusal is worded by the server (src/pull/labels.ts) and shown as it arrives. A call that is already kept reads
-// "Kept as a test" with Remove, on load too.
-import { useEffect, useId, useState } from "react";
+// demo never does). It is two parts that share one state, so the report's header can place them apart:
+//   - KeepAction: one quiet action in the header row beside the verdict. "Keep as a test"; once kept, "Kept as a test" and
+//     Remove. It takes no room from the verdict and its sentence.
+//   - KeepPanel: closed until the action is clicked, then it opens under the facts. It lists what Overhear said about the call:
+//     the verdict, always kept, then the rules and call experience checks with the ones that matter ticked (keepModel.ts says
+//     which). Keeping posts to /api/pins with what is ticked and what the screen showed, and the server refuses when the call
+//     reads differently now. Every refusal is worded by the server (src/pull/labels.ts) and shown as it arrives.
+// A call that is already kept reads "Kept as a test" with Remove, on load too. KeepAsTest is the two parts in a row, for a
+// place that has no header to split across.
+import { createContext, useContext, useEffect, useId, useState, type ReactNode } from "react";
 import { Check, Loader2, TriangleAlert } from "lucide-react";
-import { CONTRACT_TITLE, EXPERIENCE_TITLE, capitalize } from "@/report/labels";
+import { CONTRACT_TITLE, EXPERIENCE_TITLE, KEEP_NOTE_MAX, KEEP_WORDS, capitalize } from "@/report/labels";
 import type { CallReport } from "@/report/schema";
 import { keepItemsOf, pinBody, startTicks, tickKey, type KeepItems } from "./keepModel";
-import { KEEP_NOTE_MAX as PIN_NOTE_MAX, KEEP_WORDS } from "@/report/labels";
 import { ResultBadge, VerdictBadge } from "./StatusBadge";
 
 type Phase = "closed" | "open" | "saving" | "kept" | "removing";
@@ -22,6 +25,9 @@ const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
 const PRIMARY =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-report-accent px-4 text-sm font-semibold text-white enabled:hover:bg-report-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:opacity-70";
+// The quiet action: text in the accent, the look of the back link, no box.
+const QUIET =
+  "inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-report-accent underline-offset-2 enabled:hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -42,20 +48,19 @@ function Spin() {
   );
 }
 
-export function KeepAsTest({ report }: { report: CallReport }) {
+function useKeep(report: CallReport) {
   const items: KeepItems = keepItemsOf(report);
   const [phase, setPhase] = useState<Phase>("closed");
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => startTicks(items));
   const [note, setNote] = useState("");
   const [pins, setPins] = useState<Pins>("unknown");
   const [pinId, setPinId] = useState<string | null>(null);
+  const [justKept, setJustKept] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
-  const noteId = useId();
-  const noteHintId = useId();
+  const callId = report.callId;
 
   // Whether this call is kept already, and whether anything is kept at all (the first keep carries a warning). Until the
   // answer comes, or if it never does, the warning shows: it is the safe thing to say.
-  const callId = report.callId;
   useEffect(() => {
     let live = true;
     fetch("/api/pins", { cache: "no-store" })
@@ -93,6 +98,7 @@ export function KeepAsTest({ report }: { report: CallReport }) {
         const body: unknown = await res.json().catch(() => null);
         setPinId(isRec(body) && typeof body.id === "string" ? body.id : null);
         setPins("some");
+        setJustKept(true);
         setPhase("kept");
         return;
       }
@@ -111,6 +117,7 @@ export function KeepAsTest({ report }: { report: CallReport }) {
       const res = await fetch(`/api/pins/${encodeURIComponent(pinId)}`, { method: "DELETE", cache: "no-store" });
       if (res.ok) {
         setPinId(null);
+        setJustKept(false);
         setPhase("closed");
         return;
       }
@@ -120,6 +127,62 @@ export function KeepAsTest({ report }: { report: CallReport }) {
     }
     setPhase("kept");
   }
+
+  return { callId, items, phase, setPhase, ticked, toggle, note, setNote, pins, pinId, justKept, failure, keep, remove };
+}
+
+type Keep = ReturnType<typeof useKeep>;
+const KeepContext = createContext<Keep | null>(null);
+
+function useKeepContext(): Keep {
+  const keep = useContext(KeepContext);
+  if (!keep) throw new Error("keep-no-provider");
+  return keep;
+}
+
+export function KeepProvider({ report, children }: { report: CallReport; children: ReactNode }) {
+  return <KeepContext.Provider value={useKeep(report)}>{children}</KeepContext.Provider>;
+}
+
+/** The quiet action: Keep as a test, or, once kept, Kept as a test with Remove. Nothing while the panel is open. */
+export function KeepAction() {
+  const k = useKeepContext();
+  if (k.phase === "closed") {
+    return (
+      <button type="button" onClick={() => k.setPhase("open")} aria-expanded="false" className={QUIET}>
+        {KEEP_WORDS.open}
+      </button>
+    );
+  }
+  if (k.phase === "kept" || k.phase === "removing") {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm font-medium text-report-ink-2">
+          <Check aria-hidden className="size-4 text-report-accent" strokeWidth={2.5} />
+          {KEEP_WORDS.kept}
+        </span>
+        <button type="button" onClick={() => void k.remove()} disabled={k.phase === "removing" || k.pinId === null} className={QUIET}>
+          {k.phase === "removing" ? (
+            <>
+              <Spin />
+              {KEEP_WORDS.removing}
+            </>
+          ) : (
+            KEEP_WORDS.remove
+          )}
+        </button>
+      </span>
+    );
+  }
+  return null;
+}
+
+/** Where it was saved right after a keep, a refusal to remove, and, when the action is open, the list of what to keep. */
+export function KeepPanel() {
+  const k = useKeepContext();
+  const noteId = useId();
+  const noteHintId = useId();
+  const { items, callId, failure } = k;
 
   const alert = failure ? (
     <div role="alert" className="mt-4 text-sm">
@@ -135,46 +198,21 @@ export function KeepAsTest({ report }: { report: CallReport }) {
     </div>
   ) : null;
 
-  if (phase === "kept" || phase === "removing") {
-    return (
-      <div className="mt-6">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <p className="flex items-center gap-2 text-sm font-semibold">
-            <Check aria-hidden className="size-4 text-report-accent" strokeWidth={2.5} />
-            {KEEP_WORDS.kept}
-          </p>
-          <p className="text-[13px] text-report-muted">{KEEP_WORDS.keptWhere}</p>
-          <button type="button" onClick={() => void remove()} disabled={phase === "removing" || pinId === null} className={BUTTON}>
-            {phase === "removing" ? (
-              <>
-                <Spin />
-                {KEEP_WORDS.removing}
-              </>
-            ) : (
-              KEEP_WORDS.remove
-            )}
-          </button>
-        </div>
+  if (k.phase === "closed") return null;
+  if (k.phase === "kept" || k.phase === "removing") {
+    return k.justKept || alert ? (
+      <div className="mt-2">
+        {k.justKept ? <p className="text-[13px] text-report-muted">{KEEP_WORDS.keptWhere}</p> : null}
         {alert}
       </div>
-    );
+    ) : null;
   }
 
-  if (phase === "closed") {
-    return (
-      <div className="mt-6">
-        <button type="button" onClick={() => setPhase("open")} aria-expanded="false" className={BUTTON}>
-          {KEEP_WORDS.open}
-        </button>
-      </div>
-    );
-  }
-
-  const saving = phase === "saving";
+  const saving = k.phase === "saving";
   const row = "flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm";
   const box = "size-4 shrink-0 accent-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent";
   return (
-    <section aria-labelledby="keep-heading" className="mt-8 max-w-[640px] border-t border-report-line pt-6">
+    <section aria-labelledby="keep-heading" className="mt-6 max-w-[640px] border-t border-report-line pt-6">
       <h2 id="keep-heading" className="text-base font-semibold">
         {KEEP_WORDS.heading}
       </h2>
@@ -193,7 +231,7 @@ export function KeepAsTest({ report }: { report: CallReport }) {
             {items.contracts.map((c) => (
               <li key={c.id}>
                 <label className={row}>
-                  <input type="checkbox" className={box} checked={ticked.has(tickKey("contracts", c.id))} onChange={() => toggle(tickKey("contracts", c.id))} />
+                  <input type="checkbox" className={box} checked={k.ticked.has(tickKey("contracts", c.id))} onChange={() => k.toggle(tickKey("contracts", c.id))} />
                   <span className="min-w-0 flex-1">{capitalize(CONTRACT_TITLE[c.id])}</span>
                   <ResultBadge result={c.result} />
                 </label>
@@ -210,7 +248,7 @@ export function KeepAsTest({ report }: { report: CallReport }) {
             {items.experience.map((c) => (
               <li key={c.id}>
                 <label className={row}>
-                  <input type="checkbox" className={box} checked={ticked.has(tickKey("experience", c.id))} onChange={() => toggle(tickKey("experience", c.id))} />
+                  <input type="checkbox" className={box} checked={k.ticked.has(tickKey("experience", c.id))} onChange={() => k.toggle(tickKey("experience", c.id))} />
                   <span className="min-w-0 flex-1">{capitalize(EXPERIENCE_TITLE[c.id])}</span>
                   <span className={`text-[13px] ${c.result === "problem" ? "font-medium text-report-ink" : "text-report-muted"}`}>{c.result === "problem" ? KEEP_WORDS.problem : KEEP_WORDS.noProblem}</span>
                 </label>
@@ -227,20 +265,20 @@ export function KeepAsTest({ report }: { report: CallReport }) {
         <input
           id={noteId}
           type="text"
-          value={note}
-          maxLength={PIN_NOTE_MAX}
+          value={k.note}
+          maxLength={KEEP_NOTE_MAX}
           disabled={saving}
-          onChange={(e) => setNote(e.target.value.replace(/[\r\n]+/g, " "))}
+          onChange={(e) => k.setNote(e.target.value.replace(/[\r\n]+/g, " "))}
           aria-describedby={noteHintId}
           className="mt-1 block min-h-11 w-full rounded-md border border-report-line-strong bg-report-surface px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
         />
         <p id={noteHintId} className="mt-1 flex justify-between gap-4 text-[13px] text-report-muted">
           <span>{KEEP_WORDS.noteHint}</span>
-          {note.length >= PIN_NOTE_MAX - 40 ? <span className="tabular-nums">{KEEP_WORDS.noteCount(note.length, PIN_NOTE_MAX)}</span> : null}
+          {k.note.length >= KEEP_NOTE_MAX - 40 ? <span className="tabular-nums">{KEEP_WORDS.noteCount(k.note.length, KEEP_NOTE_MAX)}</span> : null}
         </p>
       </div>
 
-      {pins !== "some" ? (
+      {k.pins !== "some" ? (
         <p className="mt-5 flex gap-2 text-sm text-report-ink-2">
           <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-report-warning" />
           <span>{KEEP_WORDS.firstPin}</span>
@@ -248,7 +286,7 @@ export function KeepAsTest({ report }: { report: CallReport }) {
       ) : null}
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => void keep()} disabled={saving} className={PRIMARY}>
+        <button type="button" onClick={() => void k.keep()} disabled={saving} className={PRIMARY}>
           {saving ? (
             <>
               <Spin />
@@ -258,11 +296,23 @@ export function KeepAsTest({ report }: { report: CallReport }) {
             KEEP_WORDS.keep
           )}
         </button>
-        <button type="button" onClick={() => setPhase("closed")} disabled={saving} className={BUTTON}>
+        <button type="button" onClick={() => k.setPhase("closed")} disabled={saving} className={BUTTON}>
           {KEEP_WORDS.cancel}
         </button>
       </div>
       {alert}
     </section>
+  );
+}
+
+/** The action and the panel stacked, for a place with no header to split them across. */
+export function KeepAsTest({ report }: { report: CallReport }) {
+  return (
+    <KeepProvider report={report}>
+      <div>
+        <KeepAction />
+      </div>
+      <KeepPanel />
+    </KeepProvider>
   );
 }

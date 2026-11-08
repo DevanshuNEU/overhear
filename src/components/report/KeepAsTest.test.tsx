@@ -226,9 +226,48 @@ describe("the call report view", () => {
     expect(screen.queryByRole("button", { name: KEEP_WORDS.open })).toBeNull();
   });
 
-  it("shows Keep as a test under the facts when asked for", () => {
+  const follows = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("shows one quiet action in the header row beside the verdict, and no panel until it is clicked", () => {
     fakeServer();
     render(<CallReportView report={failedSample} keep />);
-    expect(screen.getByRole("button", { name: KEEP_WORDS.open })).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: KEEP_WORDS.open });
+    const row = screen.getByText(VERDICT_LABEL.failed).closest("div")!;
+    expect(row).toContainElement(button);
+    expect(screen.queryByRole("region", { name: KEEP_WORDS.heading })).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    // The sentence that answers the page follows the row at once: nothing sits between the verdict and it.
+    expect(row.nextElementSibling).toBe(screen.getByRole("heading", { level: 1 }));
+  });
+
+  it("opens the panel under the facts, so the verdict and its sentence stay where they were", () => {
+    fakeServer();
+    render(<CallReportView report={failedSample} keep />);
+    fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.open }));
+    const panel = screen.getByRole("region", { name: KEEP_WORDS.heading });
+    expect(follows(screen.getByRole("list", { name: "Key facts" }), panel)).toBe(true);
+    expect(follows(screen.getByRole("heading", { level: 1 }), panel)).toBe(true);
+    // While the panel is open the row's action is gone: the panel has its own Keep and Cancel.
+    expect(screen.getAllByRole("button", { name: KEEP_WORDS.keep })).toHaveLength(1);
+  });
+
+  it("reads Kept as a test with Remove in the same row after a keep, and says where it was saved", async () => {
+    fakeServer();
+    render(<CallReportView report={failedSample} keep />);
+    fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.open }));
+    fireEvent.click(screen.getByRole("button", { name: KEEP_WORDS.keep }));
+    const kept = await screen.findByText(KEEP_WORDS.kept);
+    const row = screen.getByText(VERDICT_LABEL.failed).closest("div")!;
+    expect(row).toContainElement(kept);
+    expect(row).toContainElement(screen.getByRole("button", { name: KEEP_WORDS.remove }));
+    expect(screen.getByText(KEEP_WORDS.keptWhere)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: KEEP_WORDS.heading })).toBeNull();
+  });
+
+  it("does not repeat where it was saved for a call that was already kept when the page loaded", async () => {
+    fakeServer({ pins: [{ id: "pin-call-sample-failed-1234abcd", callId: failedSample.callId }] });
+    render(<CallReportView report={failedSample} keep />);
+    expect(await screen.findByText(KEEP_WORDS.kept)).toBeInTheDocument();
+    expect(screen.queryByText(KEEP_WORDS.keptWhere)).toBeNull();
   });
 });

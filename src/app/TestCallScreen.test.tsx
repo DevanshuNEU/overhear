@@ -47,7 +47,7 @@ type Result = Record<string, unknown> | Refusal;
 const isRefusal = (r: Result): r is Refusal => typeof (r as Refusal).httpStatus === "number";
 
 /** A fake local server. `results` is the script for the result route: each ask takes the next entry, the last one repeats. */
-function fakeServer(opts: { agents?: unknown; agentsStatus?: number; start?: Response | (() => Response); results?: Result[] } = {}) {
+function fakeServer(opts: { agents?: unknown; agentsStatus?: number; start?: Response | (() => Response | Promise<Response>); results?: Result[] } = {}) {
   const calls: { method: string; url: string; body: unknown }[] = [];
   const asks: number[] = [];
   let ask = 0;
@@ -69,12 +69,14 @@ function fakeServer(opts: { agents?: unknown; agentsStatus?: number; start?: Res
       if (isRefusal(entry)) return json({ error: entry.error, message: entry.message }, entry.httpStatus);
       return json(entry);
     }
+    if (method === "POST" && url === "/api/test-calls/call_1/release") return json({ released: true });
     if (method === "GET" && url === "/api/pins") return json({ pins: [], problems: [] });
     throw new Error(`unexpected ${method} ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
   const asked = () => calls.filter((c) => c.url === "/api/test-calls/call_1/result").length;
-  return { calls, asked, asks };
+  const released = () => calls.filter((c) => c.method === "POST" && c.url === "/api/test-calls/call_1/release").length;
+  return { calls, asked, asks, released };
 }
 
 function allowMic(grant = true) {
@@ -468,20 +470,77 @@ describe("after the call", () => {
     expect(screen.getByRole("status")).not.toHaveTextContent(TEST_WORDS.unreachable);
   });
 
-  it("asks for the result when the connection fails before the call starts, and says so", async () => {
-    const server = fakeServer({ results: [{ status: "did_not_connect", message: TEST_CALL_DID_NOT_CONNECT_MESSAGE }] });
+  it("frees the server's slot when the connection fails before the call starts, says so, and does not ask for a result", async () => {
+    const server = fakeServer();
     render(<TestCallScreen />);
     await tick(0);
     await pickAgent();
     fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
     await tick(0);
     act(() => client().emit("error", "Error starting call"));
+    await tick(0);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(TEST_WORDS.couldntConnectLead);
     expect(screen.getByRole("alert")).toHaveTextContent(TEST_WORDS.connectionFailed);
     expect(screen.getByText(TEST_WORDS.factConnection).parentElement).toHaveTextContent(TEST_WORDS.connection.failed);
+    expect(server.released()).toBe(1);
+    expect(server.calls.find((c) => c.url.endsWith("/release"))).toMatchObject({ method: "POST", url: "/api/test-calls/call_1/release" });
+    await tick(20_000);
+    expect(server.asked()).toBe(0);
+    expect(screen.getByRole("button", { name: TEST_WORDS.another })).toBeEnabled();
+  });
+
+  it("frees the slot when the person ends the call before it connects, and says it was ended", async () => {
+    const server = fakeServer();
+    render(<TestCallScreen />);
+    await tick(0);
+    await pickAgent();
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await tick(0);
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.end }));
+    await tick(0);
+    expect(client().stopCall).toHaveBeenCalled();
+    expect(server.released()).toBe(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(TEST_WORDS.cancelledLead);
+    expect(screen.queryByRole("alert")).toBeNull();
+    await tick(20_000);
+    expect(server.asked()).toBe(0);
+    expect(screen.getByRole("button", { name: TEST_WORDS.another })).toBeEnabled();
+  });
+
+  it("does not free the slot for a call that connected, however it ended", async () => {
+    const server = fakeServer({ results: [{ status: "processing" }] });
+    render(<TestCallScreen />);
+    await liveWithFakeTimers();
+    hangUp();
     await tick(3_000);
-    expect(server.asked()).toBe(1);
-    expect(screen.getByText(TEST_CALL_DID_NOT_CONNECT_MESSAGE)).toBeInTheDocument();
+    expect(server.released()).toBe(0);
+  });
+
+  it("frees the slot when the screen goes away before the call connects", async () => {
+    const server = fakeServer();
+    const { unmount } = render(<TestCallScreen />);
+    await tick(0);
+    await pickAgent();
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await tick(0);
+    unmount();
+    expect(server.released()).toBe(1);
+  });
+
+  it("frees the slot when the screen goes away while the server is still starting the call", async () => {
+    let answer: (r: Response) => void = () => {};
+    const server = fakeServer({ start: () => new Promise<Response>((resolve) => (answer = resolve)) });
+    const { unmount } = render(<TestCallScreen />);
+    await tick(0);
+    await pickAgent();
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await tick(0);
+    unmount();
+    expect(server.released()).toBe(0);
+    answer(new Response(JSON.stringify(CALL)));
+    await tick(0);
+    expect(server.released()).toBe(1);
+    expect(clients).toHaveLength(0);
   });
 
   it("ends the call from the End button, and then waits for Retell", async () => {
@@ -507,12 +566,13 @@ describe("after the call", () => {
     expect(server.asked()).toBe(1);
   });
 
-  it("stops a live call when the screen goes away", async () => {
-    fakeServer();
+  it("stops a live call when the screen goes away, without freeing a slot the call still holds", async () => {
+    const server = fakeServer();
     const { unmount } = render(<TestCallScreen />);
     await liveWithFakeTimers();
     unmount();
     expect(client().stopCall).toHaveBeenCalled();
+    expect(server.released()).toBe(0);
   });
 
   it("starts over from Start another test call, with the agent still chosen and the old call gone", async () => {
