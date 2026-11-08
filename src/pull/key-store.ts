@@ -16,11 +16,15 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "@/local-store/private-dir";
+import { checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "@/local-store/private-dir";
 
 const CONFIG_FILE = "config.json";
 // Temp files from writeKey: `.config.json.<16 hex>.tmp`.
 const TEMP_FILE = tempNamePattern(CONFIG_FILE);
+// Every leftover temp holds a key, so none is spared for being recent (the helper's default spares the last minute).
+const ALL_TEMPS = { minAgeMs: 0 };
+
+const errno = (err: unknown) => (err as NodeJS.ErrnoException).code;
 
 export type KeyStoreErrorCode = "home_unsafe" | "file_unsafe";
 
@@ -74,7 +78,7 @@ export async function writeKey(key: string): Promise<void> {
   if (typeof key !== "string" || !isKeyShaped(key)) throw new Error("That is not a Retell API key.");
   const dir = overhearHome();
   await asKeyStoreError(() => ensurePrivateDir(dir));
-  await removeTemps(dir, TEMP_FILE);
+  await removeTemps(dir, TEMP_FILE, ALL_TEMPS);
   const body: ConfigFile = { retellApiKey: key };
   await asKeyStoreError(() => writePrivateFile(dir, CONFIG_FILE, JSON.stringify(body) + "\n"));
 }
@@ -103,9 +107,18 @@ export async function hasKey(): Promise<boolean> {
   return (await readKey()) !== null;
 }
 
-/** Deletes the key file and any temp file a crashed write left behind. Fine when there is none. */
+/**
+ * Deletes the key file and any temp file a crashed write left behind. Fine when there is none, or no home folder.
+ * Checks the home folder first, so a symlinked OVERHEAR_HOME cannot point the delete at another folder.
+ */
 export async function removeKey(): Promise<void> {
   const dir = overhearHome();
+  try {
+    await asKeyStoreError(() => checkPrivateDir(dir));
+  } catch (err) {
+    if (errno(err) === "ENOENT" || errno(err) === "ENOTDIR") return;
+    throw err;
+  }
   await fs.rm(path.join(dir, CONFIG_FILE), { force: true });
-  await removeTemps(dir, TEMP_FILE);
+  await removeTemps(dir, TEMP_FILE, ALL_TEMPS);
 }

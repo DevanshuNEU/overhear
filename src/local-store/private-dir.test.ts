@@ -236,6 +236,35 @@ describe("writePrivateFile and readPrivateFile", () => {
     expect(err.code).toBe("dir_unsafe");
   });
 
+  it("keeps reading until the end when the file system returns short reads", async () => {
+    await ensurePrivateDir(dir);
+    const file = path.join(dir, "pin-a.json");
+    const text = "abcdefghij".repeat(100);
+    await writePrivateFile(dir, "pin-a.json", text);
+    const realOpen = fs.promises.open.bind(fs.promises) as (...args: unknown[]) => Promise<fs.promises.FileHandle>;
+    const open = vi.spyOn(fs.promises, "open").mockImplementation((async (...args: unknown[]) => {
+      const handle = await realOpen(...args);
+      const realRead = handle.read.bind(handle) as (buffer: Buffer, offset: number, length: number, position: number) => Promise<{ bytesRead: number }>;
+      // At most 7 bytes per call, whatever was asked for.
+      handle.read = (async (buffer: Buffer, offset: number, length: number, position: number) => realRead(buffer, offset, Math.min(length, 7), position)) as typeof handle.read;
+      return handle;
+    }) as unknown as typeof fs.promises.open);
+    try {
+      expect(await readPrivateFile(file, { hint: HINT, maxBytes: 5000 })).toBe(text);
+      const err = await refusal(() => readPrivateFile(file, { hint: HINT, maxBytes: 999 }));
+      expect(err.code).toBe("file_too_large");
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("reads a file well past one read's worth under a cap", async () => {
+    await ensurePrivateDir(dir);
+    const text = "x".repeat(3 * 1024 * 1024);
+    await writePrivateFile(dir, "pin-big.json", text);
+    expect(await readPrivateFile(path.join(dir, "pin-big.json"), { hint: HINT, maxBytes: 5 * 1024 * 1024 })).toBe(text);
+  });
+
   it("enforces maxBytes: exactly the cap reads, one more byte is refused", async () => {
     await ensurePrivateDir(dir);
     const file = path.join(dir, "pin-a.json");
@@ -256,9 +285,37 @@ describe("removeTemps", () => {
     for (const name of temps) fs.writeFileSync(path.join(dir, name), "secret", { mode: 0o600 });
     fs.writeFileSync(path.join(dir, "pin-a.json"), "keep", { mode: 0o600 });
     fs.writeFileSync(path.join(dir, ".pin-b.json.0123456789abcdef.tmp"), "other file's temp", { mode: 0o600 });
-    await removeTemps(dir, pattern);
+    await removeTemps(dir, pattern, { minAgeMs: 0 });
     expect(fs.readdirSync(dir).sort()).toEqual([".pin-b.json.0123456789abcdef.tmp", "pin-a.json"]);
     await expect(removeTemps(path.join(root, "missing"), pattern)).resolves.toBeUndefined();
+  });
+
+  it("tests every name with fresh pattern state, even when the pattern is global or sticky", async () => {
+    await ensurePrivateDir(dir);
+    const names = [".pin-a.json.0123456789abcdef.tmp", ".pin-a.json.fedcba9876543210.tmp", ".pin-a.json.aaaaaaaaaaaaaaaa.tmp", ".pin-a.json.bbbbbbbbbbbbbbbb.tmp"];
+    for (const flags of ["g", "y", "gy"]) {
+      for (const name of names) fs.writeFileSync(path.join(dir, name), "secret", { mode: 0o600 });
+      const stateful = new RegExp(tempNamePattern("pin-a.json").source, flags);
+      await removeTemps(dir, stateful, { minAgeMs: 0 });
+      expect(fs.readdirSync(dir), flags).toEqual([]);
+    }
+  });
+
+  it("leaves a temp file changed in the last 60 seconds, so overlapping writes do not remove each other's", async () => {
+    await ensurePrivateDir(dir);
+    const pattern = tempNamePattern("pin-a.json");
+    const fresh = path.join(dir, ".pin-a.json.0123456789abcdef.tmp");
+    const stale = path.join(dir, ".pin-a.json.fedcba9876543210.tmp");
+    const edge = path.join(dir, ".pin-a.json.aaaaaaaaaaaaaaaa.tmp");
+    for (const file of [fresh, stale, edge]) fs.writeFileSync(file, "secret", { mode: 0o600 });
+    const ago = (seconds: number) => new Date(Date.now() - seconds * 1000);
+    fs.utimesSync(stale, ago(120), ago(120));
+    fs.utimesSync(edge, ago(30), ago(30));
+    await removeTemps(dir, pattern);
+    expect(fs.readdirSync(dir).sort()).toEqual([path.basename(edge), path.basename(fresh)].sort());
+    // The caller can ask for everything, as the key store does on disconnect.
+    await removeTemps(dir, pattern, { minAgeMs: 0 });
+    expect(fs.readdirSync(dir)).toEqual([]);
   });
 
   it("tempNamePattern matches what writePrivateFile makes, and treats the name literally", () => {

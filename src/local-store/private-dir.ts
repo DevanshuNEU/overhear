@@ -70,9 +70,17 @@ export function tempNamePattern(name: string): RegExp {
  * Deletes the files in `folder` whose names match `pattern` (temp files a crashed write left behind). Fine when the
  * folder is missing. It does not check the folder: callers must have passed it through ensurePrivateDir or
  * checkPrivateDir first, or a symlinked folder would have its files deleted.
+ *
+ * A temp file changed within the last `minAgeMs` (default 60 seconds) is left alone: it may belong to a write that is
+ * still running, and removing it would make that write's rename fail. Pass 0 to remove every match, as the key store
+ * does, because disconnecting must leave no copy of the key.
  */
-export async function removeTemps(folder: string, pattern: RegExp): Promise<void> {
+export async function removeTemps(folder: string, pattern: RegExp, options: { minAgeMs?: number } = {}): Promise<void> {
   const dir = path.resolve(folder);
+  const minAgeMs = options.minAgeMs ?? 60_000;
+  // A global or sticky pattern remembers lastIndex between test() calls and would skip names, so match with a copy
+  // that has neither flag.
+  const matches = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ""));
   let names: string[];
   try {
     names = await fs.readdir(dir);
@@ -80,7 +88,23 @@ export async function removeTemps(folder: string, pattern: RegExp): Promise<void
     if (errno(err) === "ENOENT" || errno(err) === "ENOTDIR") return;
     throw err;
   }
-  await Promise.all(names.filter((n) => pattern.test(n)).map((n) => fs.rm(path.join(dir, n), { force: true })));
+  const now = Date.now();
+  await Promise.all(
+    names
+      .filter((n) => matches.test(n))
+      .map(async (n) => {
+        const file = path.join(dir, n);
+        if (minAgeMs > 0) {
+          try {
+            if (now - (await fs.lstat(file)).mtimeMs < minAgeMs) return;
+          } catch (err) {
+            if (errno(err) === "ENOENT") return;
+            throw err;
+          }
+        }
+        await fs.rm(file, { force: true });
+      }),
+  );
 }
 
 /**
@@ -164,11 +188,17 @@ export async function readPrivateFile(filePath: string, options: ReadPrivateFile
     const cap = options.maxBytes;
     if (cap === undefined) return await handle.readFile("utf8");
     if (stat.size > cap) throw new PrivateStoreError("file_too_large", `${file} is bigger than ${cap} bytes. ${options.hint}`);
-    // Read one byte past the cap so a file that grew after the stat is still refused.
+    // A read may return fewer bytes than asked for, so keep reading until the end of the file or cap + 1 bytes. The
+    // extra byte is how a file that grew after the stat is still refused.
     const buffer = Buffer.alloc(cap + 1);
-    const { bytesRead } = await handle.read(buffer, 0, cap + 1, 0);
-    if (bytesRead > cap) throw new PrivateStoreError("file_too_large", `${file} is bigger than ${cap} bytes. ${options.hint}`);
-    return buffer.toString("utf8", 0, bytesRead);
+    let total = 0;
+    while (total < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, total, buffer.length - total, total);
+      if (bytesRead === 0) break;
+      total += bytesRead;
+    }
+    if (total > cap) throw new PrivateStoreError("file_too_large", `${file} is bigger than ${cap} bytes. ${options.hint}`);
+    return buffer.toString("utf8", 0, total);
   } finally {
     await handle.close();
   }
