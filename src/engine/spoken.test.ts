@@ -3,7 +3,7 @@
 // word (a call on Monday 2026-11-02, zone America/New_York). The blocks after it pin the conservative rules: a
 // value that is only unparsed, unresolvable or scrubbed never makes a field "differs".
 import { describe, expect, it } from "vitest";
-import { fieldCheck, formatValue, matchField, matchReadings, parseSpokenDateTimes, spokenValues, toLocal } from "./spoken";
+import { fieldCheck, formatValue, matchField, matchReadings, parseSpokenDateTimes, spokenValues, spokenYearDates, toLocal } from "./spoken";
 
 const call = Date.parse("2026-11-02T15:00:00Z"); // Monday, 10:00 in New York
 const ny = "America/New_York";
@@ -355,5 +355,40 @@ describe("display", () => {
     expect(fieldCheck("date", "date", "booked for the 6th", undefined, ctx)).toMatchObject({ committed: null, status: "unresolved" });
     expect(fieldCheck("time", "time", "at 3 PM", "soon", ctx)).toMatchObject({ committed: null, status: "unresolved" });
     expect(fieldCheck("note", "string", "fine", { a: 1 }, ctx)).toMatchObject({ committed: null, status: "unresolved" });
+  });
+});
+
+describe("spokenYearDates", () => {
+  const said = (text: string, start: number | null = call, tz = ny) => spokenYearDates(text, start, tz);
+
+  it("finds a full date with its year: where it sits, the date it names, how far from the call", () => {
+    const text = "Should I book Friday, November 6, 2026, at 9:00 a.m.?";
+    const [hit] = said(text);
+    expect(text.slice(hit.start, hit.end)).toBe("Friday, November 6, 2026");
+    expect(hit).toMatchObject({ date: "2026-11-06", daysFromCall: 4, sameYearAsCall: true });
+  });
+
+  it("reads digit and ordinal forms", () => {
+    expect(said("November 6th 2026").map((h) => h.date)).toEqual(["2026-11-06"]);
+    expect(said("the 6th of November, 2026").map((h) => h.date)).toEqual(["2026-11-06"]);
+  });
+
+  it("skips a date said without a year, and any date it cannot place", () => {
+    expect(said("Friday, November 6, at 9:00 a.m.")).toEqual([]);
+    expect(said("tomorrow at 3")).toEqual([]);
+    expect(said("February 30, 2026")).toEqual([]);
+  });
+
+  it("says nothing without the call's start, or in a zone it does not know", () => {
+    expect(said("November 6, 2026", null)).toEqual([]);
+    expect(said("November 6, 2026", call, "Not/AZone")).toEqual([]);
+  });
+
+  it("counts days from the call date in the report's zone, and says whether the years match", () => {
+    const lateDec = Date.parse("2026-12-28T15:00:00Z");
+    expect(said("January 5, 2027", lateDec, ny)[0]).toMatchObject({ daysFromCall: 8, sameYearAsCall: false });
+    const newYearsEve = Date.parse("2027-01-01T04:30:00Z"); // 11:30 p.m. on Dec 31 in New York
+    expect(said("December 30, 2026", newYearsEve, ny)[0]).toMatchObject({ daysFromCall: -1, sameYearAsCall: true });
+    expect(said("December 30, 2026", newYearsEve, "UTC")[0]).toMatchObject({ daysFromCall: -2, sameYearAsCall: false });
   });
 });

@@ -734,6 +734,38 @@ export function parseSpokenDateTimes(text: string, callStartMs: number | null, t
 
 const order = (k: string) => ["date", "monthDay", "time", "ampm"].indexOf(k);
 
+/** A full date the agent said with its year, where it sits in the words and how it relates to the call. */
+export interface SpokenYearDate {
+  /** Where the date starts and ends in the text, weekday and year included, so text.slice(start, end) is what was said. */
+  start: number;
+  end: number;
+  /** The date named, YYYY-MM-DD. */
+  date: string;
+  /** Whole days from the call's date to this date: negative for a date in the past. */
+  daysFromCall: number;
+  /** True when the date's year is the call's own year, both read in the call's zone. */
+  sameYearAsCall: boolean;
+}
+
+/**
+ * Every full date in the words that was said with a four-digit year ("Friday, November 6, 2026"), in order. Only
+ * dates the parser reads cleanly with a valid month, day and year come back; with no call start, or a zone Intl
+ * does not know, nothing does, since there is no call date to measure from.
+ */
+export function spokenYearDates(text: string, callStartMs: number | null, tz: string): SpokenYearDate[] {
+  const today = callDay(callStartMs, tz);
+  if (today === null) return [];
+  const callYear = civilFromDays(today).y;
+  const out: SpokenYearDate[] = [];
+  for (const e of scan(text).entries) {
+    const m = e.date;
+    if (!m || m.year === undefined || m.month === undefined || m.day === undefined || !validDate(m.year, m.month, m.day)) continue;
+    const day = daysFromCivil(m.year, m.month, m.day);
+    out.push({ start: m.start, end: m.end, date: ymd({ y: m.year, m: m.month, d: m.day }), daysFromCall: day - today, sameYearAsCall: m.year === callYear });
+  }
+  return out;
+}
+
 // ---------- Public: matching ----------
 
 type Compared = "match" | "differs" | "none";

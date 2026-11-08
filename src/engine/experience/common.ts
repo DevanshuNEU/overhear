@@ -8,9 +8,13 @@ export interface ExperienceOutcome {
   problems: ExperienceProblem[];
 }
 
-/** What a check gets besides the evidence: the speech detector's output for the call, so no check re-reads a rule the detector owns. */
+/**
+ * What a check gets besides the evidence: the speech detector's output for the call, so no check re-reads a rule the
+ * detector owns, and the zone the report reads dates in (the one the contracts use).
+ */
 export interface ExperienceContext {
   detections: Detection[];
+  tz: string;
 }
 
 /** One experience check: the call in, whether it ran and the problems it found out. Problems cite agent turns. */

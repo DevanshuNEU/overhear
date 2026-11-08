@@ -248,6 +248,31 @@ export function noWayForwardText(failedSeq: number, ev: Evidence): string {
   return `A tool failed at ${formatTime(failedSeq, ev)}, and the agent offered no way forward: no callback, no person to talk to, no time to try again.`;
 }
 
+/** A turn where the agent said something, with each thing it said quoted as it was said. */
+export interface SaidAt {
+  seq: number;
+  quotes: string[];
+}
+
+/**
+ * The text for a habit shown at one or more turns. One turn: every quote from it. Several: how many turns and when,
+ * with the first thing said as an example, so one habit is one line however often it repeats.
+ */
+function habitText(turns: SaidAt[], ev: Evidence, once: string, many: string): string {
+  if (turns.length === 1) return `At ${formatTime(turns[0].seq, ev)} ${once}: ${nameList(turns[0].quotes.map((q) => `"${q}"`))}.`;
+  return `The agent ${many} ${turns.length} times (at ${nameList(turns.map((t) => formatTime(t.seq, ev)))}), for example "${turns[0].quotes[0]}".`;
+}
+
+/** The problem text for a year read aloud for a date close to the call, at one turn or several. */
+export function yearAloudText(turns: SaidAt[], ev: Evidence): string {
+  return habitText(turns, ev, "the agent read the year aloud for a date this close", "read the year aloud for a date this close");
+}
+
+/** The problem text for a date or time read in computer format, at one turn or several. */
+export function computerFormatText(turns: SaidAt[], ev: Evidence): string {
+  return habitText(turns, ev, "the agent read a date or time in computer format", "read a date or time in computer format");
+}
+
 /** Why a promise is broken: the reason slot of the promise_backed template. */
 export type PromiseReason =
   | { why: "not_attempted"; kind?: ChangeKind }

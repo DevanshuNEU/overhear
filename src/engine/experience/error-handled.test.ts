@@ -18,7 +18,7 @@ const worked: ItemSpec = { kind: "tool_result", id: "tc_1", ok: true, platformOk
 /** The check on a call, with the detections the engine would hand it. */
 const run = (items: ItemSpec[], toolNames: string[] = ["schedule_appointment"]) => {
   const e = ev(items);
-  return errorHandled(e, { detections: detectAll(e, toolNames) });
+  return errorHandled(e, { detections: detectAll(e, toolNames), tz: "UTC" });
 };
 
 const OUTAGE: ItemSpec[] = [
@@ -128,9 +128,9 @@ describe("errorHandled: no way forward", () => {
 
   it("with no reliable order, 'after the failure' is unknowable: no no-way-forward problem, leaks still found", () => {
     const e = ev([agent("Booking now.", 1), call, failed, agent("Sorry, that did not work.", 5)], { ordering: "none" });
-    expect(errorHandled(e, { detections: [] })).toEqual({ ran: true, problems: [] });
+    expect(errorHandled(e, { detections: [], tz: "UTC" })).toEqual({ ran: true, problems: [] });
     const leaky = ev([call, failed, agent("It was a system error.", 5)], { ordering: "none" });
-    expect(errorHandled(leaky, { detections: [] }).problems.map((p) => p.text)).toEqual(['At 0:05 the agent read system details to the caller: "system error".']);
+    expect(errorHandled(leaky, { detections: [], tz: "UTC" }).problems.map((p) => p.text)).toEqual(['At 0:05 the agent read system details to the caller: "system error".']);
   });
 
   it("a way forward split across adjacent agent fragments counts", () => {
@@ -197,7 +197,7 @@ describe("errorHandled: leaked internals", () => {
   it("a tool call read aloud is quoted whole, its braces and JSON merged into it", () => {
     const text = 'Sure, book_appointment({"slotId": "s_1"}) is what I run.';
     const e = ev([agent(text, 2)]);
-    const out = errorHandled(e, { detections: detectAll(e, ["book_appointment"]) });
+    const out = errorHandled(e, { detections: detectAll(e, ["book_appointment"]), tz: "UTC" });
     expect(out.problems).toHaveLength(1);
     expect(out.problems[0].text).toBe('At 0:02 the agent read system details to the caller: "book_appointment({"slotId": "s_1"}".');
     expect(text).toContain('book_appointment({"slotId": "s_1"}');
@@ -214,7 +214,7 @@ describe("errorHandled: leaked internals", () => {
     const detections = detectAll(e, ["schedule_appointment"]);
     const syntax = detections.find((d) => d.cls === "tool_syntax");
     expect(syntax).toBeDefined();
-    const out = errorHandled(e, { detections });
+    const out = errorHandled(e, { detections, tz: "UTC" });
     expect(out.problems).toEqual([{ check: "error_handled", text: `At 0:02 the agent read system details to the caller: "${syntax?.quote}".`, seqs: [1] }]);
   });
 
@@ -244,7 +244,7 @@ describe("errorHandled: running", () => {
 
   it("every problem cites only agent turns and validates", () => {
     const e: Evidence = ev(OUTAGE);
-    const out = errorHandled(e, { detections: [] });
+    const out = errorHandled(e, { detections: [], tz: "UTC" });
     expect(out.problems).toHaveLength(2);
     for (const p of out.problems) {
       ExperienceProblemSchema.parse(p);
@@ -260,7 +260,7 @@ describe("errorHandled: running", () => {
 });
 
 describe("errorHandled: the samples", () => {
-  const onSample = (r: typeof failedSample) => errorHandled(r.evidence, { detections: r.detections });
+  const onSample = (r: typeof failedSample) => errorHandled(r.evidence, { detections: r.detections, tz: "UTC" });
 
   it("the outage call: the scheduling error read aloud, and a callback time given", () => {
     expect(onSample(needsReviewSample)).toEqual({

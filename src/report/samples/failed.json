@@ -9,7 +9,8 @@
   "experience": {
     "ran": [
       "agent_ends_call",
-      "error_handled"
+      "error_handled",
+      "spoken_format"
     ],
     "problems": []
   },

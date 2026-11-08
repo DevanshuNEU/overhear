@@ -11,7 +11,8 @@
   "experience": {
     "ran": [
       "agent_ends_call",
-      "error_handled"
+      "error_handled",
+      "spoken_format"
     ],
     "problems": [
       {
@@ -23,6 +24,15 @@
           44,
           46,
           48
+        ]
+      },
+      {
+        "check": "spoken_format",
+        "text": "The agent read the year aloud for a date this close 3 times (at 0:40, 1:19 and 1:47), for example \"Friday, November 6, 2026\".",
+        "seqs": [
+          14,
+          23,
+          34
         ]
       }
     ]
