@@ -33,6 +33,16 @@ export const EXPERIENCE_TITLE: Record<ExperienceCheckId, string> = {
   spoken_format: "dates and times read naturally",
 };
 
+/** The line under the verdict that says how the call sounded to the caller. Never changes the verdict. */
+export const experienceLine = (problems: number): string => (problems === 0 ? "Call experience: no problems found" : `Call experience: ${problems} ${problems === 1 ? "problem" : "problems"}`);
+
+/** Which call experience checks ran, so "no problems" says what it rests on. Only checks that ran are named. */
+export function experienceChecked(ran: ExperienceCheckId[]): string {
+  const titles = ran.map((id) => EXPERIENCE_TITLE[id]);
+  const list = titles.length > 1 ? `${titles.slice(0, -1).join(", ")} and ${titles[titles.length - 1]}` : titles.join("");
+  return `Checked: ${list}.`;
+}
+
 /** The sentence a note adds to a passed call. */
 export const NOTE_LINE: Record<Note, string> = {
   no_promises_made: "The agent made no promises.",

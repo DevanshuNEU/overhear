@@ -10,6 +10,8 @@ import {
   RESULT_LABEL,
   TIER_LABEL,
   capitalize,
+  experienceChecked,
+  experienceLine,
   formatDuration,
   rulesSummary,
 } from "./labels";
@@ -68,5 +70,19 @@ describe("words for a call with no report", () => {
   it("says what a record that is not a Retell call is, and what to pass instead", () => {
     expect(NOT_A_RETELL_CALL.message).toMatch(/call_id/);
     expect(NOT_A_RETELL_CALL.fix).toMatch(/get-call/);
+  });
+});
+
+describe("the call experience line", () => {
+  it("counts the problems, or says none were found", () => {
+    expect(experienceLine(0)).toBe("Call experience: no problems found");
+    expect(experienceLine(1)).toBe("Call experience: 1 problem");
+    expect(experienceLine(3)).toBe("Call experience: 3 problems");
+  });
+
+  it("names the checks that ran, in a sentence", () => {
+    expect(experienceChecked(["agent_ends_call"])).toBe("Checked: the agent ends the call.");
+    expect(experienceChecked(["agent_ends_call", "error_handled"])).toBe("Checked: the agent ends the call and errors handled well.");
+    expect(experienceChecked(["agent_ends_call", "error_handled", "spoken_format"])).toBe("Checked: the agent ends the call, errors handled well and dates and times read naturally.");
   });
 });

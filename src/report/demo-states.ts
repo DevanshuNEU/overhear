@@ -61,6 +61,37 @@ function buildSpokenNumbers(): CallReport {
 
 export const spokenNumbersSample: CallReport = buildSpokenNumbers();
 
+/** The passed sample with no call experience problem: the call kept its promises and sounded fine. */
+export const cleanSample: CallReport = CallReportSchema.parse({ ...renamed(passedSample, "call_demo_clean"), experience: { ran: passedSample.experience.ran, problems: [] } });
+
+const NOTHING_DONE_TURNS: [role: "agent" | "caller", text: string, startSec: number][] = [
+  ["agent", "Hello, this is Riley at Northwind Family Clinic. How may I help you today?", 0.5],
+  ["caller", "Hello?", 6.2],
+  ["agent", "Hi, I'm here. What can I help you with?", 7.9],
+  ["caller", "(unintelligible audio)", 11.4],
+];
+
+/** A short call where the caller said almost nothing and the agent took no action: nothing to check, so nothing done. */
+function buildNothingDone(): CallReport {
+  const base = renamed(passedSample, "call_demo_nothing_done");
+  return CallReportSchema.parse({
+    ...base,
+    verdict: "nothing_done",
+    notes: [],
+    headline: headlineFor("nothing_done", [], []),
+    experience: { ran: passedSample.experience.ran, problems: [] },
+    results: base.results.map((c) => ({ contract: c.contract, result: c.result === "not_run" ? "not_run" : "not_applicable", findings: [] })),
+    detections: [],
+    evidence: {
+      ...base.evidence,
+      callFields: { ...base.evidence.callFields, duration_ms: 14_000, call_analysis: {} },
+      items: NOTHING_DONE_TURNS.map(([role, text, startSec], i) => ({ kind: "turn" as const, seq: i + 1, role, text, startSec, interrupted: null })),
+    },
+  });
+}
+
+export const nothingDoneSample: CallReport = buildNothingDone();
+
 /** A record that fails the schema: its verdict says passed while a rule is violated. */
 const unreadableRecord = { ...renamed(failedSample, "call_demo_unreadable"), verdict: "passed" };
 
@@ -68,6 +99,8 @@ export async function demoSource(callId: string): Promise<unknown | undefined> {
   if (callId === "call_demo_unverified") return unverifiedSample;
   if (callId === "call_demo_spoken_numbers") return spokenNumbersSample;
   if (callId === "call_demo_unreadable") return unreadableRecord;
+  if (callId === "call_demo_clean") return cleanSample;
+  if (callId === "call_demo_nothing_done") return nothingDoneSample;
   // Slow to become ready, not slow to find: see readyDelay in store.ts.
   if (callId === "call_demo_slow") return renamed(failedSample, "call_demo_slow");
   return undefined;

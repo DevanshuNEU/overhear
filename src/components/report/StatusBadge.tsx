@@ -6,10 +6,10 @@ import type { Result, Verdict } from "@/report/schema";
 export type Tone = "critical" | "warning" | "calm" | "muted";
 
 const TONE_CLASS: Record<Tone, string> = {
-  critical: "bg-report-critical-tint text-report-critical",
-  warning: "bg-report-warning-tint text-report-warning",
-  calm: "bg-report-calm-mark text-report-ink",
-  muted: "text-report-muted",
+  critical: "border-transparent bg-report-critical-tint text-report-critical",
+  warning: "border-transparent bg-report-warning-tint text-report-warning",
+  calm: "border-transparent bg-report-calm-mark text-report-ink",
+  muted: "border-report-line-strong text-report-ink-2",
 };
 
 const TONE_ICON = { critical: X, warning: TriangleAlert, calm: Check, muted: Minus };
@@ -32,7 +32,7 @@ export const VERDICT_TONE: Record<Verdict, Tone> = {
 export function Badge({ tone, label }: { tone: Tone; label: string }) {
   const Icon = TONE_ICON[tone];
   return (
-    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium ${TONE_CLASS[tone]}`}>
+    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[13px] font-medium ${TONE_CLASS[tone]}`}>
       <Icon aria-hidden className="size-3.5" strokeWidth={2.5} />
       {label}
     </span>

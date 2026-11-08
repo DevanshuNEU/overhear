@@ -26,6 +26,8 @@ export type PullRow = {
   headline?: string;
   /** The sentence the call's report leads with (answerOf, the same one the call screen shows). Absent for a passed call. */
   lead?: string;
+  /** How many call experience problems the report found. Absent when there are none, or when none was checked. */
+  experienceProblems?: number;
 };
 
 export type PullProgress = {
@@ -90,7 +92,8 @@ function rowFor(meta: CallMeta, outcome: Outcome | null): PullRow {
   if (outcome === null) return { ...base, state: "pending" };
   if (outcome.kind === "report") {
     const lead = leadOf(outcome.report);
-    return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline, ...(lead ? { lead } : {}) };
+    const problems = outcome.report.experience.problems.length;
+    return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline, ...(lead ? { lead } : {}), ...(problems > 0 ? { experienceProblems: problems } : {}) };
   }
   return { ...base, state: outcome.kind };
 }

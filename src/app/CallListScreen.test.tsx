@@ -16,6 +16,7 @@ const HOUR = 3_600_000;
 const FAILED_LINE = headlineFor("failed", [], []);
 const REVIEW_LINE = headlineFor("needs_review", [], [{ kind: "deferral" }]);
 const PASSED_LINE = headlineFor("passed", [], []);
+const NOTHING_DONE_LINE = headlineFor("nothing_done", [], []);
 
 function row(i: number, patch: Partial<PullRow> = {}): PullRow {
   return { callId: `call_${i}`, startedAt: T0 - i * HOUR, durationMs: 161_000, state: "pending", ...patch };
@@ -24,8 +25,10 @@ function row(i: number, patch: Partial<PullRow> = {}): PullRow {
 const FAILED_LEAD = answerOf(failedSample)!.text;
 const REVIEW_LEAD = answerOf(needsReviewSample)!.text;
 const failedRow = (i: number) => row(i, { state: "report", verdict: "failed", headline: FAILED_LINE, lead: FAILED_LEAD });
-const reviewRow = (i: number) => row(i, { state: "report", verdict: "needs_review", headline: REVIEW_LINE, lead: REVIEW_LEAD });
-const passedRow = (i: number) => row(i, { state: "report", verdict: "passed", headline: PASSED_LINE });
+const reviewRow = (i: number, problems = 0) => row(i, { state: "report", verdict: "needs_review", headline: REVIEW_LINE, lead: REVIEW_LEAD, ...withProblems(problems) });
+const withProblems = (n: number): Partial<PullRow> => (n > 0 ? { experienceProblems: n } : {});
+const passedRow = (i: number, problems = 0) => row(i, { state: "report", verdict: "passed", headline: PASSED_LINE, ...withProblems(problems) });
+const nothingDoneRow = (i: number) => row(i, { state: "report", verdict: "nothing_done", headline: NOTHING_DONE_LINE });
 const noContentRow = (i: number) => row(i, { state: "no_content" });
 const errorRow = (i: number) => row(i, { state: "error" });
 
@@ -264,6 +267,39 @@ describe("when the pull is done", () => {
     renderList();
     await findRow("call_1");
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+  });
+
+  it("counts Nothing done calls in the summary, apart from passed, and lists them after the passed ones", async () => {
+    fakeServer([done([nothingDoneRow(1), passedRow(2), passedRow(3), nothingDoneRow(4)])]);
+    renderList();
+    const summary = await screen.findByLabelText(LIST_WORDS.summaryLabel);
+    expect(summary).toHaveTextContent(`2 ${VERDICT_LABEL.passed}`);
+    expect(summary).toHaveTextContent(`2 ${VERDICT_LABEL.nothing_done}`);
+    expect(idsInOrder()).toEqual(["call_2", "call_3", "call_1", "call_4"]);
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+  });
+
+  it("shows a Nothing done row as quietly as a passed one, with its headline in muted type, not bold", async () => {
+    fakeServer([done([nothingDoneRow(1), failedRow(2)])]);
+    renderList();
+    const quiet = await findRow("call_1");
+    expect(within(quiet).getByText(VERDICT_LABEL.nothing_done)).toBeInTheDocument();
+    const line = within(quiet).getByText(NOTHING_DONE_LINE);
+    expect(line).toHaveClass("text-report-muted");
+    expect(line).not.toHaveClass("font-medium");
+    const loud = within(rowFor(2)).getByText(FAILED_LEAD);
+    expect(loud).toHaveClass("font-medium");
+  });
+
+  it("says in a row that the call has call experience problems, in quiet type, for any verdict", async () => {
+    fakeServer([done([passedRow(1, 1), failedRow(2), reviewRow(3, 2)])]);
+    renderList();
+    await findRow("call_1");
+    const hint = within(rowFor(1)).getByText("Call experience: 1 problem");
+    expect(hint).not.toHaveClass("font-medium");
+    expect(hint.className).not.toMatch(/critical|warning/);
+    expect(within(rowFor(3)).getByText("Call experience: 2 problems")).toBeInTheDocument();
+    expect(within(rowFor(2)).queryByText(/Call experience/)).toBeNull();
   });
 
   it("links a call with a report to its report, and the rows read time, length, verdict and headline", async () => {

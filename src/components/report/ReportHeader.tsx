@@ -3,6 +3,7 @@ import type { CallReport } from "@/report/schema";
 import { FACT_LABEL, KEY_FACTS_LABEL, PLATFORM_LABEL, evidenceFact, formatDuration, rulesSummary } from "@/report/labels";
 import { answerOf } from "./answer";
 import { CopyId } from "./CopyId";
+import { ExperienceSection } from "./ExperienceSection";
 import { KeepAction, KeepPanel, KeepProvider } from "./KeepAsTest";
 import { VerdictBadge } from "./StatusBadge";
 import { formatStarted } from "./format";
@@ -18,6 +19,17 @@ function facts(report: CallReport): { label: string; value: string }[] {
     { label: FACT_LABEL.rules, value: rulesSummary(report.results) },
   ];
   return list.filter((f): f is { label: string; value: string } => f !== null);
+}
+
+/** A Nothing done headline says the verdict first and the reason after it, so the reason is set back in muted type. */
+function QuietHeadline({ text }: { text: string }) {
+  const cut = text.indexOf(". ");
+  if (cut === -1) return <span data-headline>{text}</span>;
+  return (
+    <span data-headline>
+      {text.slice(0, cut + 1)} <span data-headline-rest className="text-report-muted">{text.slice(cut + 2)}</span>
+    </span>
+  );
 }
 
 /**
@@ -39,8 +51,9 @@ export function ReportHeader({ report, keep = false }: { report: CallReport; kee
         ) : null}
       </div>
       <h1 className="mt-4 max-w-[46ch] break-words text-2xl font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">
-        {answer ? <span data-answer>{answer.text}</span> : <span data-headline>{report.headline}</span>}
+        {answer ? <span data-answer>{answer.text}</span> : report.verdict === "nothing_done" ? <QuietHeadline text={report.headline} /> : <span data-headline>{report.headline}</span>}
       </h1>
+      <ExperienceSection report={report} />
       <ul aria-label={KEY_FACTS_LABEL} className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 sm:flex sm:flex-wrap">
         {facts(report).map((f) => (
           <li key={f.label}>

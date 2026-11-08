@@ -360,3 +360,18 @@ describe("a row's lead sentence", () => {
     expect(rows.p.headline).toBe(passedSample.headline);
   });
 });
+
+describe("a row's call experience problems", () => {
+  it("counts the report's problems, and leaves the field off a call with none", async () => {
+    const reports: Record<string, Outcome> = {
+      a: { kind: "report", report: { ...passedSample, callId: "a" } },
+      b: { kind: "report", report: { ...failedSample, callId: "b" } },
+    };
+    const f = fake(["a", "b"]);
+    const id = startPull({ n: 2, analyze: (raw) => reports[(raw as { call_id: string }).call_id], ...tune(f) });
+    await whenSettled(id);
+    const rows = Object.fromEntries(getProgress(id)!.rows.map((row) => [row.callId, row]));
+    expect(rows.a.experienceProblems).toBe(passedSample.experience.problems.length);
+    expect(rows.b).not.toHaveProperty("experienceProblems");
+  });
+});
