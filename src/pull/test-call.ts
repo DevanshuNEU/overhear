@@ -46,21 +46,29 @@ type Deps = { tuning?: PullTuning };
 type Fail = { ok: false; code: TestCallErrorCode };
 const refuse = (code: TestCallErrorCode): Fail => ({ ok: false, code });
 
-type Known = { endedAt: number | null; inflight: Promise<ResultAnswer> | null };
+type Known = { endedAt: number | null; inflight: Promise<ResultAnswer> | null; startedAt: number };
 type State = {
   /** The call that holds the slot: callId is null while Retell is still being asked to start it. */
   active: { callId: string | null; since: number } | null;
   /** The calls this server started: when Retell first showed each as over, and the ask for its result that is under way. */
   known: Map<string, Known>;
+  /** The live transcript relay of each call, one at most. A handle is null until its relay is up. */
+  live: Map<string, LiveHandle | null>;
 };
+
+/** What the live transcript relay (live-transcript.ts) gives back so a Disconnect can stop it. */
+export type LiveHandle = { close(): void };
 
 const g = globalThis as typeof globalThis & { __overhearTestCalls?: State };
 // Read on every use, so a reset of the global (tests) takes effect.
-const getState = (): State => (g.__overhearTestCalls ??= { active: null, known: new Map() });
+const getState = (): State => (g.__overhearTestCalls ??= { active: null, known: new Map(), live: new Map() });
 
 /** Forgets every started call and frees the slot. Disconnect calls it, with the key. */
 export function clearTestCalls(): void {
+  const live = g.__overhearTestCalls?.live;
   g.__overhearTestCalls = undefined;
+  // Every live transcript relay is closed too: none may outlive the key it was opened with.
+  for (const handle of live?.values() ?? []) handle?.close();
 }
 
 const clock = (deps: Deps): number => (deps.tuning?.now ?? Date.now)();
@@ -157,7 +165,7 @@ export async function startTestCall(agentId: unknown, deps: Deps = {}): Promise<
     // A call that holds the key (a Retell that echoes it) is not passed on: the browser must never get it.
     if (holdsKey(made.value, key)) return release(state, slot, refuse("unreadable"));
     slot.callId = made.value.callId;
-    state.known.set(made.value.callId, { endedAt: null, inflight: null });
+    state.known.set(made.value.callId, { endedAt: null, inflight: null, startedAt: now });
     for (const id of [...state.known.keys()].slice(0, Math.max(0, state.known.size - MAX_KNOWN))) state.known.delete(id);
     return { ok: true, call: made.value };
   } catch (err) {
@@ -179,6 +187,37 @@ export function releaseTestCall(callId: string): { ok: true; released: boolean }
   const held = state.active?.callId === callId;
   if (held) state.active = null;
   return { ok: true, released: held };
+}
+
+/** The one live transcript relay a call may have. `attach` hands over what closes it; `release` ends the claim. */
+export type LiveClaim = { startedAt: number; attach(handle: LiveHandle): void; release(): void };
+
+/**
+ * Takes the live transcript claim of a call this server started. A call has one at most: a second ask is refused while the
+ * first is open. The claim is held until `release`. Never throws.
+ */
+export function claimLiveStream(callId: string): { ok: true; claim: LiveClaim } | Fail {
+  if (!RETELL_ID.test(callId)) return refuse("bad_call_id");
+  const state = getState();
+  const known = state.known.get(callId);
+  if (!known) return refuse("not_found");
+  if (state.live.has(callId)) return refuse("already_open");
+  state.live.set(callId, null);
+  let mine = true;
+  return {
+    ok: true,
+    claim: {
+      startedAt: known.startedAt,
+      attach: (handle) => {
+        if (mine && state.live.has(callId)) state.live.set(callId, handle);
+      },
+      release: () => {
+        if (!mine) return;
+        mine = false;
+        state.live.delete(callId);
+      },
+    },
+  };
 }
 
 /** Frees the slot if it is still the one this start took, and passes the failure on. */

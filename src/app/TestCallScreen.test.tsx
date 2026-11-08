@@ -361,6 +361,165 @@ describe("the live transcript", () => {
   });
 });
 
+// A stand-in for the browser's EventSource: records what was opened and lets a test send named events.
+class FakeEventSource {
+  static all: FakeEventSource[] = [];
+  closed = false;
+  onerror: ((ev: Event) => void) | null = null;
+  private listeners = new Map<string, ((ev: Event) => void)[]>();
+  constructor(public url: string) {
+    FakeEventSource.all.push(this);
+  }
+  addEventListener(name: string, handler: (ev: Event) => void) {
+    this.listeners.set(name, [...(this.listeners.get(name) ?? []), handler]);
+  }
+  close() {
+    this.closed = true;
+  }
+  send(name: string, data?: unknown) {
+    if (this.closed) return;
+    const ev = new MessageEvent(name, { data: data === undefined ? "" : JSON.stringify(data) });
+    for (const handler of this.listeners.get(name) ?? []) handler(ev);
+  }
+  fail() {
+    this.onerror?.(new Event("error"));
+  }
+}
+const source = () => {
+  const s = FakeEventSource.all[FakeEventSource.all.length - 1];
+  if (!s) throw new Error("no stream was opened");
+  return s;
+};
+const said = (id: string, role: string, content: string, time_sec: number) => act(() => source().send("utterance", { id, role, content, time_sec }));
+
+describe("the live transcript from the server stream", () => {
+  beforeEach(() => {
+    FakeEventSource.all = [];
+    vi.stubGlobal("EventSource", FakeEventSource);
+  });
+
+  it("opens the stream of the call when it starts, and not before", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await pickAgent();
+    fireEvent.click(screen.getByRole("button", { name: TEST_WORDS.start }));
+    await waitFor(() => expect(client().startCall).toHaveBeenCalled());
+    expect(FakeEventSource.all).toHaveLength(0);
+    act(() => {
+      client().connected = true;
+      client().emit("call_started");
+    });
+    expect(FakeEventSource.all.map((s) => s.url)).toEqual(["/api/test-calls/call_1/live"]);
+  });
+
+  it("shows the turns, merged by id: a repeated utterance replaces its text and keeps its place", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    const log = screen.getByRole("log", { name: TEST_WORDS.transcriptLive });
+    await said("u1", "agent", "Thanks for calling", 0.4);
+    await said("u2", "user", "I need Dr. Nayar", 3.1);
+    await said("u1", "agent", "Thanks for calling Northwind.", 0.4);
+    const turns = within(log).getAllByRole("listitem");
+    expect(turns).toHaveLength(2);
+    expect(turns[0]).toHaveTextContent(`${TEST_WORDS.agentTurn}Thanks for calling Northwind.`);
+    expect(turns[1]).toHaveTextContent(`${TEST_WORDS.callerTurn}I need Dr. Nayar`);
+    expect(log).not.toHaveTextContent(TEST_WORDS.transcriptWaiting);
+  });
+
+  it("orders by time, then by arrival, however the utterances arrive", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    await said("b", "user", "second", 2);
+    await said("a", "agent", "first", 1);
+    await said("c", "agent", "third", 2);
+    const turns = within(screen.getByRole("log")).getAllByRole("listitem");
+    expect(turns.map((t) => t.textContent)).toEqual([`${TEST_WORDS.agentTurn}first`, `${TEST_WORDS.callerTurn}second`, `${TEST_WORDS.agentTurn}third`]);
+  });
+
+  it("ignores anything that is not an agent or user utterance, and a payload that is not one", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    await said("t1", "tool_call_result", "TOOL", 1);
+    await said("t2", "node_transition", "NODE", 2);
+    act(() => source().send("utterance", { id: "x", role: "agent", content: 5, time_sec: 3 }));
+    act(() => source().send("utterance", { role: "agent", content: "no id", time_sec: 3 }));
+    act(() => source().send("utterance", "just text"));
+    await said("u1", "agent", "Hello.", 4);
+    const log = screen.getByRole("log");
+    expect(within(log).getAllByRole("listitem")).toHaveLength(1);
+    expect(log).not.toHaveTextContent("TOOL");
+    expect(log).not.toHaveTextContent("NODE");
+  });
+
+  it("keeps the SDK's update as the fallback until the stream has said something, then leaves the stream in charge", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    await update([{ role: "agent", content: "From the data channel" }]);
+    expect(screen.getByRole("log")).toHaveTextContent("From the data channel");
+    await said("u1", "agent", "From the stream", 1);
+    expect(screen.getByRole("log")).not.toHaveTextContent("From the data channel");
+    await update([{ role: "agent", content: "Late data channel text" }]);
+    const turns = within(screen.getByRole("log")).getAllByRole("listitem");
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toHaveTextContent("From the stream");
+  });
+
+  it("closes the stream when the server says the call ended, on trouble, and on a dropped connection, without opening another", async () => {
+    for (const how of ["end", "problem", "error"]) {
+      cleanup();
+      clients.length = 0;
+      FakeEventSource.all = [];
+      fakeServer();
+      render(<TestCallScreen />);
+      await goLive();
+      await said("u1", "agent", "Hello.", 1);
+      if (how === "error") act(() => source().fail());
+      else act(() => source().send(how, how === "end" ? {} : { error: "network", message: "x" }));
+      expect(source().closed, how).toBe(true);
+      expect(FakeEventSource.all, how).toHaveLength(1);
+      // What was said stays on screen.
+      expect(screen.getByRole("log"), how).toHaveTextContent("Hello.");
+    }
+  });
+
+  it("closes the stream a moment after the call ends, so the last words still arrive", async () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    vi.useFakeTimers();
+    hangUp();
+    await said("u9", "user", "Goodbye.", 9);
+    expect(source().closed).toBe(false);
+    expect(screen.getByRole("log")).toHaveTextContent("Goodbye.");
+    act(() => {
+      vi.advanceTimersByTime(3100);
+    });
+    expect(source().closed).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("closes the stream when the screen goes away mid-call", async () => {
+    fakeServer();
+    const { unmount } = render(<TestCallScreen />);
+    await goLive();
+    unmount();
+    expect(source().closed).toBe(true);
+  });
+
+  it("works when the browser has no EventSource: the SDK's update still shows the turns", async () => {
+    vi.stubGlobal("EventSource", undefined);
+    fakeServer();
+    render(<TestCallScreen />);
+    await goLive();
+    await update([{ role: "agent", content: "Still here." }]);
+    expect(screen.getByRole("log")).toHaveTextContent("Still here.");
+  });
+});
+
 describe("after the call", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
