@@ -6,6 +6,19 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkPrivateDir, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "./private-dir";
 
+/** True where `mkfifo` exists and works (not Windows). Probed once, so the FIFO test skips instead of passing empty. */
+const HAS_MKFIFO = (() => {
+  const probe = fs.mkdtempSync(path.join(os.tmpdir(), "overhear-mkfifo-probe-"));
+  try {
+    execFileSync("mkfifo", [path.join(probe, "p")], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    fs.rmSync(probe, { recursive: true, force: true });
+  }
+})();
+
 let root: string;
 let dir: string;
 
@@ -160,18 +173,18 @@ describe("writePrivateFile and readPrivateFile", () => {
     expect(mode(path.join(dir, "pin-a.json"))).toBe(0o600);
   });
 
-  it.skipIf(process.platform === "win32")("refuses a pipe at the file's place without hanging", async () => {
-    await ensurePrivateDir(dir);
-    const fifo = path.join(dir, "pin-a.json");
-    try {
+  it.skipIf(!HAS_MKFIFO)(
+    "refuses a pipe at the file's place without hanging",
+    async () => {
+      await ensurePrivateDir(dir);
+      const fifo = path.join(dir, "pin-a.json");
       execFileSync("mkfifo", ["-m", "600", fifo]);
-    } catch {
-      return; // no mkfifo here
-    }
-    const err = await refusal(() => readPrivateFile(fifo, { hint: HINT }));
-    expect(err).toBeInstanceOf(PrivateStoreError);
-    expect(err.code).toBe("file_unsafe");
-  });
+      const err = await refusal(() => readPrivateFile(fifo, { hint: HINT }));
+      expect(err).toBeInstanceOf(PrivateStoreError);
+      expect(err.code).toBe("file_unsafe");
+    },
+    5000,
+  );
 
   it("returns null when the file is missing", async () => {
     await ensurePrivateDir(dir);

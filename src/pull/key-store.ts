@@ -76,7 +76,7 @@ export async function writeKey(key: string): Promise<void> {
   await asKeyStoreError(() => ensurePrivateDir(dir));
   await removeTemps(dir, TEMP_FILE);
   const body: ConfigFile = { retellApiKey: key };
-  await writePrivateFile(dir, CONFIG_FILE, JSON.stringify(body) + "\n");
+  await asKeyStoreError(() => writePrivateFile(dir, CONFIG_FILE, JSON.stringify(body) + "\n"));
 }
 
 /**
