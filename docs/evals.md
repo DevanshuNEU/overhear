@@ -43,7 +43,7 @@ A pinned call is a case a person saved from a real call, so the engine keeps rea
 
 - `source` is `real`, `platform` is `retell`, `independent` is `false` and `locked` is `true`.
 - `tz` is required: the zone the call was pinned in, so spoken times read the same later.
-- `label.by` is `you`. `label.note`, when present, is one line of plain text of at most 280 characters: no control characters, escape sequences or line separators.
+- `label.by` is `you`. `label.note`, when present, is one line of plain text of at most 280 characters: no control characters, escape sequences, line separators or invisible format characters (zero-width and direction marks, bidi overrides and isolates, the byte order mark, tag characters).
 - `pin` holds `callId`, `agentId` (letters, digits, hyphens and underscores), `agentVersion` (`null`, or letters, digits, dots, hyphens and underscores, at most 64), `pinnedWith` (the Overhear version that read it: letters, digits, dots, plus and hyphen, at most 64) and, for a fix pin, `fixes`: the id of the pinned case it fixes, never the pin's own id.
 - `record.call_id` equals `pin.callId`, and `record.agent_id`, when the record has one, equals `pin.agentId`.
 - `expect.verdict` is always kept. `expect.contracts` and `expect.experience` hold only the items the person ticked.

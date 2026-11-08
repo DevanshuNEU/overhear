@@ -51,8 +51,13 @@ const PLATFORM_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const AGENT_VERSION = /^[0-9A-Za-z._-]{1,64}$/;
 const PINNED_WITH = /^[0-9A-Za-z.+-]{1,64}$/;
 
-/** C0 and C1 controls (newlines and escape sequences included), DEL, and the Unicode line and paragraph separators. */
-const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u{2028}\u{2029}]/u;
+/**
+ * What a pinned call's note may not contain: C0 and C1 controls (newlines and escape sequences included), DEL, the
+ * Unicode line and paragraph separators, and invisible format characters: zero-width and direction marks
+ * (U+200B to U+200F), bidi embeddings, overrides and isolates (U+202A to U+202E, U+2066 to U+2069), the byte order
+ * mark and the tag characters. A bidi override can reorder a printed note in a terminal.
+ */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u{200B}-\u{200F}\u{2028}-\u{202E}\u{2066}-\u{2069}\u{FEFF}\u{E0000}-\u{E007F}]/u;
 
 /**
  * Where a pinned call came from: the call and agent it was pinned from, the Overhear version that read it, and

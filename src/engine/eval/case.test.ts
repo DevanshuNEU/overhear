@@ -178,6 +178,27 @@ describe("a pinned call", () => {
     expect(problems(pinned({ record: { call_id: "call_8f2a9c" }, ...over }))).toContain(where);
   });
 
+  it.each([
+    ["a right-to-left override (U+202E)", "\u{202E}"],
+    ["a bidi embedding (U+202A)", "\u{202A}"],
+    ["a bidi pop (U+202C)", "\u{202C}"],
+    ["a bidi isolate (U+2066)", "\u{2066}"],
+    ["a bidi isolate pop (U+2069)", "\u{2069}"],
+    ["a zero-width space (U+200B)", "\u{200B}"],
+    ["a left-to-right mark (U+200E)", "\u{200E}"],
+    ["a right-to-left mark (U+200F)", "\u{200F}"],
+    ["a byte order mark (U+FEFF)", "\u{FEFF}"],
+    ["a tag character (U+E0041)", "\u{E0041}"],
+    ["the first tag character (U+E0000)", "\u{E0000}"],
+    ["the last tag character (U+E007F)", "\u{E007F}"],
+  ])("rejects invisible format characters in the note: %s", (_what, ch) => {
+    expect(problems(pinned({ label: { by: "you", at: "2026-11-08", note: `a${ch}b` } }))).toContain("label.note");
+  });
+
+  it("accepts ordinary non-ASCII text in the note", () => {
+    expect(problems(pinned({ label: { by: "you", at: "2026-11-08", note: "caf\u{E9} d\u{E9}j\u{E0} vu, \u{65E5}\u{672C}\u{8A9E}" } }))).toBe("");
+  });
+
   it("accepts a record whose call_id and agent_id match the pin, and a record with no agent_id", () => {
     expect(problems(pinned({ record: { call_id: "call_8f2a9c", agent_id: "agent_1c9e0d" } }))).toBe("");
     expect(problems(pinned({ record: { call_id: "call_8f2a9c" } }))).toBe("");
