@@ -5,7 +5,9 @@
 // metadata and dynamic variables, the summary, cost and latency. Tool arguments and results are never altered,
 // because the verdict depends on them.
 //
-// Pure: no clock, no disk, no network. The input is never changed; the answer shares nothing with it.
+// Pure: no clock, no disk, no network. The input is never changed; the answer shares nothing with it. Every read is
+// of an own property, so nothing is picked up from a prototype. A record that cannot be copied (nested so deep that
+// the copy overflows the stack) gives an empty record: nothing is kept rather than something half-trimmed.
 
 type Rec = Record<string, unknown>;
 
@@ -29,6 +31,9 @@ const KEPT_ANALYSIS = { call_successful: "boolean", user_sentiment: "string", in
 /** The transcripts in the order the adapter reads them: the first one that is a non-empty list wins, the rest go. */
 const TRANSCRIPTS = ["transcript_with_tool_calls", "scrubbed_transcript_with_tool_calls", "transcript_object"] as const;
 
+/** Fields dropped from every kept utterance: an opaque model value, not evidence of what was said or done. */
+const DROPPED_FROM_UTTERANCES = ["thought_signature"] as const;
+
 const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
 const isPlain = (v: unknown): v is string | number | boolean => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 const has = (o: Rec, key: string): boolean => Object.prototype.hasOwnProperty.call(o, key);
@@ -36,14 +41,26 @@ const has = (o: Rec, key: string): boolean => Object.prototype.hasOwnProperty.ca
 /** The record itself, out of a webhook or custom-function body when it is wrapped in one (as the adapter does). */
 function unwrap(raw: unknown): Rec {
   if (!isRec(raw)) return {};
-  return !has(raw, "call_id") && isRec(raw.call) ? raw.call : raw;
+  return !has(raw, "call_id") && has(raw, "call") && isRec(raw.call) ? raw.call : raw;
+}
+
+const withoutUrl = (m: Rec): Rec => Object.fromEntries(Object.entries(m).filter(([k]) => k !== "url"));
+
+/** An SMS's attachments without their links. A list keeps its objects, a single object is cleaned, anything else goes. */
+function cleanMultimedia(m: unknown): unknown {
+  if (Array.isArray(m)) return m.filter(isRec).map(withoutUrl);
+  return isRec(m) ? withoutUrl(m) : undefined;
 }
 
 /** A copy of one utterance. An SMS keeps its words but loses the link of each attachment; anything else stays whole. */
 function keepUtterance(u: unknown): unknown {
   const copy = structuredClone(u);
-  if (isRec(copy) && copy.role === "sms" && Array.isArray(copy.multimedia)) {
-    copy.multimedia = copy.multimedia.map((m: unknown) => (isRec(m) ? Object.fromEntries(Object.entries(m).filter(([k]) => k !== "url")) : m));
+  if (!isRec(copy)) return copy;
+  for (const key of DROPPED_FROM_UTTERANCES) delete copy[key];
+  if (copy.role === "sms" && has(copy, "multimedia")) {
+    const media = cleanMultimedia(copy.multimedia);
+    if (media === undefined) delete copy.multimedia;
+    else copy.multimedia = media;
   }
   return copy;
 }
@@ -57,15 +74,23 @@ function keepAnalysis(a: Rec): Rec {
   return out;
 }
 
-/** The record a pin stores. Anything that is not a call record gives an empty one, so nothing leaks through. */
-export function minimizeRecord(raw: unknown): unknown {
-  const call = unwrap(raw);
+function trim(call: Rec): Rec {
   const out: Rec = {};
   for (const key of KEPT_SCALARS) {
     if (has(call, key) && isPlain(call[key])) out[key] = call[key];
   }
-  if (isRec(call.call_analysis)) out.call_analysis = keepAnalysis(call.call_analysis);
-  const source = TRANSCRIPTS.find((key) => Array.isArray(call[key]) && call[key].length > 0);
+  if (has(call, "call_analysis") && isRec(call.call_analysis)) out.call_analysis = keepAnalysis(call.call_analysis);
+  const source = TRANSCRIPTS.find((key) => has(call, key) && Array.isArray(call[key]) && call[key].length > 0);
   if (source) out[source] = (call[source] as unknown[]).map(keepUtterance);
   return out;
+}
+
+/** The record a pin stores. Anything that is not a call record, or cannot be copied, gives an empty one. */
+export function minimizeRecord(raw: unknown): unknown {
+  try {
+    return trim(unwrap(raw));
+  } catch {
+    // structuredClone throws a RangeError on input nested too deeply, and other errors on what is not plain data.
+    return {};
+  }
 }

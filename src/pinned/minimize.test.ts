@@ -128,6 +128,51 @@ describe("minimizeRecord", () => {
     expect(minimizeRecord(raw)).toEqual({});
   });
 
+  it("drops thought_signature from every kept utterance and leaves the rest of it alone", () => {
+    const record = {
+      call_id: "c",
+      transcript_with_tool_calls: [
+        { role: "tool_call_invocation", tool_call_id: "t1", name: "book", arguments: "{}", thought_signature: CANARY },
+        { role: "agent", content: "hi", words: [], thought_signature: CANARY },
+        { role: "tool_call_result", tool_call_id: "t1", content: "{}", successful: true },
+      ],
+    };
+    const list = asRec(minimizeRecord(record)).transcript_with_tool_calls as Rec[];
+    expect(list[0]).toEqual({ role: "tool_call_invocation", tool_call_id: "t1", name: "book", arguments: "{}" });
+    expect(list[1]).toEqual({ role: "agent", content: "hi", words: [] });
+    expect(list[2]).toEqual(record.transcript_with_tool_calls[2]);
+    expect(JSON.stringify(list)).not.toContain(CANARY);
+  });
+
+  it("drops an SMS multimedia that is not a list, strips the url of a single object, and drops non-object items", () => {
+    const sms = (multimedia: unknown): Rec => ({ role: "sms", content: "x", time_sec: 1, multimedia });
+    const kept = (u: Rec): Rec => (asRec(minimizeRecord({ call_id: "c", transcript_with_tool_calls: [u] })).transcript_with_tool_calls as Rec[])[0];
+    expect(kept(sms(`https://x/${CANARY}`))).toEqual({ role: "sms", content: "x", time_sec: 1 });
+    expect(kept(sms(null))).toEqual({ role: "sms", content: "x", time_sec: 1 });
+    expect(kept(sms({ url: `https://x/${CANARY}`, summary: "s" }))).toEqual({ role: "sms", content: "x", time_sec: 1, multimedia: { summary: "s" } });
+    expect(kept(sms([`https://x/${CANARY}`, { url: "https://x/2", summary: "s" }]))).toEqual({ role: "sms", content: "x", time_sec: 1, multimedia: [{ summary: "s" }] });
+  });
+
+  it("gives an empty record, and does not throw, when the input is too deeply nested to copy", () => {
+    let deep: Rec = { role: "tool_call_result", tool_call_id: "t", content: "x" };
+    for (let i = 0; i < 200_000; i++) deep = { next: deep };
+    const record = { call_id: "c", transcript_with_tool_calls: [{ role: "agent", content: "hi" }, deep] };
+    expect(() => minimizeRecord(record)).not.toThrow();
+    expect(minimizeRecord(record)).toEqual({});
+  });
+
+  it("reads call, call_analysis and the transcripts as own properties only, never from the prototype", () => {
+    const proto = { call_id: "inherited", call_analysis: { call_successful: true }, transcript_with_tool_calls: [{ role: "agent", content: CANARY }] };
+    const inherited = Object.create(proto) as Rec;
+    expect(minimizeRecord(inherited)).toEqual({});
+    const wrapped = Object.create({ call: { call_id: "inherited", agent_id: CANARY } }) as Rec;
+    expect(minimizeRecord(wrapped)).toEqual({});
+    const partly = Object.assign(Object.create(proto) as Rec, { call_id: "own" });
+    expect(minimizeRecord(partly)).toEqual({ call_id: "own" });
+    const analysis = Object.assign(Object.create(null) as Rec, { call_id: "own", call_analysis: Object.create({ call_successful: true }) });
+    expect(asRec(minimizeRecord(analysis)).call_analysis).toEqual({});
+  });
+
   it("keeps a __proto__ key in a tool result as data and does not touch the prototype", () => {
     const record = JSON.parse(
       `{"call_id":"c","__proto__":{"polluted":true},"transcript_with_tool_calls":[{"role":"tool_call_result","tool_call_id":"t","content":"{}","__proto__":{"polluted":true}}]}`,
@@ -173,5 +218,29 @@ describe("a trimmed record reads the same as the full one", () => {
     const full = analyzeRetellCall(c.record, options);
     const trimmed = analyzeRetellCall(minimizeRecord(c.record), options);
     expect(outcomeView(trimmed)).toEqual(outcomeView(full));
+  });
+});
+
+describe("a pinned call with an SMS attachment", () => {
+  it("reads the same, and its items differ only by the attachment url", () => {
+    const base = sampleCases().find((c) => c.id === "sample-passed");
+    if (!base) throw new Error("sample-passed is missing");
+    const list = base.record.transcript_with_tool_calls as Rec[];
+    const sms = { role: "sms", content: "photo of the card", time_sec: 5, multimedia: [{ url: `https://x/${CANARY}`, summary: "an insurance card" }] };
+    const record = { ...base.record, transcript_with_tool_calls: [list[0], sms, ...list.slice(1)] };
+    const options = { tz: base.tz ?? "UTC" };
+
+    const full = analyzeRetellCall(record, options);
+    const trimmed = analyzeRetellCall(minimizeRecord(record), options);
+    if (full.kind !== "report" || trimmed.kind !== "report") throw new Error("both records should give a report");
+    expect(trimmed.report.verdict).toBe(full.report.verdict);
+    expect(trimmed.report.results).toEqual(full.report.results);
+    expect(trimmed.report.experience).toEqual(full.report.experience);
+
+    const smsItem = (r: typeof full) => r.report.evidence.items.find((i) => i.kind === "event" && i.type === "sms");
+    expect(JSON.stringify(smsItem(full))).toContain(CANARY);
+    expect(JSON.stringify(smsItem(trimmed))).not.toContain(CANARY);
+    const withoutUrl = (r: typeof full) => JSON.stringify(r.report.evidence.items).replace(/"url":"[^"]*",?/g, "").replace(/,}/g, "}");
+    expect(withoutUrl(trimmed)).toBe(withoutUrl(full));
   });
 });
