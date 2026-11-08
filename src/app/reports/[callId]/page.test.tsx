@@ -4,8 +4,12 @@ import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import ReportPage, { generateMetadata } from "./page";
 import { failedSample } from "@/report/samples";
+import { KEEP_WORDS } from "@/report/labels";
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 const params = (callId: string) => ({ params: Promise.resolve({ callId }) });
 
@@ -47,5 +51,29 @@ describe("/reports/[callId]", () => {
 
   it("titles the tab with the call id alone when there is no report to read", async () => {
     expect(await generateMetadata(params("call_nope"))).toEqual({ title: "call_nope - Overhear" });
+  });
+
+  describe("Keep as a test", () => {
+    const keepButton = () => screen.queryByRole("button", { name: KEEP_WORDS.open });
+
+    it("is not on a hosted copy, for a sample or a demo state", async () => {
+      vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
+      render(await ReportPage(params("call_demo_unverified")));
+      expect(keepButton()).toBeNull();
+    });
+
+    it("is not on a built-in sample, even in local mode", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "1");
+      render(await ReportPage(params(failedSample.callId)));
+      expect(keepButton()).toBeNull();
+    });
+
+    it("is on a call from this computer in local mode", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "1");
+      vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ pins: [], problems: [] }))));
+      render(await ReportPage(params("call_demo_unverified")));
+      expect(keepButton()).toBeInTheDocument();
+    });
   });
 });

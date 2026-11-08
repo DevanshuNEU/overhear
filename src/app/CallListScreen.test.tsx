@@ -145,6 +145,17 @@ describe("before the list lands", () => {
   });
 });
 
+describe("the test call link", () => {
+  it("sits beside Check again and opens the test call screen, while calls are checked and after", async () => {
+    fakeServer([progress([failedRow(1)]), done([failedRow(1)])]);
+    renderList();
+    const link = await screen.findByRole("link", { name: LIST_WORDS.testCall });
+    expect(link).toHaveAttribute("href", "/test-call");
+    await waitFor(() => expect(screen.getByRole("button", { name: LIST_WORDS.stop })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: LIST_WORDS.testCall })).toBeInTheDocument();
+  });
+});
+
 describe("while calls are checked", () => {
   it("shows skeleton rows with real call times, then fills the verdicts in", async () => {
     const server = fakeServer([progress([row(0), row(1)]), progress([failedRow(0), row(1)]), done([failedRow(0), passedRow(1)])]);
@@ -298,7 +309,7 @@ describe("when the pull is done", () => {
     fakeServer([done([row(1, { callId: "call a/b", state: "report", verdict: "passed", headline: PASSED_LINE })])]);
     renderList();
     await findRow("call a/b");
-    expect(document.querySelector("a")).toHaveAttribute("href", "/reports/call%20a%2Fb");
+    expect(rowOf("call a/b").querySelector("a")).toHaveAttribute("href", "/reports/call%20a%2Fb");
   });
 
   it("says why in place for a call with no transcript, and does not link it", async () => {

@@ -6,6 +6,7 @@ import { CONTRACT_TITLE, HEADING, capitalize, ruleCountLine } from "@/report/lab
 import { CallTimeline } from "./CallTimeline";
 import { ContractSection } from "./ContractSection";
 import { GapsSection } from "./GapsSection";
+import { KeepAsTest } from "./KeepAsTest";
 import { NextSteps } from "./NextSteps";
 import { OpenTarget } from "./OpenTarget";
 import { answerOf } from "./answer";
@@ -19,7 +20,11 @@ function sortedForReading(results: ContractResult[]): ContractResult[] {
   return SHOWN.flatMap((r) => results.filter((c) => c.result === r));
 }
 
-export function CallReportView({ report }: { report: CallReport }) {
+/**
+ * `keep` adds "Keep as a test" under the facts. Local mode only: the hosted demo never asks for it.
+ * `narrow` is for a report that sits beside something else: one column at every width, with the next steps under the answer.
+ */
+export function CallReportView({ report, keep = false, narrow = false }: { report: CallReport; keep?: boolean; narrow?: boolean }) {
   const shown = sortedForReading(report.results);
   const skipped = report.results.filter((c) => !SHOWN.includes(c.result));
   const answer = answerOf(report);
@@ -28,10 +33,10 @@ export function CallReportView({ report }: { report: CallReport }) {
   return (
     <div className="space-y-12">
       <OpenTarget />
-      <ReportHeader report={report} />
+      <ReportHeader report={report} actions={keep ? <KeepAsTest report={report} /> : null} />
       {/* One layout for every call: at 1280 and wider two columns, with the right one empty when there are no steps, so the main column never changes width between calls. Steps go under the answer in a narrow window. */}
-      <div className="space-y-12 max-w-[1040px] xl:max-w-none xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0">
-        <NextSteps report={report} className="xl:order-2 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto" />
+      <div className={narrow ? "space-y-12" : "space-y-12 max-w-[1040px] xl:max-w-none xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-start xl:gap-x-14 xl:space-y-0"}>
+        <NextSteps report={report} className={narrow ? "" : "xl:order-2 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto"} />
         <div className="min-w-0 space-y-12">
           <ReasonsSection report={report} leadReason={leadReason} />
           <GapsSection report={report} saidInLead={leadReason === undefined ? undefined : report.reasons[leadReason].text} />

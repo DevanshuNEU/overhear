@@ -41,6 +41,7 @@ export const LIST_WORDS = {
   stop: "Stop checking",
   stopping: "Stopping",
   checkAgain: "Check again",
+  testCall: "Test call",
   tryAgain: "Try again",
   retry: "Retry",
   retrying: "Retrying",

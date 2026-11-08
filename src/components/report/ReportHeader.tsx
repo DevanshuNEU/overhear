@@ -1,4 +1,5 @@
 // The answer: the verdict, the one sentence, and the facts that say how far to trust it.
+import type { ReactNode } from "react";
 import type { CallReport } from "@/report/schema";
 import { FACT_LABEL, KEY_FACTS_LABEL, PLATFORM_LABEL, evidenceFact, formatDuration, rulesSummary } from "@/report/labels";
 import { answerOf } from "./answer";
@@ -19,7 +20,8 @@ function facts(report: CallReport): { label: string; value: string }[] {
   return list.filter((f): f is { label: string; value: string } => f !== null);
 }
 
-export function ReportHeader({ report }: { report: CallReport }) {
+/** `actions` sits under the facts: what a person can do with this call, when there is anything. */
+export function ReportHeader({ report, actions }: { report: CallReport; actions?: ReactNode }) {
   const answer = answerOf(report);
   return (
     <header>
@@ -39,6 +41,7 @@ export function ReportHeader({ report }: { report: CallReport }) {
           </li>
         ))}
       </ul>
+      {actions}
     </header>
   );
 }
