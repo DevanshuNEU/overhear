@@ -8,19 +8,23 @@
 //   disconnecting both delete temp files a crashed write left behind, so no copy of the key survives disconnect.
 // - readKey opens the file without following a symlink, and refuses one that is not a plain 0600 file owned by
 //   this user.
+// The folder and file rules live in src/local-store/private-dir.ts, shared with pinned calls.
 //
 // The key leaves this module only through readKey, and only src/pull/retell-source.ts calls it (a test checks).
 // Nothing here puts the key in an error: every error this module throws carries a fixed message or a file
 // system error, which names a path and never the file's contents.
-import { randomBytes } from "node:crypto";
-import { constants, promises as fs, type Stats } from "node:fs";
-import type { FileHandle } from "node:fs/promises";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { checkDirIdentity, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "@/local-store/private-dir";
 
 const CONFIG_FILE = "config.json";
 // Temp files from writeKey: `.config.json.<16 hex>.tmp`.
-const TEMP_FILE = /^\.config\.json\.[0-9a-f]{16}\.tmp$/;
+const TEMP_FILE = tempNamePattern(CONFIG_FILE);
+// Every leftover temp holds a key, so none is spared for being recent (the helper's default spares the last minute).
+const ALL_TEMPS = { minAgeMs: 0 };
+
+const errno = (err: unknown) => (err as NodeJS.ErrnoException).code;
 
 export type KeyStoreErrorCode = "home_unsafe" | "file_unsafe";
 
@@ -60,71 +64,23 @@ export function isKeyShaped(key: string): boolean {
 
 type ConfigFile = { retellApiKey: string };
 
-const errno = (err: unknown) => (err as NodeJS.ErrnoException).code;
-
-/** True when `stat` belongs to another user. Where there are no uids (Windows), nothing is another user's. */
-function ownedByOther(stat: Stats): boolean {
-  const uid = process.getuid?.();
-  return uid !== undefined && stat.uid !== uid;
-}
-
-/** Throws unless `dir` is a real directory, owned by this user, that no one else can open. */
-async function checkHome(dir: string): Promise<void> {
-  const stat = await fs.lstat(dir);
-  if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    throw new KeyStoreError("home_unsafe", `${dir} is not a directory. Set OVERHEAR_HOME to a directory of its own.`);
-  }
-  if (ownedByOther(stat)) {
-    throw new KeyStoreError("home_unsafe", `${dir} is not yours (owned by uid ${stat.uid}). Set OVERHEAR_HOME to a directory you own.`);
-  }
-  if ((stat.mode & 0o077) !== 0) {
-    const mode = (stat.mode & 0o777).toString(8);
-    throw new KeyStoreError("home_unsafe", `${dir} is open to other users (mode ${mode}). Run chmod 700 on it, or set OVERHEAR_HOME to a new directory.`);
-  }
-}
-
-/** Creates the directory 0700 when it is missing, then checks it. Never changes a directory it did not create. */
-async function ensureHome(dir: string): Promise<void> {
-  const created = await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-  if (created !== undefined) await fs.chmod(dir, 0o700);
-  await checkHome(dir);
-}
-
-/** Deletes temp files a crashed write left behind. Each could hold a key. */
-async function removeTemps(dir: string): Promise<void> {
-  let names: string[];
+/** The shared helpers throw PrivateStoreError; this module's callers know KeyStoreError, with the same message. */
+async function asKeyStoreError<T>(run: () => Promise<T>): Promise<T> {
   try {
-    names = await fs.readdir(dir);
+    return await run();
   } catch (err) {
-    if (errno(err) === "ENOENT" || errno(err) === "ENOTDIR") return;
+    if (err instanceof PrivateStoreError) throw new KeyStoreError(err.code === "dir_unsafe" ? "home_unsafe" : "file_unsafe", err.message);
     throw err;
   }
-  await Promise.all(names.filter((n) => TEMP_FILE.test(n)).map((n) => fs.rm(path.join(dir, n), { force: true })));
 }
 
 export async function writeKey(key: string): Promise<void> {
   if (typeof key !== "string" || !isKeyShaped(key)) throw new Error("That is not a Retell API key.");
   const dir = overhearHome();
-  await ensureHome(dir);
-  await removeTemps(dir);
-  const target = path.join(dir, CONFIG_FILE);
-  const temp = path.join(dir, `.${CONFIG_FILE}.${randomBytes(8).toString("hex")}.tmp`);
+  await asKeyStoreError(() => ensurePrivateDir(dir));
+  await removeTemps(dir, TEMP_FILE, ALL_TEMPS);
   const body: ConfigFile = { retellApiKey: key };
-  // "wx" fails if the temp name exists, so this never writes through a planted file or symlink.
-  const handle = await fs.open(temp, "wx", 0o600);
-  try {
-    try {
-      await handle.writeFile(JSON.stringify(body) + "\n", "utf8");
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    await fs.chmod(temp, 0o600);
-    await fs.rename(temp, target);
-  } catch (err) {
-    await fs.rm(temp, { force: true });
-    throw err;
-  }
+  await asKeyStoreError(() => writePrivateFile(dir, CONFIG_FILE, JSON.stringify(body) + "\n"));
 }
 
 /**
@@ -133,26 +89,8 @@ export async function writeKey(key: string): Promise<void> {
  */
 export async function readKey(): Promise<string | null> {
   const dir = overhearHome();
-  let handle: FileHandle;
-  try {
-    // O_NOFOLLOW: a symlink at the file's place fails here (ELOOP) instead of being read through.
-    handle = await fs.open(path.join(dir, CONFIG_FILE), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-  } catch (err) {
-    if (errno(err) === "ENOENT" || errno(err) === "ENOTDIR") return null;
-    if (errno(err) === "ELOOP") throw new KeyStoreError("file_unsafe", `${path.join(dir, CONFIG_FILE)} is a symlink. Disconnect and paste the key again.`);
-    throw err;
-  }
-  let text: string;
-  try {
-    const stat = await handle.stat();
-    if (!stat.isFile() || ownedByOther(stat) || (stat.mode & 0o777) !== 0o600) {
-      throw new KeyStoreError("file_unsafe", `${path.join(dir, CONFIG_FILE)} is not a 0600 file of yours. Disconnect and paste the key again.`);
-    }
-    await checkHome(dir);
-    text = await handle.readFile("utf8");
-  } finally {
-    await handle.close();
-  }
+  const text = await asKeyStoreError(() => readPrivateFile(path.join(dir, CONFIG_FILE), { hint: "Disconnect and paste the key again." }));
+  if (text === null) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -169,9 +107,20 @@ export async function hasKey(): Promise<boolean> {
   return (await readKey()) !== null;
 }
 
-/** Deletes the key file and any temp file a crashed write left behind. Fine when there is none. */
+/**
+ * Deletes the key file and any temp file a crashed write left behind. Fine when there is none, or no home folder.
+ * Checks the home folder first, so a symlinked OVERHEAR_HOME cannot point the delete at another folder. Disconnecting is
+ * a safety action, so a home folder whose mode has loosened is still cleaned out: only a symlink, a non-directory or
+ * another user's folder is refused.
+ */
 export async function removeKey(): Promise<void> {
   const dir = overhearHome();
+  try {
+    await asKeyStoreError(() => checkDirIdentity(dir));
+  } catch (err) {
+    if (errno(err) === "ENOENT" || errno(err) === "ENOTDIR") return;
+    throw err;
+  }
   await fs.rm(path.join(dir, CONFIG_FILE), { force: true });
-  await removeTemps(dir);
+  await removeTemps(dir, TEMP_FILE, ALL_TEMPS);
 }

@@ -6,7 +6,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const DASH = /[\u2014\u2013]/;
-const ROOTS = ["engine", "pull"].map((dir) => path.join(__dirname, "..", dir)).filter((dir) => fs.existsSync(dir));
+const ROOTS = ["engine", "pull", "local-store"].map((dir) => path.join(__dirname, "..", dir)).filter((dir) => fs.existsSync(dir));
 
 /** Every file under the roots, as a path from src/. */
 function files(): string[] {
