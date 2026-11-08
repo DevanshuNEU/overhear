@@ -77,6 +77,9 @@ export function tempNamePattern(name: string): RegExp {
   return new RegExp(`^\\.${literal}\\.[0-9a-f]{16}\\.tmp$`);
 }
 
+/** How far ahead of the clock a temp file's time may be before it stops counting as recent. */
+const FUTURE_SLACK_MS = 5_000;
+
 /**
  * Deletes the files in `folder` whose names match `pattern` (temp files a crashed write left behind). Fine when the
  * folder is missing. It does not check the folder: callers must have passed it through ensurePrivateDir or
@@ -84,7 +87,7 @@ export function tempNamePattern(name: string): RegExp {
  *
  * A temp file changed within the last `minAgeMs` (default 60 seconds) is left alone: it may belong to a write that is
  * still running, and removing it would make that write's rename fail. Pass 0 to remove every match, as the key store
- * does, because disconnecting must leave no copy of the key.
+ * does, because disconnecting must leave no copy of the key. A temp file dated in the future counts as old.
  */
 export async function removeTemps(folder: string, pattern: RegExp, options: { minAgeMs?: number } = {}): Promise<void> {
   const dir = path.resolve(folder);
@@ -107,7 +110,10 @@ export async function removeTemps(folder: string, pattern: RegExp, options: { mi
         const file = path.join(dir, n);
         if (minAgeMs > 0) {
           try {
-            if (now - (await fs.lstat(file)).mtimeMs < minAgeMs) return;
+            // A time more than FUTURE_SLACK_MS ahead of the clock is a wrong clock or a planted time, not a running
+            // write, so that file counts as old. The slack covers the clock's own rounding.
+            const age = now - (await fs.lstat(file)).mtimeMs;
+            if (age < minAgeMs && age >= -FUTURE_SLACK_MS) return;
           } catch (err) {
             if (errno(err) === "ENOENT") return;
             throw err;

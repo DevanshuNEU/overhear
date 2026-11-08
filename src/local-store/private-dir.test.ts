@@ -343,6 +343,18 @@ describe("removeTemps", () => {
     expect(fs.readdirSync(dir)).toEqual([]);
   });
 
+  it("treats a temp file whose time is in the future as old, so a wrong clock cannot keep it forever", async () => {
+    await ensurePrivateDir(dir);
+    const pattern = tempNamePattern("pin-a.json");
+    const future = path.join(dir, ".pin-a.json.0123456789abcdef.tmp");
+    const fresh = path.join(dir, ".pin-a.json.fedcba9876543210.tmp");
+    for (const file of [future, fresh]) fs.writeFileSync(file, "secret", { mode: 0o600 });
+    const ahead = new Date(Date.now() + 3600 * 1000);
+    fs.utimesSync(future, ahead, ahead);
+    await removeTemps(dir, pattern);
+    expect(fs.readdirSync(dir)).toEqual([path.basename(fresh)]);
+  });
+
   it("tempNamePattern matches what writePrivateFile makes, and treats the name literally", () => {
     const pattern = tempNamePattern("a.b.json");
     expect(pattern.test(".a.b.json.0123456789abcdef.tmp")).toBe(true);

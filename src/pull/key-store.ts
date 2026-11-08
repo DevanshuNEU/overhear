@@ -16,7 +16,11 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { overhearHome } from "@/local-store/home";
 import { checkDirIdentity, ensurePrivateDir, PrivateStoreError, readPrivateFile, removeTemps, tempNamePattern, writePrivateFile } from "@/local-store/private-dir";
+
+// Re-exported: callers of the key store still find the home folder here.
+export { overhearHome };
 
 const CONFIG_FILE = "config.json";
 // Temp files from writeKey: `.config.json.<16 hex>.tmp`.
@@ -37,13 +41,6 @@ export class KeyStoreError extends Error {
     super(message);
     this.name = "KeyStoreError";
   }
-}
-
-/** The directory that holds the key: OVERHEAR_HOME when it is an absolute path, else ~/.overhear. */
-export function overhearHome(env: Record<string, string | undefined> = process.env): string {
-  const override = env.OVERHEAR_HOME;
-  if (override && path.isAbsolute(override)) return override;
-  return path.join(os.homedir(), ".overhear");
 }
 
 export function configPath(env: Record<string, string | undefined> = process.env): string {
