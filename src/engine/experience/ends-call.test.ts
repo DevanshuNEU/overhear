@@ -9,8 +9,9 @@ const agent = (text: string, startSec: number | null = null): ItemSpec => ({ kin
 const caller = (text: string, startSec: number | null = null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
 const call: ItemSpec = { kind: "tool_call", id: "tc_1", name: "lookup", args: {} };
 
-/** A call from its items and the reason it ended. */
-const run = (items: ItemSpec[], reason?: string) => agentEndsCall(ev(items, { callFields: reason === undefined ? {} : { disconnection_reason: reason } }));
+/** A call from its items and the reason it ended: the caller hung up unless told otherwise, null for no reason in the record. */
+const run = (items: ItemSpec[], reason: string | null = "user_hangup") => agentEndsCall(ev(items, { callFields: reason === null ? {} : { disconnection_reason: reason } }));
+const LOOP: ItemSpec[] = [agent("Have a great day!", 5), caller("Goodbye!", 8), agent("Goodbye!", 10), caller("Bye.", 13), agent("Bye!", 15)];
 
 describe("agentEndsCall", () => {
   it("one goodbye then the caller hanging up: ran, no problems", () => {
@@ -27,6 +28,14 @@ describe("agentEndsCall", () => {
     expect(out.problems).toEqual([
       { check: "agent_ends_call", text: "The agent said goodbye 3 times (at 0:05, 0:10 and 0:15) and didn't end the call.", seqs: [3, 5, 7] },
     ]);
+  });
+
+  it("a loop is reported only when the record shows the agent did not end the call", () => {
+    expect(run(LOOP, "user_hangup").problems).toHaveLength(1);
+    expect(run(LOOP, "inactivity").problems.map((p) => p.seqs)).toEqual([[1, 3, 5], [5]]);
+    expect(run(LOOP, "agent_hangup")).toEqual({ ran: true, problems: [] });
+    expect(run(LOOP, "call_transfer")).toEqual({ ran: true, problems: [] });
+    expect(run(LOOP, null)).toEqual({ ran: true, problems: [] });
   });
 
   it("the threshold is three agent turns", () => {
@@ -112,8 +121,13 @@ describe("isGoodbye", () => {
     expect(isGoodbye(phrase)).toBe(true);
   });
 
-  it.each(["Goodbyes are hard.", "I'll check the bybye list", "That is a maybe.", "Hello there.", "Bye2", "ebye"])("does not match %s", (text) => {
+  it.each(["Goodbyes are hard.", "I'll check the bybye list", "That is a maybe.", "Hello there.", "Bye2", "ebye", "ByeBye", "Byeee"])("does not match %s", (text) => {
     expect(isGoodbye(text)).toBe(false);
+  });
+
+  it("does not read 'take care to' as a closing", () => {
+    expect(isGoodbye("Please take care to bring your card.")).toBe(false);
+    expect(isGoodbye("Take care to arrive early. Take care!")).toBe(true);
   });
 
   it("does not read 'take care of' as a closing", () => {
