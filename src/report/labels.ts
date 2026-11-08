@@ -468,3 +468,8 @@ export const KEEP_WORDS = {
   reload: "Open this call again",
   unreachable: "Couldn’t reach Overhear on this computer. Check that it is still running, then try again.",
 } as const;
+
+// ---------- Spoken numbers in the transcript ----------
+
+/** The switch above the transcript. Speech to text writes numbers as words; the screen shows digits, and this shows the exact words. */
+export const NUMBERS_SWITCH = { toExact: "Show exact words", toDigits: "Show numbers as digits" } as const;

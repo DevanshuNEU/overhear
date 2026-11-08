@@ -46,11 +46,27 @@ function buildUnverified(): CallReport {
 
 export const unverifiedSample: CallReport = buildUnverified();
 
+/**
+ * The passed sample, with a caller who also gives a phone number the way speech to text writes it, digit by digit.
+ * The sample already holds a spoken date of birth ("fourteenth of March nineteen eighty five"), so the transcript
+ * shows both kinds of spoken number. Nothing else changes: every rule keeps its result.
+ */
+function buildSpokenNumbers(): CallReport {
+  const base = renamed(passedSample, "call_demo_spoken_numbers");
+  const items = base.evidence.items.map((it) =>
+    it.kind === "turn" && it.seq === 35 ? { ...it, text: "Awesome. Thank you. If you need to reach me, it's five five five one two three four. " } : it,
+  );
+  return CallReportSchema.parse({ ...base, evidence: { ...base.evidence, items } });
+}
+
+export const spokenNumbersSample: CallReport = buildSpokenNumbers();
+
 /** A record that fails the schema: its verdict says passed while a rule is violated. */
 const unreadableRecord = { ...renamed(failedSample, "call_demo_unreadable"), verdict: "passed" };
 
 export async function demoSource(callId: string): Promise<unknown | undefined> {
   if (callId === "call_demo_unverified") return unverifiedSample;
+  if (callId === "call_demo_spoken_numbers") return spokenNumbersSample;
   if (callId === "call_demo_unreadable") return unreadableRecord;
   // Slow to become ready, not slow to find: see readyDelay in store.ts.
   if (callId === "call_demo_slow") return renamed(failedSample, "call_demo_slow");

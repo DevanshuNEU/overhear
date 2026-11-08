@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { CallTimeline } from "./CallTimeline";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
-import { unverifiedSample } from "@/report/demo-states";
+import { spokenNumbersSample, unverifiedSample } from "@/report/demo-states";
 import { mixedResultsOnOneTurn } from "@/report/samples/variants.fixture";
 
 const rowOf = (seq: number) => document.getElementById(`item-${seq}`)!.closest("li")!;
@@ -167,5 +167,45 @@ describe("CallTimeline", () => {
     render(<CallTimeline report={two} />);
     // The 2:22 finding's sentence quotes neither claim and the turn now holds two, so neither is marked.
     expect(Array.from(rowOf(27).querySelectorAll("mark"))).toHaveLength(0);
+  });
+
+  describe("spoken numbers", () => {
+    it("shows them as digits, with the exact words in the same place for assistive tech", () => {
+      render(<CallTimeline report={spokenNumbersSample} />);
+      const shown = Array.from(document.querySelectorAll("[data-readable] [aria-hidden='true']")).map((e) => e.textContent);
+      expect(shown).toContain("March 14, 1985");
+      expect(shown).toContain("555 1234");
+      const exact = Array.from(document.querySelectorAll("[data-readable] .sr-only")).map((e) => e.textContent);
+      expect(exact).toContain("fourteenth of March nineteen eighty five");
+      expect(exact).toContain("five five five one two three four");
+    });
+
+    it("offers the exact words in one click, and the digits again in another", () => {
+      render(<CallTimeline report={spokenNumbersSample} />);
+      fireEvent.click(screen.getByRole("button", { name: "Show exact words" }));
+      expect(document.querySelector("[data-readable]")).toBeNull();
+      expect(screen.getByText(/fourteenth of March nineteen eighty five/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Show numbers as digits" }));
+      expect(document.querySelector("[data-readable]")).not.toBeNull();
+    });
+
+    it("offers no switch on a call with no spoken numbers", () => {
+      render(<CallTimeline report={needsReviewSample} />);
+      expect(screen.queryByRole("button", { name: /Show exact words|Show numbers as digits/ })).not.toBeInTheDocument();
+    });
+
+    it("never turns the words of a highlighted claim into digits", () => {
+      const report = {
+        ...failedSample,
+        evidence: {
+          ...failedSample.evidence,
+          items: failedSample.evidence.items.map((it) =>
+            it.kind === "turn" && it.seq === 25 ? { ...it, text: it.text.replace("a nurse now", "a nurse in twenty two minutes now") } : it,
+          ),
+        },
+      };
+      render(<CallTimeline report={report} />);
+      expect(document.getElementById("item-25")!.querySelector("mark [data-readable]")).toBeNull();
+    });
   });
 });

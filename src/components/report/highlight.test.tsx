@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { markQuotes, sentencesOf, windowAround } from "./highlight";
+import { readableSegments } from "./readable";
 
 const marks = (text: string, quotes: string[]) => {
   const { container } = render(<p>{markQuotes(text, quotes, "x")}</p>);
@@ -52,5 +53,52 @@ describe("windowAround", () => {
   it("is null when there is no claim to centre on, or the claim is not in the text", () => {
     expect(windowAround(text, [])).toBeNull();
     expect(windowAround(text, ["nowhere"])).toBeNull();
+  });
+});
+
+describe("markQuotes with readable numbers", () => {
+  const view = (text: string, quotes: string[], readable = true) => {
+    const { container } = render(<p>{markQuotes(text, quotes, "x", { readable })}</p>);
+    return container;
+  };
+
+  it("shows a spoken number as digits and holds the exact words for assistive tech and the tooltip", () => {
+    const c = view("My date of birth is fourteenth of March nineteen eighty five, thanks.", []);
+    const span = c.querySelector("[data-readable]")!;
+    expect(span.getAttribute("title")).toBe("fourteenth of March nineteen eighty five");
+    expect(span.querySelector("[aria-hidden='true']")!.textContent).toBe("March 14, 1985");
+    expect(span.querySelector(".sr-only")!.textContent).toBe("fourteenth of March nineteen eighty five");
+    expect(c.textContent).toBe("My date of birth is March 14, 1985fourteenth of March nineteen eighty five, thanks.");
+  });
+
+  it("leaves the words as spoken when asked to", () => {
+    const c = view("It's five five five one two three four.", [], false);
+    expect(c.querySelector("[data-readable]")).toBeNull();
+    expect(c.textContent).toBe("It's five five five one two three four.");
+  });
+
+  it("shows a highlighted quote with its exact words, never converted ones", () => {
+    const text = "Your booking is for the fourteenth of March, and your code is two two seven.";
+    const c = view(text, ["booking is for the fourteenth of March"]);
+    expect(Array.from(c.querySelectorAll("mark")).map((m) => m.textContent)).toEqual(["booking is for the fourteenth of March"]);
+    expect(c.querySelector("mark [data-readable]")).toBeNull();
+    // The words outside the quote still read as digits.
+    expect(c.querySelector("[data-readable] [aria-hidden]")!.textContent).toBe("227");
+  });
+
+  it("leaves a converted span as written when a quote cuts across it", () => {
+    const text = "It is the fourteenth of March nineteen eighty five today.";
+    const c = view(text, ["March nineteen"]);
+    expect(c.querySelector("[data-readable]")).toBeNull();
+    expect(c.textContent).toBe(text);
+  });
+
+  it("changes no word of an empty turn", () => {
+    expect(view("", []).textContent).toBe("");
+  });
+
+  it("keeps the segments' exact words identical to the turn", () => {
+    const text = "Call five five five one two three four on the twenty second.";
+    expect(readableSegments(text).map((s) => s.exact).join("")).toBe(text);
   });
 });

@@ -1,14 +1,17 @@
+"use client";
+
 // The call, in order, with threads: a rail for each finding that needs attention runs through the
 // items it rests on, and every item a finding cites carries a tag that links back to that finding.
-import { useId } from "react";
+import { useId, useState } from "react";
 import type { CallReport, Detection } from "@/report/schema";
-import { BACKEND_LOG_TAG, HEADING, ORDER_NOTE, SPEAKER_LABEL, tagResultSuffix } from "@/report/labels";
+import { BACKEND_LOG_TAG, HEADING, NUMBERS_SWITCH, ORDER_NOTE, SPEAKER_LABEL, tagResultSuffix } from "@/report/labels";
 import { formatClock } from "./format";
 import { RawDetail } from "./RawDetail";
 import { RESULT_TONE } from "./StatusBadge";
 import { timelineRows, type TimelineRow } from "./rows";
 import { citedClaims } from "./claims";
 import { markQuotes } from "./highlight";
+import { readableSpans } from "./readable";
 import { railColumns, railMarks, threadsOf, type Thread } from "./threads";
 
 const RAIL_STEP = 14;
@@ -65,8 +68,23 @@ function TagLinks({ threads }: { threads: Thread[] }) {
   ));
 }
 
+type Turn = Extract<TimelineRow, { kind: "speech" }>["turns"][number];
+
+/** The claim words of any broken or unchecked finding that cites this turn, each with its own finding's result. Broken first, so words two findings share take the broken mark. */
+function claimQuotes(turn: Turn, tags: Thread[], detections: Detection[]) {
+  return [...tags]
+    .sort((a, b) => Number(b.result === "violated") - Number(a.result === "violated"))
+    .flatMap((t) =>
+      t.contract
+        ? citedClaims({ text: t.text ?? "" }, t.contract, detections)
+            .filter((d) => d.seq === turn.seq)
+            .map((d) => ({ quote: d.quote, markClass: MARK_CLASS[t.result === "violated" ? "violated" : "unverified"] }))
+        : [],
+    );
+}
+
 /** Turns by one speaker: when and who once, then each turn's words held to a readable line length. */
-function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind: "speech" }>; threads: Thread[]; detections: Detection[] }) {
+function Speech({ row, threads, detections, digits }: { row: Extract<TimelineRow, { kind: "speech" }>; threads: Thread[]; detections: Detection[]; digits: boolean }) {
   const first = row.turns[0];
   return (
     <div className="min-w-0 py-2.5 sm:grid sm:grid-cols-[3rem_4.5rem_1fr] sm:gap-x-3">
@@ -75,21 +93,11 @@ function Speech({ row, threads, detections }: { row: Extract<TimelineRow, { kind
       <div className="min-w-0 space-y-1">
         {row.turns.map((turn, i) => {
           const tags = threads.filter((t) => t.seqs.includes(turn.seq));
-          // The claim words of any broken or unchecked finding that cites this turn, marked as in the Said lane, each
-          // with its own finding's result. Broken first, so words two findings share take the broken mark.
-          const quotes = [...tags]
-            .sort((a, b) => Number(b.result === "violated") - Number(a.result === "violated"))
-            .flatMap((t) =>
-              t.contract
-                ? citedClaims({ text: t.text ?? "" }, t.contract, detections)
-                    .filter((d) => d.seq === turn.seq)
-                    .map((d) => ({ quote: d.quote, markClass: MARK_CLASS[t.result === "violated" ? "violated" : "unverified"] }))
-                : [],
-            );
+          const quotes = claimQuotes(turn, tags, detections);
           return (
             <div key={turn.seq}>
               <p id={i === 0 ? undefined : `item-${turn.seq}`} className="max-w-[68ch] scroll-mt-6 [overflow-wrap:anywhere] text-[15px] leading-relaxed target:bg-report-accent-tint">
-                {markQuotes(turn.text, quotes, MARK_CLASS.unverified)}
+                {markQuotes(turn.text, quotes, MARK_CLASS.unverified, { readable: digits })}
               </p>
               {tags.length > 0 ? (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -129,11 +137,34 @@ export function CallTimeline({ report }: { report: CallReport }) {
   const rows = timelineRows(report.evidence);
   const marks = railMarks(threads, rows.map((r) => r.seqs));
   const tagged = threads.filter(needsAttention);
+  // Spoken numbers show as digits until the person asks for the exact words. The switch is there only when some number was changed.
+  const [digits, setDigits] = useState(true);
+  const anyDigits = rows.some(
+    (row) =>
+      row.kind === "speech" &&
+      row.turns.some((turn) => {
+        const marks = claimQuotes(turn, tagged.filter((t) => t.seqs.includes(turn.seq)), report.detections)
+          .map((q) => ({ start: turn.text.indexOf(q.quote), end: turn.text.indexOf(q.quote) + q.quote.length }))
+          .filter((m) => m.start >= 0);
+        return readableSpans(turn.text, marks).length > 0;
+      }),
+  );
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className="mb-4 text-base font-semibold">
-        {HEADING.timeline}
-      </h2>
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <h2 id={id} className="text-base font-semibold">
+          {HEADING.timeline}
+        </h2>
+        {anyDigits ? (
+          <button
+            type="button"
+            onClick={() => setDigits((d) => !d)}
+            className="-mr-2 inline-flex min-h-11 items-center rounded-md px-2 text-[13px] text-report-muted hover:text-report-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent sm:min-h-8"
+          >
+            {digits ? NUMBERS_SWITCH.toExact : NUMBERS_SWITCH.toDigits}
+          </button>
+        ) : null}
+      </div>
       {report.evidence.ordering !== "sequence" ? <p className="mb-3 max-w-[62ch] text-sm text-report-ink-2">{ORDER_NOTE[report.evidence.ordering]}</p> : null}
       <ol className="border-t border-report-line">
         {rows.map((row, i) => (
@@ -145,7 +176,7 @@ export function CallTimeline({ report }: { report: CallReport }) {
             <Rails columns={columns} marks={marks[i]} />
             <div className="min-w-0 flex-1">
               {row.kind === "speech" ? (
-                <Speech row={row} threads={tagged} detections={report.detections} />
+                <Speech row={row} threads={tagged} detections={report.detections} digits={digits} />
               ) : (
                 <Action row={row} threads={tagged.filter((t) => t.seqs.some((s) => row.seqs.includes(s)))} />
               )}

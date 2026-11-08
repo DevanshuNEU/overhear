@@ -1,6 +1,20 @@
 // Marks the words that made a claim inside the turn they were said in.
 import { Fragment } from "react";
 import type { ReactNode } from "react";
+import { readableSpans } from "./readable";
+
+/**
+ * A spoken number shown as digits. The exact words are the tooltip for a mouse and the text a screen reader reads
+ * (the digits are hidden from it), and they stay out of a selection, so a copy takes what is on screen.
+ */
+function Digits({ shown, exact }: { shown: string; exact: string }) {
+  return (
+    <span data-readable title={exact} className="underline decoration-report-line-strong decoration-dotted underline-offset-4">
+      <span aria-hidden>{shown}</span>
+      <span className="sr-only select-none">{exact}</span>
+    </span>
+  );
+}
 
 /** A quote with a mark of its own, for a turn whose claims belong to findings with different results. */
 export type MarkedQuote = { quote: string; markClass: string };
@@ -10,8 +24,11 @@ export type MarkedQuote = { quote: string; markClass: string };
  * `markClass`, or a MarkedQuote with its own class. Quotes that share words or overlap are merged into one mark,
  * which takes the class of the quote listed first, so a caller lists the most severe first. A quote that is not in
  * the text is ignored. The first occurrence of a quote is the one marked.
+ *
+ * With `readable`, spoken numbers outside a mark show as digits (see readable.ts). A mark always shows the exact
+ * words, so a number that a mark touches stays as spoken.
  */
-export function markQuotes(text: string, quotes: (string | MarkedQuote)[], markClass: string): ReactNode {
+export function markQuotes(text: string, quotes: (string | MarkedQuote)[], markClass: string, opts?: { readable?: boolean }): ReactNode {
   const found = quotes
     .map((q, order) => (typeof q === "string" ? { quote: q, markClass, order } : { ...q, order }))
     .map((q) => ({ start: text.indexOf(q.quote), end: text.indexOf(q.quote) + q.quote.length, markClass: q.markClass, order: q.order }))
@@ -25,10 +42,23 @@ export function markQuotes(text: string, quotes: (string | MarkedQuote)[], markC
       if (s.order < last.order) Object.assign(last, { markClass: s.markClass, order: s.order });
     } else merged.push({ ...s });
   }
+  const spans = opts?.readable ? readableSpans(text, merged) : [];
+  // The words from `from` to `to`, with the digits for any spoken number inside.
+  const plain = (from: number, to: number): ReactNode[] => {
+    const out: ReactNode[] = [];
+    let cursor = from;
+    for (const sp of spans.filter((x) => x.start >= from && x.end <= to)) {
+      if (sp.start > cursor) out.push(text.slice(cursor, sp.start));
+      out.push(<Digits key={sp.start} shown={sp.shown} exact={sp.exact} />);
+      cursor = sp.end;
+    }
+    if (cursor < to) out.push(text.slice(cursor, to));
+    return out;
+  };
   const parts: ReactNode[] = [];
   let at = 0;
   for (const s of merged) {
-    if (s.start > at) parts.push(text.slice(at, s.start));
+    if (s.start > at) parts.push(...plain(at, s.start));
     parts.push(
       <mark key={s.start} className={`rounded-sm px-0.5 text-report-ink ${s.markClass}`}>
         {text.slice(s.start, s.end)}
@@ -36,7 +66,7 @@ export function markQuotes(text: string, quotes: (string | MarkedQuote)[], markC
     );
     at = s.end;
   }
-  if (at < text.length) parts.push(text.slice(at));
+  if (at < text.length) parts.push(...plain(at, text.length));
   return parts.map((p, i) => <Fragment key={i}>{p}</Fragment>);
 }
 
