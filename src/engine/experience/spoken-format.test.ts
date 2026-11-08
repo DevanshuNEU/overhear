@@ -38,8 +38,8 @@ describe("year read aloud for a near date", () => {
   });
 
   it("does not flag a near date said after born or birth", () => {
-    expect(run([agent("So the baby was born November 1, 2026?")])).toEqual({ ran: true, problems: [] });
-    expect(run([agent("Is the date of birth November 1, 2026?")])).toEqual({ ran: true, problems: [] });
+    expect(run([agent("So the baby was born November 20, 2026?")])).toEqual({ ran: true, problems: [] });
+    expect(run([agent("Is the date of birth November 20, 2026?")])).toEqual({ ran: true, problems: [] });
   });
 
   it("does not flag a near date when birth is named after it", () => {
