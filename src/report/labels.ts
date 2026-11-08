@@ -434,3 +434,37 @@ export const NOT_A_RETELL_CALL = {
   message: "This isn't a Retell call record: it has no call_id.",
   fix: "Pass the body of Retell's get-call response, or a webhook body that holds it under call.",
 };
+
+// ---------- Keep as a test (local mode) ----------
+// The words of the control on a call report. The messages for a refusal come from the server (PIN_MESSAGE in src/pull/labels.ts)
+// and are shown as they arrive.
+
+/** The longest note a pin takes. A test keeps it equal to PIN_NOTE_MAX in the engine, which a screen must not import. */
+export const KEEP_NOTE_MAX = 280;
+
+export const KEEP_WORDS = {
+  open: "Keep as a test",
+  heading: "Keep this call as a test",
+  intro: "Overhear saves this call and what it said about it. Run npm run check:pinned to see whether it still says the same.",
+  verdictLabel: "Verdict",
+  alwaysKept: "Always kept",
+  rulesHeading: "Rules to keep",
+  experienceHeading: "Call experience to keep",
+  problem: "Problem",
+  noProblem: "No problem",
+  noteLabel: "Note (optional)",
+  noteHint: "One line for your team.",
+  noteCount: (used: number, max: number) => `${used} of ${max}`,
+  /** The first-pin warning, word for word from the pin design. */
+  firstPin:
+    "This saves the call’s transcript and tool data on this computer, in ~/.overhear/pinned. It can hold names, dates of birth and health details. Nothing is sent anywhere. Recording links, the caller’s number and your API key are left out. You can delete it any time.",
+  keep: "Keep call",
+  keeping: "Keeping",
+  cancel: "Cancel",
+  kept: "Kept as a test",
+  keptWhere: "Saved on this computer in ~/.overhear/pinned.",
+  remove: "Remove",
+  removing: "Removing",
+  reload: "Open this call again",
+  unreachable: "Couldn’t reach Overhear on this computer. Check that it is still running, then try again.",
+} as const;

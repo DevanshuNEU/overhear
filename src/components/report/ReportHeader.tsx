@@ -3,6 +3,7 @@ import type { CallReport } from "@/report/schema";
 import { FACT_LABEL, KEY_FACTS_LABEL, PLATFORM_LABEL, evidenceFact, formatDuration, rulesSummary } from "@/report/labels";
 import { answerOf } from "./answer";
 import { CopyId } from "./CopyId";
+import { KeepAction, KeepPanel, KeepProvider } from "./KeepAsTest";
 import { VerdictBadge } from "./StatusBadge";
 import { formatStarted } from "./format";
 
@@ -19,14 +20,23 @@ function facts(report: CallReport): { label: string; value: string }[] {
   return list.filter((f): f is { label: string; value: string } => f !== null);
 }
 
-export function ReportHeader({ report }: { report: CallReport }) {
+/**
+ * `keep` (local mode only) adds "Keep as a test": one quiet action at the end of the verdict row, and, when it is clicked, a
+ * panel under the facts. Closed, it adds nothing between the verdict and the sentence that answers the page.
+ */
+export function ReportHeader({ report, keep = false }: { report: CallReport; keep?: boolean }) {
   const answer = answerOf(report);
-  return (
+  const header = (
     <header>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <VerdictBadge verdict={report.verdict} />
         <span className="font-mono text-[13px] tabular-nums text-report-ink-2">{report.callId}</span>
         <CopyId value={report.callId} />
+        {keep ? (
+          <div className="sm:ml-auto">
+            <KeepAction />
+          </div>
+        ) : null}
       </div>
       <h1 className="mt-4 max-w-[46ch] break-words text-2xl font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">
         {answer ? <span data-answer>{answer.text}</span> : <span data-headline>{report.headline}</span>}
@@ -39,6 +49,8 @@ export function ReportHeader({ report }: { report: CallReport }) {
           </li>
         ))}
       </ul>
+      {keep ? <KeepPanel /> : null}
     </header>
   );
+  return keep ? <KeepProvider report={report}>{header}</KeepProvider> : header;
 }

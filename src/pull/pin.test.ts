@@ -8,7 +8,8 @@ import { pinnedDir } from "@/pinned/store";
 import { agentRecordOf, sawOf } from "@/pinned/testing";
 import { failedSample } from "@/report/samples";
 import { writeKey } from "./key-store";
-import { pinCall } from "./pin";
+import { PIN_NOTE_MAX } from "@/engine/eval/case";
+import { parsePinBody, pinCall } from "./pin";
 
 const KEY = "key_PINUNIT0123456789abcdef";
 const CALL = "call_8f2a9c";
@@ -90,6 +91,22 @@ describe("pinCall and Retell", () => {
     await writeKey(KEY);
     expect((await pinCall(ASK, { tuning: TUNING })).ok).toBe(true);
     expect(count).toBe(1);
+  });
+});
+
+describe("the note's length", () => {
+  const verdict = (note: string) => {
+    const parsed = parsePinBody(JSON.stringify({ ...ASK, note }));
+    return parsed.ok ? "ok" : parsed.code;
+  };
+
+  it("counts UTF-16 code units, as the engine's PIN_NOTE_MAX and the screen's input do", () => {
+    expect(PIN_NOTE_MAX).toBe(280);
+    expect(verdict("x".repeat(280))).toBe("ok");
+    expect(verdict("x".repeat(281))).toBe("bad_request");
+    // An emoji is two code units: 140 fit, 141 do not.
+    expect(verdict("😀".repeat(140))).toBe("ok");
+    expect(verdict("😀".repeat(141))).toBe("bad_request");
   });
 });
 

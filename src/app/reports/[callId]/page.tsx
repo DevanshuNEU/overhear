@@ -5,9 +5,11 @@ import { notFound } from "next/navigation";
 import { CallReportView } from "@/components/report/CallReportView";
 import { LoadingView } from "@/components/report/LoadingView";
 import { UnreadableView } from "@/components/report/UnreadableView";
+import { isLocalMode } from "@/pull/local";
 import { PAGE_NAME, REPORT_TITLE } from "@/report/labels";
 import { echoableId } from "@/components/report/format";
 import type { CallReport } from "@/report/schema";
+import { SAMPLE_REPORTS } from "@/report/samples";
 import { getReport, readyDelay } from "@/report/store";
 
 type Props = { params: Promise<{ callId: string }> };
@@ -22,9 +24,9 @@ export async function generateMetadata({ params }: Props) {
 }
 
 /** Holds the report back until it is ready. With no wait it shows at once, so a normal load never suspends. */
-function Ready({ report, wait }: { report: CallReport; wait: Promise<void> | null }) {
+function Ready({ report, wait, keep }: { report: CallReport; wait: Promise<void> | null; keep: boolean }) {
   if (wait) use(wait);
-  return <CallReportView report={report} />;
+  return <CallReportView report={report} keep={keep} />;
 }
 
 // The lookup comes first and is not inside any loading boundary, so a missing call answers a real 404.
@@ -34,9 +36,11 @@ export default async function ReportPage({ params }: Props) {
   const found = await getReport(callId);
   if (found.status === "not_found") notFound();
   if (found.status === "unreadable") return <UnreadableView callId={found.callId} problems={found.problems} />;
+  // "Keep as a test" is for a real call on this computer: never the hosted demo, never one of the built-in samples.
+  const keep = isLocalMode() && !SAMPLE_REPORTS.some((r) => r.callId === found.report.callId);
   return (
     <Suspense fallback={<LoadingView />}>
-      <Ready report={found.report} wait={readyDelay(found.report.callId)} />
+      <Ready report={found.report} wait={readyDelay(found.report.callId)} keep={keep} />
     </Suspense>
   );
 }

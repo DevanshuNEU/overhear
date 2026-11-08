@@ -11,7 +11,7 @@ import { analyzeCall } from "./analyzer";
 import { writeKey } from "./key-store";
 import { clearPulls } from "./pull";
 import { TEST_CALL_DID_NOT_CONNECT_MESSAGE } from "./labels";
-import { ACTIVE_TEST_CALL_MS, clearTestCalls, EMPTY_TRANSCRIPT_GRACE_MS, listAgentChoices, NETWORK_HOLD_MS, RESULT_TIMEOUT_MS, startTestCall, testCallResult } from "./test-call";
+import { ACTIVE_TEST_CALL_MS, clearTestCalls, EMPTY_TRANSCRIPT_GRACE_MS, listAgentChoices, NETWORK_HOLD_MS, releaseTestCall, RESULT_TIMEOUT_MS, startTestCall, testCallResult } from "./test-call";
 
 const KEY = "key_TESTCALLUNIT0123456789ab";
 const AGENT = "agent_one";
@@ -272,6 +272,43 @@ describe("startTestCall", () => {
     expect(count("/v3/create-web-call")).toBe(1);
     clock += 1;
     expect((await startTestCall(AGENT, { tuning: tuning() })).ok).toBe(true);
+  });
+});
+
+describe("releaseTestCall", () => {
+  beforeEach(async () => {
+    await writeKey(KEY);
+  });
+
+  it("frees the slot of a call this server started, with no Retell request, so the next start goes through", async () => {
+    await startTestCall(AGENT, { tuning: tuning() });
+    const before = seen.length;
+    expect(releaseTestCall("call_web_1")).toEqual({ ok: true, released: true });
+    expect(seen.length).toBe(before);
+    createAnswers = [() => Response.json({ ...WEB, call_id: "call_web_2" }, { status: 201 })];
+    expect((await startTestCall(AGENT, { tuning: tuning() })).ok).toBe(true);
+  });
+
+  it("says nothing was held when the slot was already free, and when the slot belongs to a newer call", async () => {
+    await startTestCall(AGENT, { tuning: tuning() });
+    expect(releaseTestCall("call_web_1")).toEqual({ ok: true, released: true });
+    expect(releaseTestCall("call_web_1")).toEqual({ ok: true, released: false });
+    createAnswers = [() => Response.json({ ...WEB, call_id: "call_web_2" }, { status: 201 })];
+    await startTestCall(AGENT, { tuning: tuning() });
+    expect(releaseTestCall("call_web_1")).toEqual({ ok: true, released: false });
+    expect(await startTestCall(AGENT, { tuning: tuning() })).toEqual({ ok: false, code: "call_active" });
+  });
+
+  it("refuses an id that is not an id shape, and a call this server did not start", () => {
+    expect(releaseTestCall("../x")).toEqual({ ok: false, code: "bad_call_id" });
+    expect(releaseTestCall("call_unknown")).toEqual({ ok: false, code: "not_found" });
+  });
+
+  it("keeps the call known, so its result can still be asked for", async () => {
+    await startTestCall(AGENT, { tuning: tuning() });
+    releaseTestCall("call_web_1");
+    getAnswers = [() => Response.json({ ...endedRecord(), call_status: "not_connected" })];
+    expect((await testCallResult("call_web_1", { tuning: tuning() })).ok).toBe(true);
   });
 });
 

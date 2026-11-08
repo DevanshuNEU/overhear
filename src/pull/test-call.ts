@@ -165,6 +165,22 @@ export async function startTestCall(agentId: unknown, deps: Deps = {}): Promise<
   }
 }
 
+/**
+ * Frees the one-call slot for a call this server started, when the browser says the call never connected (the SDK failed to
+ * join, or the person left before it did). No Retell request is made and the call stays known, so its result can still be asked
+ * for. Only the slot of that call is freed: a slot a newer call holds is left alone. The answer says whether a slot was held.
+ * The browser is trusted here because the route is local only (same-origin loopback) and the slot is a guard against spending
+ * minutes by accident, not a security boundary. Never throws.
+ */
+export function releaseTestCall(callId: string): { ok: true; released: boolean } | Fail {
+  if (!RETELL_ID.test(callId)) return refuse("bad_call_id");
+  const state = getState();
+  if (!state.known.has(callId)) return refuse("not_found");
+  const held = state.active?.callId === callId;
+  if (held) state.active = null;
+  return { ok: true, released: held };
+}
+
 /** Frees the slot if it is still the one this start took, and passes the failure on. */
 function release(state: State, slot: State["active"], failure: Fail): Fail {
   if (slot !== null && state.active === slot) state.active = null;

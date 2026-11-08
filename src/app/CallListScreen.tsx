@@ -402,6 +402,9 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
                   {failedOutright ? LIST_WORDS.tryAgain : LIST_WORDS.checkAgain}
                 </button>
               )}
+              <a href="/test-call" className={BUTTON}>
+                {LIST_WORDS.testCall}
+              </a>
             </div>
           </div>
 
