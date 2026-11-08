@@ -32,11 +32,12 @@ No cases yet.
 
 Verdicts, expected (rows) by what the engine said (columns):
 
-| Expected | failed | needs_review | passed | no_content | error |
-| --- | --- | --- | --- | --- | --- |
-| failed | 14 | 0 | 0 | 0 | 0 |
-| needs_review | 0 | 13 | 0 | 0 | 0 |
-| passed | 0 | 0 | 6 | 0 | 0 |
+| Expected | failed | needs_review | passed | nothing_done | no_content | error |
+| --- | --- | --- | --- | --- | --- | --- |
+| failed | 14 | 0 | 0 | 0 | 0 | 0 |
+| needs_review | 0 | 13 | 0 | 0 | 0 | 0 |
+| passed | 0 | 0 | 6 | 0 | 0 | 0 |
+| nothing_done | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Cases
 

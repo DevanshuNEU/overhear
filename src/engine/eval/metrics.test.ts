@@ -91,9 +91,9 @@ describe("groupMetrics: the verdict", () => {
   });
 
   it("fills the confusion table, expected by actual, with every row and column present", () => {
-    expect(m.overall.confusion.failed).toEqual({ failed: 1, needs_review: 0, passed: 1, no_content: 0, error: 1 });
-    expect(m.overall.confusion.passed).toEqual({ failed: 1, needs_review: 0, passed: 1, no_content: 0, error: 1 });
-    expect(m.overall.confusion.needs_review).toEqual({ failed: 0, needs_review: 1, passed: 0, no_content: 0, error: 0 });
+    expect(m.overall.confusion.failed).toEqual({ failed: 1, needs_review: 0, passed: 1, nothing_done: 0, no_content: 0, error: 1 });
+    expect(m.overall.confusion.passed).toEqual({ failed: 1, needs_review: 0, passed: 1, nothing_done: 0, no_content: 0, error: 1 });
+    expect(m.overall.confusion.needs_review).toEqual({ failed: 0, needs_review: 1, passed: 0, nothing_done: 0, no_content: 0, error: 0 });
   });
 
   it("counts a case with no report as wrong for accuracy", () => {

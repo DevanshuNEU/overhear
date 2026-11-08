@@ -1,7 +1,7 @@
 // The only mapping from code values to words people read (spec section 5 and 6.8).
 // The engine writes `headline` with headlineFor, and the dashboard shows the stored
 // string, so both sides say the same thing. Pure data and functions, no Node APIs.
-import type { ContractId, FieldCheck, GapCode, Note, Platform, ReviewReasonKind, Result, Verdict } from "./schema";
+import type { ContractId, ExperienceCheckId, FieldCheck, GapCode, Note, Platform, ReviewReasonKind, Result, Verdict } from "./schema";
 
 export const RESULT_LABEL: Record<Result, string> = {
   violated: "Broken",
@@ -15,6 +15,7 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   failed: "Failed",
   needs_review: "Needs review",
   passed: "Passed",
+  nothing_done: "Nothing done",
 };
 
 export const CONTRACT_TITLE: Record<ContractId, string> = {
@@ -23,6 +24,13 @@ export const CONTRACT_TITLE: Record<ContractId, string> = {
   spoken_matches_committed: "spoken details match the booking",
   transfer_kept: "promised transfers happen",
   committed_matches_request: "booking matches the request",
+};
+
+/** The call experience checks, named the way CONTRACT_TITLE names a contract: lowercase, to sit in a sentence. */
+export const EXPERIENCE_TITLE: Record<ExperienceCheckId, string> = {
+  agent_ends_call: "the agent ends the call",
+  error_handled: "errors handled well",
+  spoken_format: "dates and times read naturally",
 };
 
 /** The sentence a note adds to a passed call. */
@@ -43,6 +51,7 @@ const REASON_ORDER: ReviewReasonKind[] = ["unverified_result", "deferral", "unan
 /** The one line a call shows for its verdict, notes and reasons, word for word from spec 6.8. */
 export function headlineFor(verdict: Verdict, notes: Note[], reasons: { kind: ReviewReasonKind }[]): string {
   if (verdict === "failed") return "The call broke a rule, and the call record shows it.";
+  if (verdict === "nothing_done") return "Nothing done. The caller said almost nothing, and the agent took no action.";
   if (verdict === "needs_review") {
     const first = REASON_ORDER.find((k) => reasons.some((r) => r.kind === k));
     return first ? REASON_LINE[first] : REASON_LINE.unverified_result;
