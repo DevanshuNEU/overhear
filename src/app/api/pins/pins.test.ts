@@ -9,7 +9,7 @@ import { analyzeRetellCall } from "@/engine/analyze";
 import { parseCase } from "@/engine/eval/case";
 import { writeKey } from "@/pull/key-store";
 import { pinnedDir } from "@/pinned/store";
-import { failedPin, marked, passedPin, recordOf, sawOf } from "@/pinned/testing";
+import { failedPin, marked, passedPin, agentRecordOf, sawOf } from "@/pinned/testing";
 import { failedSample, passedSample } from "@/report/samples";
 import pkg from "../../../../package.json";
 import { DELETE as deleteOne } from "./[id]/route";
@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://127.0.0.1:3000");
   requests = [];
   status = 200;
-  record = { ...recordOf(failedSample, CALL), access_token: "tok_SECRET", recording_url: "https://signed.example/rec?sig=abc", from_number: "+15555550100" };
+  record = { ...agentRecordOf(failedSample, CALL), access_token: "tok_SECRET", recording_url: "https://signed.example/rec?sig=abc", from_number: "+15555550100" };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
@@ -60,13 +60,13 @@ const send = (method: string, p: string, body?: unknown, headers: Record<string,
   });
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 // What a client sends: the names to keep and what the screen showed for them.
-const ASK = { callId: CALL, keep: { contracts: ["transfer_kept"], experience: [] as string[] }, saw: sawOf(recordOf(failedSample, CALL)) };
+const ASK = { callId: CALL, keep: { contracts: ["transfer_kept"], experience: [] as string[] }, saw: sawOf(agentRecordOf(failedSample, CALL)) };
 const files = () => (fs.existsSync(pinnedDir()) ? fs.readdirSync(pinnedDir()) : []);
 const read = async (res: Response) => ({ status: res.status, text: await res.clone().text(), body: (await res.json()) as Record<string, unknown> });
 
 /** The failed sample with the stored key spoken in one agent turn. */
 function withKeyInTranscript(key: string): unknown {
-  const rec = recordOf(failedSample, CALL) as { transcript_with_tool_calls: { content?: string }[] };
+  const rec = agentRecordOf(failedSample, CALL) as { transcript_with_tool_calls: { content?: string }[] };
   const turn = rec.transcript_with_tool_calls.find((u) => typeof u.content === "string" && u.content !== "");
   if (!turn) throw new Error("the sample has no spoken turn");
   turn.content = `${turn.content} my key is ${key} ok`;
@@ -233,8 +233,9 @@ describe("pinning a call", () => {
     expect(pin.label.note).toBe("nurse transfer[31m promised never made");
     expect(pin.tz).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
     expect(pin.locked).toBe(true);
-    expect(pin.expect.verdict).toBe("failed");
-    expect(pin.expect.contracts).toEqual({ transfer_kept: "violated" });
+    // A user's own agent has no demo preset, so the sample reads as the engine reads it for any agent.
+    expect(pin.expect.verdict).toBe(ASK.saw.verdict);
+    expect(pin.expect.contracts).toEqual({ transfer_kept: ASK.saw.contracts.transfer_kept });
     expect(Object.keys(pin.expect.experience ?? {})).toEqual(["agent_ends_call"]);
     for (const dropped of ["tok_SECRET", "signed.example", "+15555550100", "access_token", "from_number", KEY]) expect(saved).not.toContain(dropped);
   });
@@ -256,22 +257,21 @@ describe("pinning a call", () => {
     const second = await read(await POST(send("POST", "", ASK)));
     expect(second.body.id).toBe(first.body.id);
     expect(files()).toHaveLength(1);
-    expect(parseCase(JSON.parse(fs.readFileSync(path.join(pinnedDir(), files()[0]), "utf8"))).expect.contracts).toEqual({ transfer_kept: "violated" });
+    expect(parseCase(JSON.parse(fs.readFileSync(path.join(pinnedDir(), files()[0]), "utf8"))).expect.contracts).toEqual({ transfer_kept: ASK.saw.contracts.transfer_kept });
   });
 
   it("accepts what the screen showed when it still matches", async () => {
     await writeKey(KEY);
-    const saw = { verdict: "failed", contracts: { transfer_kept: "violated" }, experience: {} };
-    expect(ASK.saw).toMatchObject(saw);
+    const saw = { verdict: ASK.saw.verdict, contracts: { transfer_kept: ASK.saw.contracts.transfer_kept }, experience: {} };
     expect((await POST(send("POST", "", { ...ASK, saw }))).status).toBe(200);
   });
 
   it("pins a passed call too", async () => {
     await writeKey(KEY);
-    record = recordOf(passedSample, "call_c41d07");
+    record = agentRecordOf(passedSample, "call_c41d07");
     const res = await POST(send("POST", "", { callId: "call_c41d07", keep: { contracts: [], experience: [] }, saw: sawOf(record) }));
     expect(res.status).toBe(200);
-    expect(parseCase(JSON.parse(fs.readFileSync(path.join(pinnedDir(), files()[0]), "utf8"))).expect.verdict).toBe("passed");
+    expect(parseCase(JSON.parse(fs.readFileSync(path.join(pinnedDir(), files()[0]), "utf8"))).expect.verdict).toBe(sawOf(record).verdict);
   });
 });
 
@@ -287,7 +287,7 @@ describe("refusals write nothing", () => {
 
   it("a record for a different call (409)", async () => {
     await writeKey(KEY);
-    record = recordOf(failedSample, "call_other");
+    record = agentRecordOf(failedSample, "call_other");
     await refused("mismatch");
   });
 
@@ -295,6 +295,18 @@ describe("refusals write nothing", () => {
     await writeKey(KEY);
     record = ["x"];
     await refused("mismatch");
+  });
+
+  it("a record with no agent id, or one that is not an id (409), is not given a made-up one", async () => {
+    await writeKey(KEY);
+    const without = { ...(record as Record<string, unknown>) };
+    delete without.agent_id;
+    record = without;
+    await refused("unreadable");
+    for (const agent_id of ["has space", "../x", "", 5, null, "x".repeat(129)]) {
+      record = { ...without, agent_id };
+      await refused("unreadable");
+    }
   });
 
   it("a call that has not ended (409)", async () => {
@@ -311,11 +323,11 @@ describe("refusals write nothing", () => {
 
   it("a call that reads differently from what the screen showed (409)", async () => {
     await writeKey(KEY);
-    const r = await refused("changed", 409, { ...ASK, saw: { verdict: "passed", contracts: { transfer_kept: "violated" }, experience: {} } });
+    const r = await refused("changed", 409, { ...ASK, saw: { ...ASK.saw, verdict: "passed" } });
     expect(r.body.message).toBe("This call reads differently now. Reload it and try again.");
-    await refused("changed", 409, { ...ASK, saw: { verdict: "failed", contracts: { transfer_kept: "passed" }, experience: {} } });
+    await refused("changed", 409, { ...ASK, saw: { ...ASK.saw, contracts: { ...ASK.saw.contracts, transfer_kept: "passed" } } });
     // The screen showed nothing for a kept item.
-    await refused("changed", 409, { ...ASK, saw: { verdict: "failed", contracts: {}, experience: {} } });
+    await refused("changed", 409, { ...ASK, saw: { ...ASK.saw, contracts: {} } });
   });
 
   it("an experience check that reads differently from what the screen showed (409)", async () => {
@@ -324,7 +336,7 @@ describe("refusals write nothing", () => {
     expect(out.kind).toBe("report");
     if (out.kind !== "report") return;
     const now = out.report.experience.problems.some((p) => p.check === "agent_ends_call") ? "problem" : "clean";
-    const saw = { verdict: out.report.verdict, contracts: { transfer_kept: "violated" }, experience: { agent_ends_call: now === "problem" ? "clean" : "problem" } };
+    const saw = { ...ASK.saw, experience: { agent_ends_call: now === "problem" ? "clean" : "problem" } };
     await refused("changed", 409, { callId: CALL, keep: { contracts: [], experience: ["agent_ends_call"] }, saw });
   });
 
@@ -363,7 +375,7 @@ describe("refusals write nothing", () => {
 describe("listing and deleting", () => {
   it("lists a summary with a fresh check, and never a word of the call", async () => {
     await writeKey(KEY);
-    record = marked(recordOf(failedSample, CALL), MARKER);
+    record = marked(agentRecordOf(failedSample, CALL), MARKER);
     const posted = await read(await POST(send("POST", "", { ...ASK, saw: sawOf(record), note: "transfer promised" })));
     expect(posted.status).toBe(200);
     expect(posted.text).not.toContain(MARKER);

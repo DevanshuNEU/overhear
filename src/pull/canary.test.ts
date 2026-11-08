@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET, POST } from "@/app/api/connect/route";
 import { DELETE as pinsDelete, GET as pinsGet, POST as pinsPost } from "@/app/api/pins/route";
 import { pinnedDir } from "@/pinned/store";
-import { recordOf, sawOf } from "@/pinned/testing";
+import { agentRecordOf, sawOf } from "@/pinned/testing";
 import { failedSample } from "@/report/samples";
 import { proxy } from "@/proxy";
 import { NextRequest } from "next/server";
@@ -300,7 +300,7 @@ describe.each(CANARIES)("a canary key never appears anywhere: $label", (c) => {
   it("through pinning a call: the key echoed into every field of the call, then only into the fields a pin drops", async () => {
     const key = c.key;
     const echoed = (callId: string, where: "everywhere" | "dropped"): unknown => {
-      const rec = recordOf(failedSample, callId) as Record<string, unknown> & { transcript_with_tool_calls: Record<string, unknown>[] };
+      const rec = agentRecordOf(failedSample, callId) as Record<string, unknown> & { transcript_with_tool_calls: Record<string, unknown>[] };
       const dropped = {
         access_token: key,
         recording_url: `https://recordings.example/${key}`,

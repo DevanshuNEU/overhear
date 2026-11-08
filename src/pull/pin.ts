@@ -177,8 +177,8 @@ export async function pinCall(input: PinInput, deps: { tuning?: PullTuning; now?
 
     const trimmed = minimizeRecord(raw);
     if (!isRec(trimmed) || trimmed.call_id !== input.callId) return refuse("unreadable");
-    // Retell's calls carry an agent id. One that does not (or holds odd characters) is refused rather than guessed.
-    const agentId = trimmed.agent_id === undefined ? "unknown" : trimmed.agent_id;
+    // Retell's calls carry an agent id. A record without one, or with odd characters in it, is refused rather than guessed.
+    const agentId = trimmed.agent_id;
     if (typeof agentId !== "string" || !CALL_ID.test(agentId)) return refuse("unreadable");
     const tz = machineZone();
     const outcome = analyzeRetellCall(trimmed, { tz });

@@ -3,7 +3,7 @@
 import { analyzeRetellCall } from "@/engine/analyze";
 import { parseCase, type EvalCase, type ExperienceExpect } from "@/engine/eval/case";
 import { toRetell } from "@/engine/testing/retell";
-import type { ContractId, ExperienceCheckId, Result } from "@/report/schema";
+import type { ContractId, ExperienceCheckId, Result, Verdict } from "@/report/schema";
 import { failedSample, passedSample } from "@/report/samples";
 import { pinIdFor } from "./pin-id";
 
@@ -56,16 +56,21 @@ export const passedPin = (callId = "call_c41d07"): EvalCase => pinOf(recordOf(pa
 
 /** What a call's screen shows, as a client would send it in `saw`: the verdict and the result of every contract and check. */
 export function sawOf(record: unknown, tz: string = Intl.DateTimeFormat().resolvedOptions().timeZone): {
-  verdict: string;
-  contracts: Record<string, string>;
-  experience: Record<string, string>;
+  verdict: Verdict;
+  contracts: Partial<Record<ContractId, Result>>;
+  experience: Partial<Record<ExperienceCheckId, ExperienceExpect>>;
 } {
   const out = analyzeRetellCall(record, { tz });
   if (out.kind !== "report") throw new Error("the fixture record gives no report");
   const { report } = out;
   return {
     verdict: report.verdict,
-    contracts: Object.fromEntries(report.results.map((r) => [r.contract, r.result])),
-    experience: Object.fromEntries(report.experience.ran.map((c) => [c, report.experience.problems.some((p) => p.check === c) ? "problem" : "clean"])),
+    contracts: Object.fromEntries(report.results.map((r) => [r.contract, r.result])) as Partial<Record<ContractId, Result>>,
+    experience: Object.fromEntries(report.experience.ran.map((c) => [c, report.experience.problems.some((p) => p.check === c) ? "problem" : "clean"])) as Partial<Record<ExperienceCheckId, ExperienceExpect>>,
   };
+}
+
+/** recordOf with an agent id, as Retell's calls always carry one. A pin from the app is refused without it. */
+export function agentRecordOf(sample: typeof failedSample, callId: string, agentId = "agent_1"): Record<string, unknown> {
+  return { ...recordOf(sample, callId), agent_id: agentId };
 }

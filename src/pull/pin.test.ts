@@ -5,14 +5,14 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pinnedDir } from "@/pinned/store";
-import { recordOf } from "@/pinned/testing";
+import { agentRecordOf, sawOf } from "@/pinned/testing";
 import { failedSample } from "@/report/samples";
 import { writeKey } from "./key-store";
 import { pinCall } from "./pin";
 
 const KEY = "key_PINUNIT0123456789abcdef";
 const CALL = "call_8f2a9c";
-const ASK = { callId: CALL, keep: { contracts: [], experience: [] }, saw: { verdict: "failed" as const, contracts: {}, experience: {} } };
+const ASK = { callId: CALL, keep: { contracts: [], experience: [] }, saw: sawOf(agentRecordOf(failedSample, CALL)) };
 const TUNING = { sleep: async () => {}, jitter: () => 0 };
 
 let home: string;
@@ -28,7 +28,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async () => {
       count++;
-      return (answers.shift() ?? (() => Response.json(recordOf(failedSample, CALL))))();
+      return (answers.shift() ?? (() => Response.json(agentRecordOf(failedSample, CALL))))();
     }),
   );
   (globalThis as { __overhearPulls?: unknown }).__overhearPulls = undefined;
