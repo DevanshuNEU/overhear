@@ -184,3 +184,55 @@ describe("runEngineEval", () => {
     expect(runEngineEval(cases, returns(failedReport))).toEqual(runEngineEval(cases, returns(failedReport)));
   });
 });
+
+describe("runCase, kept experience checks", () => {
+  // The failed sample's report with an experience block: two checks ran, one problem found.
+  const agentSeq = failedReport.evidence.items.find((e) => e.kind === "turn" && e.role === "agent")?.seq ?? 0;
+  const withExperience = (experience: { ran: string[]; problems: { check: string; text: string; seqs: number[] }[] }): Analyze =>
+    returns({ ...failedReport, experience });
+  const found = withExperience({ ran: ["agent_ends_call", "error_handled"], problems: [{ check: "agent_ends_call", text: "The agent kept talking.", seqs: [agentSeq] }] });
+
+  it("passes a kept problem the engine reports and a kept clean check the engine ran", () => {
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { agent_ends_call: "problem", error_handled: "clean" } } }), found);
+    expect(r.experience).toEqual([
+      { check: "agent_ends_call", expected: "problem", actual: "problem", agree: true },
+      { check: "error_handled", expected: "clean", actual: "clean", agree: true },
+    ]);
+    expect(r.pass).toBe(true);
+  });
+
+  it("disagrees, and fails the case, when a kept problem is not reported", () => {
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { error_handled: "problem" } } }), found);
+    expect(r.experience).toEqual([{ check: "error_handled", expected: "problem", actual: "clean", agree: false }]);
+    expect(r.verdictMatch).toBe(true);
+    expect(r.pass).toBe(false);
+  });
+
+  it("disagrees when a kept clean check found a problem", () => {
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { agent_ends_call: "clean" } } }), found);
+    expect(r.experience).toEqual([{ check: "agent_ends_call", expected: "clean", actual: "problem", agree: false }]);
+    expect(r.pass).toBe(false);
+  });
+
+  it("reads a kept check missing from ran as not_run, which disagrees even for clean", () => {
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { spoken_format: "clean" } } }), found);
+    expect(r.experience).toEqual([{ check: "spoken_format", expected: "clean", actual: "not_run", agree: false }]);
+    expect(r.pass).toBe(false);
+  });
+
+  it("reads a report from before the experience checks as not_run", () => {
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { agent_ends_call: "problem" } } }), returns({ ...failedReport, experience: undefined }));
+    expect(r.experience).toEqual([{ check: "agent_ends_call", expected: "problem", actual: "not_run", agree: false }]);
+  });
+
+  it("reads no_report when the outcome is not a report", () => {
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { agent_ends_call: "problem" } } }), () => ({ kind: "error", callId: null, message: "x" }));
+    expect(r.experience).toEqual([{ check: "agent_ends_call", expected: "problem", actual: "no_report", agree: false }]);
+  });
+
+  it("scores nothing when a case keeps no experience checks, and lists the checks in the schema's order", () => {
+    expect(runCase(makeCase({ expect: { verdict: "failed" } }), found).experience).toEqual([]);
+    const r = runCase(makeCase({ expect: { verdict: "failed", experience: { spoken_format: "clean", agent_ends_call: "problem" } } }), found);
+    expect(r.experience.map((k) => k.check)).toEqual(["agent_ends_call", "spoken_format"]);
+  });
+});
