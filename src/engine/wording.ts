@@ -238,6 +238,16 @@ export function lineLeftOpenText(seq: number, ev: Evidence): string {
   return `The agent said goodbye at ${formatTime(seq, ev)}, then left the line open until the call timed out.`;
 }
 
+/** The problem text for system details read to the caller: the agent said these fragments at this turn, each quoted as it was said. */
+export function leakedInternalsText(seq: number, quotes: string[], ev: Evidence): string {
+  return `At ${formatTime(seq, ev)} the agent read system details to the caller: ${nameList(quotes.map((q) => `"${q}"`))}.`;
+}
+
+/** The problem text for a failed tool the agent offered no way forward from: the failure happened at this item. */
+export function noWayForwardText(failedSeq: number, ev: Evidence): string {
+  return `A tool failed at ${formatTime(failedSeq, ev)}, and the agent offered no way forward: no callback, no person to talk to, no time to try again.`;
+}
+
 /** Why a promise is broken: the reason slot of the promise_backed template. */
 export type PromiseReason =
   | { why: "not_attempted"; kind?: ChangeKind }

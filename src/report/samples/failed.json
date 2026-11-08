@@ -8,7 +8,8 @@
   "reasons": [],
   "experience": {
     "ran": [
-      "agent_ends_call"
+      "agent_ends_call",
+      "error_handled"
     ],
     "problems": []
   },

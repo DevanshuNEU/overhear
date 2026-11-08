@@ -25,9 +25,18 @@
   ],
   "experience": {
     "ran": [
-      "agent_ends_call"
+      "agent_ends_call",
+      "error_handled"
     ],
-    "problems": []
+    "problems": [
+      {
+        "check": "error_handled",
+        "text": "At 0:37 the agent read system details to the caller: \"returned a temporary error\".",
+        "seqs": [
+          12
+        ]
+      }
+    ]
   },
   "results": [
     {

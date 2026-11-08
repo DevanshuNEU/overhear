@@ -736,10 +736,10 @@ describe("the call experience field", () => {
   });
 
   it("is on every sample, as the engine produces it", () => {
-    for (const report of SAMPLE_REPORTS) expect(report.experience.ran).toEqual(["agent_ends_call"]);
+    for (const report of SAMPLE_REPORTS) expect(report.experience.ran).toEqual(["agent_ends_call", "error_handled"]);
     for (const file of ["failed.json", "needs-review.json", "passed.json"]) {
       const onDisk = JSON.parse(fs.readFileSync(path.join(__dirname, "samples", file), "utf8"));
-      expect(onDisk.experience.ran).toEqual(["agent_ends_call"]);
+      expect(onDisk.experience.ran).toEqual(["agent_ends_call", "error_handled"]);
     }
   });
 });
