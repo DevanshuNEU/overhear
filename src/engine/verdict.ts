@@ -53,10 +53,14 @@ export function verdictFor(results: ContractResult[], detections: Detection[], e
 /**
  * True for a call that would have passed where every contract that ran did not apply, nothing was done (no tool
  * call, no backend action), the agent claimed no completion, transfer, refusal or deferral, and the caller said at
- * most NOTHING_DONE_MAX_CALLER_WORDS words. ran is the results that are not not_run.
+ * most NOTHING_DONE_MAX_CALLER_WORDS words. At least one contract must have run, and the evidence must show the
+ * tool calls: a turns-only record (ordering none, or a missing_tool_transcript gap) never reads nothing_done.
+ * ran is the results that are not not_run.
  */
 function nothingDone(ran: ContractResult[], detections: Detection[], ev: Evidence): boolean {
-  if (!ran.every((r) => r.result === "not_applicable")) return false;
+  if (ran.length === 0 || !ran.every((r) => r.result === "not_applicable")) return false;
+  // With no tool items in the record (turns only), "no tool calls" is only what we cannot see, not what happened.
+  if (ev.ordering === "none" || ev.gaps.some((g) => g.code === "missing_tool_transcript")) return false;
   if (ev.items.some((it) => it.kind === "tool_call" || it.kind === "backend_action")) return false;
   if (detections.some((d) => d.cls === "completion" || d.cls === "transfer" || d.cls === "refusal" || d.cls === "deferral")) return false;
   const words = ev.items.reduce((n, it) => (it.kind === "turn" && it.role === "caller" ? n + wordCount(it.text) : n), 0);

@@ -486,6 +486,14 @@ export const MUTATIONS: readonly Mutation[] = [
     expect: { verdict: "nothing_done", promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
     reasons: [],
   },
+  {
+    id: "mut-short-empty-call-turns-only",
+    parent: PASSED,
+    note: "The short empty call as a record with just transcript_object: no tool items, so nothing shows whether the agent called a tool. Without the tool transcript the call cannot be said to have had no action, so it stays passed with no promises made, not Nothing done.",
+    edit: (r) => turnsOnly(shortEmptyCall(r)),
+    expect: { verdict: "passed", promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
+    reasons: [],
+  },
 ];
 
 /**

@@ -284,6 +284,13 @@ describe("checkCall", () => {
       expect(r.notes).toEqual(["no_promises_made", "request_not_checked"]);
     });
 
+    it("the same short call with only the turns recorded is passed with no_promises_made", () => {
+      const turnsOnly = ev([agent(GREETING, 0), caller("Hello!", 4), caller("Hey, what's up.", 6), agent("Hi, how can I help?", 8)], { ordering: "none" });
+      const r = parsed(checkCall(turnsOnly, PRESET, OPTS));
+      expect(r.verdict).toBe("passed");
+      expect(r.notes).toEqual(["no_promises_made", "request_not_checked"]);
+    });
+
     it("a short call where the agent defers is needs_review", () => {
       const deferred = ev([agent(GREETING, 0), caller("Hello!", 4), agent("I'm sorry, the calendar is down right now. I can help once it's back online.", 8)]);
       expect(parsed(checkCall(deferred, PRESET, OPTS)).verdict).toBe("needs_review");

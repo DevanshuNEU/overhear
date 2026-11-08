@@ -221,6 +221,27 @@ describe("verdictFor: Nothing done", () => {
     expect(verdictFor(NOT_APPLICABLE, [deferral(2, DEFERRAL_QUOTE)], e).verdict).toBe("needs_review");
   });
 
+  it("a short call whose tool calls cannot be seen (ordering none) is passed, not nothing_done", () => {
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("Hello!", 1), agent(GREETING, 0)], { ordering: "none" })).verdict).toBe("passed");
+  });
+
+  it("a short call with a missing_tool_transcript gap is passed, not nothing_done", () => {
+    const gap: Gap = { code: "missing_tool_transcript", detail: "Retell kept the conversation but not its tool calls.", seqs: [] };
+    expect(verdictFor(NOT_APPLICABLE, [], ev([caller("Hello!", 1), agent(GREETING, 0)], { gaps: [gap] })).verdict).toBe("passed");
+  });
+
+  it("a call where no contract ran is not nothing_done", () => {
+    const notRun = NOT_APPLICABLE.map((c) => contract(c.contract, "not_run"));
+    expect(verdictFor(notRun, [], short()).verdict).toBe("passed");
+  });
+
+  // Accepted cost of the 10-word rule: a short real question answered with no tool reads nothing_done today. The
+  // label is neutral and the harm low, so it stays until real test calls say where the limit belongs.
+  it("a short real question answered without tools reads nothing_done today", () => {
+    const e = ev([agent(GREETING, 0), caller("What are your hours?", 4), agent("We are open eight to five on weekdays.", 8)]);
+    expect(verdictFor(NOT_APPLICABLE, [], e).verdict).toBe("nothing_done");
+  });
+
   it("a short call with a violated or unverified contract keeps that verdict", () => {
     const violated = withResult("transfer_kept", contract("transfer_kept", "violated", [finding("violated")]));
     expect(verdictFor(violated, [], short()).verdict).toBe("failed");
