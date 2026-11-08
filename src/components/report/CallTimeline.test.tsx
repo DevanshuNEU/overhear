@@ -170,23 +170,26 @@ describe("CallTimeline", () => {
   });
 
   describe("spoken numbers", () => {
-    it("shows them as digits, with the exact words in the same place for assistive tech", () => {
+    const scope = () => document.querySelector("[data-numbers]")!;
+
+    it("holds the digits and the exact words in the same place, the exact words for assistive tech", () => {
       render(<CallTimeline report={spokenNumbersSample} />);
-      const shown = Array.from(document.querySelectorAll("[data-readable] [aria-hidden='true']")).map((e) => e.textContent);
-      expect(shown).toContain("March 14, 1985");
-      expect(shown).toContain("555 1234");
-      const exact = Array.from(document.querySelectorAll("[data-readable] .sr-only")).map((e) => e.textContent);
+      const digits = Array.from(document.querySelectorAll("[data-readable] [data-digits]"));
+      expect(digits.map((e) => e.textContent)).toContain("March 14, 1985");
+      expect(digits.map((e) => e.textContent)).toContain("555 1234");
+      for (const d of digits) expect(d.getAttribute("aria-hidden")).toBe("true");
+      const exact = Array.from(document.querySelectorAll("[data-readable] [data-exact]")).map((e) => e.textContent);
       expect(exact).toContain("fourteenth of March nineteen eighty five");
       expect(exact).toContain("five five five one two three four");
     });
 
-    it("offers the exact words in one click, and the digits again in another", () => {
+    it("shows digits first, offers the exact words in one click, and the digits again in another", () => {
       render(<CallTimeline report={spokenNumbersSample} />);
+      expect(scope()).toHaveAttribute("data-numbers", "digits");
       fireEvent.click(screen.getByRole("button", { name: "Show exact words" }));
-      expect(document.querySelector("[data-readable]")).toBeNull();
-      expect(screen.getByText(/fourteenth of March nineteen eighty five/)).toBeInTheDocument();
+      expect(scope()).toHaveAttribute("data-numbers", "exact");
       fireEvent.click(screen.getByRole("button", { name: "Show numbers as digits" }));
-      expect(document.querySelector("[data-readable]")).not.toBeNull();
+      expect(scope()).toHaveAttribute("data-numbers", "digits");
     });
 
     it("offers no switch on a call with no spoken numbers", () => {
@@ -195,17 +198,32 @@ describe("CallTimeline", () => {
     });
 
     it("never turns the words of a highlighted claim into digits", () => {
+      const swap = (text: string) => text.replace("a nurse now", "a nurse in twenty two minutes now");
       const report = {
         ...failedSample,
         evidence: {
           ...failedSample.evidence,
-          items: failedSample.evidence.items.map((it) =>
-            it.kind === "turn" && it.seq === 25 ? { ...it, text: it.text.replace("a nurse now", "a nurse in twenty two minutes now") } : it,
-          ),
+          items: failedSample.evidence.items.map((it) => (it.kind === "turn" && it.seq === 25 ? { ...it, text: swap(it.text) } : it)),
+        },
+        detections: failedSample.detections.map((d) => (d.seq === 25 ? { ...d, quote: swap(d.quote) } : d)),
+      };
+      render(<CallTimeline report={report} />);
+      const marks = Array.from(document.getElementById("item-25")!.querySelectorAll("mark"));
+      // The claim is marked with its words, and the number inside it is not read.
+      expect(marks.map((m) => m.textContent).join(" ")).toContain("a nurse in twenty two minutes now");
+      expect(marks.every((m) => m.querySelector("[data-readable]") === null)).toBe(true);
+    });
+
+    it("reads a number outside a highlighted claim in the same turn", () => {
+      const report = {
+        ...failedSample,
+        evidence: {
+          ...failedSample.evidence,
+          items: failedSample.evidence.items.map((it) => (it.kind === "turn" && it.seq === 25 ? { ...it, text: `${it.text} Your room is twenty two.` } : it)),
         },
       };
       render(<CallTimeline report={report} />);
-      expect(document.getElementById("item-25")!.querySelector("mark [data-readable]")).toBeNull();
+      expect(document.getElementById("item-25")!.querySelector("[data-readable] [data-digits]")!.textContent).toBe("22");
     });
   });
 });

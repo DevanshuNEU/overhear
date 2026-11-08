@@ -35,7 +35,10 @@ function tokenize(text: string): Token[] {
   return Array.from(text.matchAll(/[\p{L}\p{N}'’]+/gu), (m) => ({ word: m[0].toLowerCase(), raw: m[0], start: m.index, end: m.index + m[0].length }));
 }
 
-const isNumberWord = (w: string) => w in UNIT || w in TEEN || w in TEN || w === "hundred" || w === "thousand" || w === "zero";
+// A number word as a neighbour makes a reading unsure: other number words, any ordinal (so "forty second" is not
+// cut at "forty"), and "double" and "triple", which stand for a repeated digit this file does not read.
+const NEIGHBOUR_ONLY = new Set(["hundred", "thousand", "zero", "double", "triple", "hundredth", "thousandth", "fortieth", "fiftieth", "sixtieth", "seventieth", "eightieth", "ninetieth"]);
+const isNumberWord = (w: string) => w in UNIT || w in TEEN || w in TEN || w in ORDINAL || NEIGHBOUR_ONLY.has(w);
 
 type Hit = { count: number; shown: string };
 /** What a reader at token i finds, as a count of tokens read and the digits for them. */
@@ -69,7 +72,8 @@ function below100(r: Reader, i: number): { n: number; count: number } | null {
 function below1000(r: Reader, i: number): { n: number; count: number } | null {
   const head = below100(r, i);
   if (!head) return null;
-  if (head.n < 100 && joined(r, i + head.count) && wordAt(r, i + head.count) === "hundred") {
+  // "nineteen hundred" is a year or a time of day, read many ways, so eleven to nineteen hundred stays as written.
+  if (head.n < 100 && !(head.n >= 11 && head.n <= 19) && joined(r, i + head.count) && wordAt(r, i + head.count) === "hundred") {
     let count = head.count + 1;
     let n = head.n * 100;
     let j = i + count;
@@ -143,6 +147,20 @@ function year(r: Reader, i: number): Hit | null {
   return null;
 }
 
+const YEAR_CUE = new Set(["in", "since", "born", "of", "year", "birth"]);
+
+/**
+ * A bare spoken year, which needs a cue right before it: "in", "since", "born", "of", "year", "birth", or "is" with
+ * "birth" among the three words before ("date of birth is"). Without one it could be a price or a time
+ * ("nineteen ninety nine dollars", "twenty thirty"), so it stays as written. A year inside a date needs no cue.
+ */
+function cuedYear(r: Reader, i: number): Hit | null {
+  const prev = i > 0 && joined(r, i) ? wordAt(r, i - 1) : undefined;
+  if (prev === undefined) return null;
+  const cued = YEAR_CUE.has(prev) || (prev === "is" && r.toks.slice(Math.max(0, i - 3), i).some((t) => t.word === "birth"));
+  return cued ? year(r, i) : null;
+}
+
 /** A year after a date, with an optional comma before it. */
 function yearAfter(r: Reader, i: number): Hit | null {
   if (!nearby(r, i) && !joined(r, i)) return null;
@@ -214,7 +232,7 @@ function candidatesAt(r: Reader, i: number): { hits: Hit[]; skip: number } {
   const hits: Hit[] = [];
   const d = date(r, i);
   if (d) hits.push(d);
-  const y = year(r, i);
+  const y = cuedYear(r, i);
   // A bare digit year is already digits.
   if (y && !/^\d/.test(r.toks[i].word)) hits.push(y);
   const o = ordinal(r, i);
@@ -223,7 +241,9 @@ function candidatesAt(r: Reader, i: number): { hits: Hit[]; skip: number } {
     // above ("April thirty first", "the thirty first of April") is not a lone ordinal either.
     const after = joined(r, i + o.count) && wordAt(r, i + o.count) === "of" && monthOf(wordAt(r, i + o.count + 1) ?? "") >= 0;
     const before = i > 0 && monthOf(wordAt(r, i - 1) ?? "") >= 0 && joined(r, i);
-    if (o.n >= 13 && !after && !before) hits.push({ count: o.count, shown: `${o.n}${suffix(o.n)}` });
+    // A lone ordinal reads as a day only after "the" ("on the twenty second"), never after "a" ("a twenty second wait").
+    const the = i > 0 && joined(r, i) && wordAt(r, i - 1) === "the";
+    if (o.n >= 13 && !after && !before && the) hits.push({ count: o.count, shown: `${o.n}${suffix(o.n)}` });
     else if (hits.length === 0) return { hits, skip: o.count };
   }
   const c = cardinal(r, i);
@@ -231,6 +251,28 @@ function candidatesAt(r: Reader, i: number): { hits: Hit[]; skip: number } {
   const run = digitRun(r, i);
   if (run.hit) hits.push(run.hit);
   return { hits, skip: run.count >= 2 ? run.count : 1 };
+}
+
+const isScale = (w: string | undefined) => w === "hundred" || w === "thousand";
+
+/**
+ * True when a number word sits right before or after the tokens [i, i + count), so reading them alone would cut a
+ * longer number in two. "and" after hundred or thousand joins what follows to what came before
+ * ("a hundred and fifty", "one hundred and first").
+ */
+function touchesNumber(r: Reader, i: number, count: number): boolean {
+  const end = i + count;
+  if (i > 0 && joined(r, i)) {
+    const prev = wordAt(r, i - 1)!;
+    if (isNumberWord(prev)) return true;
+    if (prev === "and" && joined(r, i - 1) && isScale(wordAt(r, i - 2))) return true;
+  }
+  if (end < r.toks.length && joined(r, end)) {
+    const next = wordAt(r, end)!;
+    if (isNumberWord(next)) return true;
+    if (next === "and" && isScale(wordAt(r, end - 1)) && joined(r, end + 1) && isNumberWord(wordAt(r, end + 1) ?? "")) return true;
+  }
+  return false;
 }
 
 /**
@@ -245,9 +287,7 @@ export function readableSpans(text: string, exact: Range[] = []): Span[] {
   let i = 0;
   while (i < r.toks.length) {
     const { hits, skip } = candidatesAt(r, i);
-    const unambiguous = (h: Hit) =>
-      !(i > 0 && joined(r, i) && isNumberWord(r.toks[i - 1].word)) &&
-      !(i + h.count < r.toks.length && joined(r, i + h.count) && isNumberWord(r.toks[i + h.count].word));
+    const unambiguous = (h: Hit) => !touchesNumber(r, i, h.count);
     const hit = hits.find(unambiguous);
     if (!hit) {
       i += skip;

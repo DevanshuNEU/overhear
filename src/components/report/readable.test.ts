@@ -126,6 +126,66 @@ describe("readableSegments", () => {
   });
 });
 
+describe("precision: a wrong digit is worse than a word left as written", () => {
+  it("leaves compound ordinals above thirty whole, never cut in half", () => {
+    expect(shown("forty second street")).toBe("forty second street");
+    expect(shown("the fifty first state")).toBe("the fifty first state");
+    expect(shown("ninety ninth percentile")).toBe("ninety ninth percentile");
+    expect(shown("sixty sixth")).toBe("sixty sixth");
+  });
+
+  it("reads a lone ordinal only after 'the', never after 'a' or 'an'", () => {
+    expect(shown("a thirty second wait")).toBe("a thirty second wait");
+    expect(shown("a twenty second delay")).toBe("a twenty second delay");
+    expect(shown("an twenty second pause")).toBe("an twenty second pause");
+    expect(shown("on the twenty second")).toBe("on the 22nd");
+    expect(shown("the twenty second floor")).toBe("the 22nd floor");
+    expect(shown("twenty second")).toBe("twenty second");
+  });
+
+  it("leaves a run after double or triple as written", () => {
+    expect(shown("double five one two")).toBe("double five one two");
+    expect(shown("triple five one two three four")).toBe("triple five one two three four");
+    expect(shown("five five five one two double three four")).toBe("five five five one two double three four");
+  });
+
+  it("reads a bare year only after a year cue", () => {
+    expect(shown("born in nineteen eighty five")).toBe("born in 1985");
+    expect(shown("since twenty twenty four")).toBe("since 2024");
+    expect(shown("the year nineteen ninety")).toBe("the year 1990");
+    expect(shown("a man born nineteen sixty")).toBe("a man born 1960");
+    expect(shown("one of twenty twenty")).toBe("one of 2020");
+    expect(shown("my date of birth is nineteen eighty five")).toBe("my date of birth is 1985");
+    expect(shown("birth date is nineteen eighty five")).toBe("birth date is 1985");
+  });
+
+  it("leaves prices and times that look like years as written", () => {
+    expect(shown("nineteen ninety nine dollars")).toBe("nineteen ninety nine dollars");
+    expect(shown("it's twenty thirty")).toBe("it's twenty thirty");
+    expect(shown("that'll be nineteen fifty")).toBe("that'll be nineteen fifty");
+    expect(shown("the code is nineteen eighty five")).toBe("the code is nineteen eighty five");
+    expect(shown("it is nineteen eighty five")).toBe("it is nineteen eighty five");
+  });
+
+  it("still reads a year inside a date, with no cue needed", () => {
+    expect(shown("It's March fourteenth nineteen eighty five.")).toBe("It's March 14, 1985.");
+  });
+
+  it("does not convert half of a phrase joined by 'and' after hundred or thousand", () => {
+    expect(shown("about a hundred and fifty")).toBe("about a hundred and fifty");
+    expect(shown("one hundred and first")).toBe("one hundred and first");
+    expect(shown("a thousand and fifty")).toBe("a thousand and fifty");
+    expect(shown("one hundred and five")).toBe("105");
+  });
+
+  it("leaves hundreds of eleven to nineteen as written", () => {
+    expect(shown("nineteen hundred and five")).toBe("nineteen hundred and five");
+    expect(shown("nineteen hundred hours")).toBe("nineteen hundred hours");
+    expect(shown("fifteen hundred")).toBe("fifteen hundred");
+    expect(shown("two hundred fifty")).toBe("250");
+  });
+});
+
 describe("readableSpans with exact ranges", () => {
   it("drops a span that touches a range that must stay exact", () => {
     const text = "Your date is fourteenth of March nineteen eighty five.";
