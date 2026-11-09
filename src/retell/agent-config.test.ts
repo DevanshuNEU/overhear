@@ -1,15 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
+import type { RetellCustomTool, RetellLlmConfig } from "./agent-config";
+
+/** The clinic's own tools, without Retell's built-in end_call. */
+const customTools = (cfg: RetellLlmConfig): RetellCustomTool[] => cfg.general_tools.filter((t): t is RetellCustomTool => t.type === "custom");
 
 describe("buildLlmConfig", () => {
-  it("declares all five tools pointing at the app url", async () => {
+  it("declares all five clinic tools pointing at the app url", async () => {
     const { buildLlmConfig } = await import("./agent-config");
     const cfg = buildLlmConfig("https://app.example");
-    const names = cfg.general_tools.map((t) => t.name).sort();
+    const names = customTools(cfg).map((t) => t.name).sort();
     expect(names).toEqual([
       "book_appointment", "cancel_appointment", "check_availability",
       "reschedule_appointment", "verify_patient",
     ]);
-    expect(cfg.general_tools.every((t) => t.url.startsWith("https://app.example/api/tools/"))).toBe(true);
+    expect(customTools(cfg).every((t) => t.url.startsWith("https://app.example/api/tools/"))).toBe(true);
   });
 
   it("system prompt forbids medical advice and requires verification before booking", async () => {
@@ -47,7 +51,7 @@ describe("buildLlmConfig", () => {
   it("each tool's parameters match its clinic-service method args", async () => {
     const { buildLlmConfig } = await import("./agent-config");
     const cfg = buildLlmConfig("https://app.example");
-    const byName = Object.fromEntries(cfg.general_tools.map((t) => [t.name, t]));
+    const byName = Object.fromEntries(customTools(cfg).map((t) => [t.name, t]));
 
     expect(byName.check_availability.url).toBe("https://app.example/api/tools/check-availability");
     expect(byName.check_availability.parameters.required ?? []).toEqual([]);
@@ -66,10 +70,10 @@ describe("buildLlmConfig", () => {
     expect(byName.cancel_appointment.parameters.required).toEqual(["appointmentId"]);
   });
 
-  it("every tool is a custom POST tool that speaks during execution", async () => {
+  it("every clinic tool is a custom POST tool that speaks during execution", async () => {
     const { buildLlmConfig } = await import("./agent-config");
     const cfg = buildLlmConfig("https://app.example");
-    for (const tool of cfg.general_tools) {
+    for (const tool of customTools(cfg)) {
       expect(tool.type).toBe("custom");
       expect(tool.method).toBe("POST");
       expect(tool.speak_during_execution).toBe(true);
@@ -107,6 +111,19 @@ describe("buildAgentConfig", () => {
     vi.doUnmock("@/lib/env");
     vi.resetModules();
   });
+  it("can hang up: Retell's end_call tool is there and the prompt says to use it after one goodbye", async () => {
+    const { buildLlmConfig } = await import("./agent-config");
+    const cfg = buildLlmConfig("https://app.example");
+    expect(cfg.general_tools.filter((t) => t.type === "end_call").map((t) => t.name)).toEqual(["end_call"]);
+    expect(cfg.general_prompt).toMatch(/one short goodbye and call end_call/i);
+    expect(cfg.general_prompt).toMatch(/never say goodbye twice/i);
+  });
+
+  it("never reads a time zone to the caller", async () => {
+    const { buildLlmConfig } = await import("./agent-config");
+    expect(buildLlmConfig("https://app.example").general_prompt).toMatch(/never say "UTC" or any time zone to the caller/i);
+  });
+
   it("tells the agent today's date and the next two weeks, so it never asks for a past date", async () => {
     const { buildLlmConfig } = await import("./agent-config");
     const prompt = buildLlmConfig("https://app.example").general_prompt;
