@@ -107,4 +107,11 @@ describe("buildAgentConfig", () => {
     vi.doUnmock("@/lib/env");
     vi.resetModules();
   });
+  it("tells the agent today's date and the next two weeks, so it never asks for a past date", async () => {
+    const { buildLlmConfig } = await import("./agent-config");
+    const prompt = buildLlmConfig("https://app.example").general_prompt;
+    expect(prompt).toContain("{{current_time_UTC}}");
+    expect(prompt).toContain("{{current_calendar_UTC}}");
+    expect(prompt).toMatch(/never pass a date before today/i);
+  });
 });
