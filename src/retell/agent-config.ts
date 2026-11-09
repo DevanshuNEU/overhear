@@ -23,10 +23,17 @@ export interface RetellCustomTool {
   parameters: JsonSchemaObject;
 }
 
+/** Retell's built-in tool that hangs up. Without it the agent cannot end a call and keeps saying goodbye. */
+export interface RetellEndCallTool {
+  type: "end_call";
+  name: "end_call";
+  description: string;
+}
+
 export interface RetellLlmConfig {
   begin_message: string;
   general_prompt: string;
-  general_tools: RetellCustomTool[];
+  general_tools: (RetellCustomTool | RetellEndCallTool)[];
 }
 
 export interface RetellAgentConfig {
@@ -112,7 +119,7 @@ const TOOL_SPECS: Array<{
 ];
 
 export function buildLlmConfig(appUrl: string): RetellLlmConfig {
-  const general_tools: RetellCustomTool[] = TOOL_SPECS.map((spec) => ({
+  const customTools: RetellCustomTool[] = TOOL_SPECS.map((spec) => ({
     type: "custom",
     name: spec.name,
     description: spec.description,
@@ -130,7 +137,7 @@ export function buildLlmConfig(appUrl: string): RetellLlmConfig {
     "You help callers check appointment availability, and book, reschedule, or cancel appointments.",
     "",
     // Retell fills these in on every call. Without them the model guesses today's date from its training data.
-    "Today is {{current_time_UTC}}. The clinic schedule uses this date and time (UTC).",
+    "Today is {{current_time_UTC}}. The clinic schedule uses this date and time. Never say \"UTC\" or any time zone to the caller; just say the day and time.",
     "The next two weeks, starting today:",
     "{{current_calendar_UTC}}",
     "When the caller says a relative date (today, tomorrow, Friday, next week), work out the exact date from today above. Always pass dates to tools as YYYY-MM-DD, and never pass a date before today.",
@@ -158,7 +165,15 @@ export function buildLlmConfig(appUrl: string): RetellLlmConfig {
     "- Before booking, rescheduling, or cancelling, say what you're about to do and get a yes.",
     "- Never give medical advice of any kind, even if asked directly. If a caller asks a medical question, politely decline and offer to connect them with a nurse instead.",
     "- Only ever offer or book appointment slots that were actually returned by check_availability. Never invent, assume, or guess a slot, provider, or time that check_availability did not return.",
+    "",
+    "Ending the call:",
+    "- When the caller says goodbye or has nothing else, say one short goodbye and call end_call right away. Never say goodbye twice, and never keep talking after a goodbye.",
   ].join("\n");
+
+  const general_tools: (RetellCustomTool | RetellEndCallTool)[] = [
+    ...customTools,
+    { type: "end_call", name: "end_call", description: "Hang up. Call it right after your one goodbye, once the caller has nothing else." },
+  ];
 
   return { begin_message, general_prompt, general_tools };
 }
