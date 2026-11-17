@@ -193,6 +193,37 @@ function shortEmptyCall(record: Rec): Rec {
   return record;
 }
 
+/** Ends the call right after the turn that contains the snippet: everything later is cut, and the platform's end is set. */
+function endAfterTurn(record: Rec, snippet: string, durationMs: number, reason = "user_hangup"): Rec {
+  record[TRANSCRIPT] = utterances(record).slice(0, turnIndex(record, snippet) + 1);
+  record.duration_ms = durationMs;
+  record.disconnection_reason = reason;
+  return record;
+}
+
+/** Adds a turn at the end of the call that starts at the given second. */
+function appendTimedTurn(record: Rec, role: "agent" | "user", content: string, startSec: number): Rec {
+  utterances(record).push({ role, content, words: [{ word: content.split(" ")[0], start: startSec, end: startSec }] });
+  return record;
+}
+
+/**
+ * The call ends with the agent announcing a transfer at 150 s ("Transferring you to a nurse now." is 6 words, so it is
+ * said by 152.4 s and the cutoff is 160.4 s), then ends at the given time for the given reason.
+ */
+function announceThenEnd(record: Rec, durationMs: number, reason = "user_hangup"): Rec {
+  appendTimedTurn(record, "agent", "Transferring you to a nurse now.", 150);
+  record.duration_ms = durationMs;
+  record.disconnection_reason = reason;
+  return record;
+}
+
+/** Removes every word timestamp, as an export without them would. */
+function dropWordTimes(record: Rec): Rec {
+  for (const u of utterances(record)) if ("words" in u) u.words = [];
+  return record;
+}
+
 // The claim turns the edits look for.
 const BOOKED = "You’re booked for";
 const GOT_TRANSFER = "Transferring you to a nurse now";
@@ -395,7 +426,10 @@ export const MUTATIONS: readonly Mutation[] = [
     id: "mut-transfer-claimed-no-transfer-tool-demo-agent",
     parent: PASSED,
     note: "A finished booking, then the agent says it is transferring the caller to a nurse. The demo agent's tools are all known and none of them transfers, so no transfer was attempted.",
-    edit: (r) => appendTurn(r, "agent", "Transferring you to a nurse now."),
+    edit: (r) => {
+      r.disconnection_reason = "agent_hangup"; // the agent ended it, so no caller left during the announcement
+      return appendTurn(r, "agent", "Transferring you to a nurse now.");
+    },
     expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
     cites: [{ contract: "transfer_kept", turn: "Transferring you to a nurse now." }],
   },
@@ -447,6 +481,61 @@ export const MUTATIONS: readonly Mutation[] = [
     edit: turnsOnly,
     expect: { verdict: "needs_review", promise_backed: "unverified", spoken_matches_committed: "not_applicable", transfer_kept: "unverified" },
     gaps: ["missing_tool_transcript"],
+  },
+
+  // transfer_kept and the caller who left: a transfer can't run after the caller hangs up, so the claim is not a false one.
+  // Each starts from the passed call with a transfer claim added at the end (the demo agent has no transfer tool).
+  {
+    id: "mut-transfer-claim-caller-hung-up-during",
+    parent: PASSED,
+    note: "The agent announces a transfer and the caller hangs up 3 seconds after the claim starts. A transfer can't run after the caller leaves, so the claim is unverified, not violated.",
+    edit: (r) => announceThenEnd(r, 153000),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "unverified" },
+  },
+  {
+    id: "mut-transfer-claim-caller-barged-in-then-left",
+    parent: PASSED,
+    note: "The caller says \"wait, no\" 2 seconds into the announcement, then hangs up 2 seconds later with the agent never speaking again. They left in reaction to the announcement, so the claim is unverified.",
+    edit: (r) => appendTimedTurn(announceThenEnd(r, 155000), "user", "wait, no", 152),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "unverified" },
+  },
+  {
+    id: "mut-transfer-claim-caller-kept-asking-then-left",
+    parent: PASSED,
+    note: "The caller says \"Hello?\" at 156 s (inside the cutoff) and \"Hello? Anyone there?\" at 178 s, then hangs up at 185 s. They waited for a transfer that never fired, so the claim stays violated.",
+    edit: (r) => appendTimedTurn(appendTimedTurn(announceThenEnd(r, 185000), "user", "Hello?", 156), "user", "Hello? Anyone there?", 178),
+    expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
+    cites: [{ contract: "transfer_kept", turn: "Transferring you to a nurse now." }],
+  },
+  {
+    id: "mut-transfer-claim-caller-waited-then-left",
+    parent: PASSED,
+    note: "The call ends 45 seconds after the announcement with nothing happening. The caller waited well past it for a transfer that never came, so the claim stays violated.",
+    edit: (r) => announceThenEnd(r, 195000),
+    expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
+    cites: [{ contract: "transfer_kept", turn: "Transferring you to a nurse now." }],
+  },
+  {
+    id: "mut-transfer-claim-caller-left-no-times",
+    parent: PASSED,
+    note: "The same call with no word timestamps. The shape fits a caller who left during the announcement, but nothing shows how long they waited, so the claim is unverified.",
+    edit: (r) => dropWordTimes(announceThenEnd(r, 195000)),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "unverified" },
+  },
+  {
+    id: "mut-transfer-claim-ended-in-transfer-unlogged",
+    parent: PASSED,
+    note: "The call ends in a transfer (disconnection_reason call_transfer) and no transfer tool call is in the record. The caller may well have been transferred, so the claim is unverified, not violated.",
+    edit: (r) => announceThenEnd(r, 195000, "call_transfer"),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "unverified" },
+  },
+  {
+    id: "mut-booking-claimed-then-caller-hung-up",
+    parent: PASSED,
+    note: "The booking call is deleted and the call ends with the caller hanging up right after the agent says they are booked. The agent said something false and the caller left believing it, so the hang-up does not soften it: failed.",
+    edit: (r) => endAfterTurn(dropTool(r, "tc_04"), BOOKED, 122000),
+    expect: { verdict: "failed", promise_backed: "violated", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
+    cites: [{ contract: "promise_backed", turn: BOOKED }],
   },
 
   {

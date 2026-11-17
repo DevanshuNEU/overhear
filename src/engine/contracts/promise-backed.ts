@@ -25,7 +25,7 @@ import {
   type GapText,
   type PromiseReason,
 } from "../wording";
-import { gapsTouching, softenForMissingTools, worst, type Contract, type ContractContext } from "./common";
+import { callerHungUpBeforeResult, gapsTouching, softenForMissingTools, worst, type Contract, type ContractContext } from "./common";
 
 /** The change or changes that stand behind one claim: a single change, or a cancel then a book. */
 type Backing = ToolUse[];
@@ -101,7 +101,9 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   // A call with no result at all is a hole in the record, not a late answer: nothing shows how it ended.
   const unanswered = backing.find((c) => c.resultSeq === null);
   if (unanswered) {
-    const cause = { missing: fillText(REASONS.change_no_result.missing, { tool: unanswered.tool, kind }), fix: REASONS.change_no_result.fix };
+    // A caller who hung up right after the call (and the claim made over it) left before any result could come back.
+    const reason = callerHungUpBeforeResult(ev, unanswered.callSeq, seq) ? REASONS.caller_left_before_result : REASONS.change_no_result;
+    const cause = { missing: fillText(reason.missing, { tool: unanswered.tool, kind }), fix: reason.fix };
     return { ...base, result: "unverified", text: unverifiedText("promise_backed", [cause]), gaps: [] };
   }
   const unknown = backing.find((c) => c.ok === null);

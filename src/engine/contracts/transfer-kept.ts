@@ -1,6 +1,11 @@
 // Contract 4, transfer_kept (spec 6.4 item 4): when the agent says it is transferring the caller, a transfer must be
 // attempted and must work. Success comes from the transfer tool's result or from a transfer_target event, the
-// receiving side's first words. Retell's disconnection_reason values are not read in M1.
+// receiving side's first words.
+//
+// disconnection_reason is read in three places, all for a claim with no attempt after it. A caller who hung up during
+// or right after the announcement (callerLeftAfter) never had the chance to be transferred, so the claim is unverified,
+// not violated. A call that ended in call_transfer with no attempt in the record was transferred by something the record
+// does not show, so it is unverified too. A transfer call with no result that the caller hung up on says so in its words.
 //
 // One finding per agent turn that carries a transfer claim, and one violated finding per turn that reads a tool
 // command out loud, whether or not a transfer was claimed. Offers, conditionals and deferrals are not claims: the
@@ -30,7 +35,7 @@ import {
   fillText,
   type GapText,
 } from "../wording";
-import { gapsTouching, softenForMissingTools, worst, type Contract, type ContractContext } from "./common";
+import { callerHungUpBeforeResult, callerLeftAfter, gapsTouching, softenForMissingTools, worst, type Contract, type ContractContext } from "./common";
 
 export const transferKept: Contract = (ctx) => {
   const claimTurns = [...new Set(ctx.detections.filter((d) => d.cls === "transfer").map((d) => d.seq))];
@@ -92,11 +97,20 @@ function judge(ctx: ContractContext, seq: number): Finding {
       return finding("violated", transferViolatedText(time, "failed"), did);
     case "unsettled": {
       const cause = outcome.noResult
-        ? { missing: fillText(REASONS.transfer_no_result.missing, { tool: outcome.tool }), fix: REASONS.transfer_no_result.fix }
+        ? callerHungUpBeforeResult(ev, outcome.did[0])
+          ? { missing: fillText(REASONS.caller_left_before_result.missing, { tool: outcome.tool }), fix: REASONS.caller_left_before_result.fix }
+          : { missing: fillText(REASONS.transfer_no_result.missing, { tool: outcome.tool }), fix: REASONS.transfer_no_result.fix }
         : describeGap({ code: "unknown_success", tool: outcome.tool });
       return finding("unverified", unverifiedText("transfer_kept", [cause]), did);
     }
     case "none": {
+      // The caller left before a transfer could run, or the call ended in one the record doesn't show. Neither is the
+      // agent saying something false, so neither reads Failed.
+      // With the tool calls missing from the record, "no attempt" is not known, so the hang-up can't stand in for that.
+      const toolsKnown = ev.items.some((it) => it.kind === "tool_call" || it.kind === "backend_action") && !ev.gaps.some((g) => g.code === "missing_tool_transcript");
+      const left = toolsKnown ? callerLeftAfter(ev, seq) : null;
+      if (left) return finding("unverified", unverifiedText("transfer_kept", [left.left === "during" ? REASONS.caller_left_during_transfer : REASONS.caller_left_untimed]), []);
+      if (toolsKnown && ev.callFields.disconnection_reason === "call_transfer") return finding("unverified", unverifiedText("transfer_kept", [REASONS.ended_in_unlogged_transfer]), []);
       // A tool the policy doesn't describe might have been the transfer, so nothing here proves one wasn't attempted.
       const unknown = undescribedAfter(ctx, seq);
       if (unknown.tools.length > 0) {

@@ -487,4 +487,80 @@ describe("transfer_kept", () => {
       });
     }
   });
+  describe("the caller hung up", () => {
+    // The claim is eight words: 3.2 s to say, so it ends at 12.2 s and the cutoff is 20.2 s.
+    const hangup = (items: ItemSpec[], durationMs: number | undefined, reason = "user_hangup"): Evidence =>
+      ev(items, { callFields: { disconnection_reason: reason, ...(durationMs === undefined ? {} : { duration_ms: durationMs }) } });
+    const MESSAGE = "At 0:09 the agent said it was transferring the caller";
+
+    it("hanging up during the announcement is unverified, not violated", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM, 9)], 12000));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe(
+        "Couldn't check promised transfers happen: the caller hung up while the agent was announcing the transfer, so it never had the chance to start.",
+      );
+      expect(r.finding.said).toEqual([3]);
+    });
+
+    it("a caller who barged in and left 2 s later is unverified", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM, 9), caller("wait, no", 11)], 13000));
+      expect(r.out.result).toBe("unverified");
+    });
+
+    it("a caller who waited past the cutoff is still violated", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM, 9)], 54000));
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toContain(MESSAGE);
+    });
+
+    it("a record with no times is unverified and says so", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM)], 54000));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toContain("the record has no times to show how long they waited");
+    });
+
+    it("another end reason leaves the claim violated", () => {
+      expect(run(hangup([...lookup(), agent(CLAIM, 9)], 12000, "agent_hangup")).out.result).toBe("violated");
+    });
+
+    it("the agent speaking again after the caller means the call went on: violated", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM, 9), caller("ok", 11), agent("Anything else?", 13)], 14000));
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a call that ended in a transfer the record doesn't show is unverified", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM, 9)], 54000, "call_transfer"));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toContain("the call ended in a transfer, but the record has no transfer tool call to show where it went");
+    });
+
+    it("a turns-only record still names the missing tool transcript", () => {
+      const r = run(hangup([agent(CLAIM, 9)], 12000));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.gaps).toEqual(["missing_tool_transcript"]);
+      expect(r.finding.text).not.toContain("hung up");
+    });
+
+    it("a backend-only record still gets the hang-up rule", () => {
+      const action: ItemSpec = { kind: "backend_action", id: null, toolCallId: null, tool: "check_availability", args: {}, result: {}, ok: true, ts: "2026-11-17T00:00:00Z", link: null };
+      const r = run({ ...hangup([action, agent(CLAIM, 9)], 12000), tier: 2, gaps: [{ code: "unlinked_backend_action", detail: "d", seqs: [1] }] });
+      expect(r.finding.text).toContain("the caller hung up while the agent was announcing the transfer");
+    });
+
+    it("a caller who kept asking is still violated", () => {
+      const r = run(hangup([...lookup(), agent("Transferring you now.", 10), caller("Hello?", 16), caller("Hello? Anyone there?", 40)], 45000));
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a transfer call the caller hung up on says the result never came back", () => {
+      const r = run(hangup([agent(CLAIM, 9), call("tc_1", "transfer_call")], 12000));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the caller hung up before transfer_call returned, so the record can't show whether it worked.");
+    });
+
+    it("a transfer call with no result and no hang-up keeps the old words", () => {
+      const r = run(hangup([agent(CLAIM, 9), call("tc_1", "transfer_call")], 12000, "agent_hangup"));
+      expect(r.finding.text).toMatch(/has no result and nothing else/);
+    });
+  });
 });
