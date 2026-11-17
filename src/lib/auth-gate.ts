@@ -22,6 +22,15 @@ export function isExcludedPath(pathname: string): boolean {
   });
 }
 
+/**
+ * The pages the public sample calls need: the list at "/" and a report at "/reports/{id}". With
+ * OVERHEAR_PUBLIC_SAMPLES=1 on a hosted copy these skip the password. Nothing else does, and Next's own files are
+ * already excluded above.
+ */
+export function isPublicSamplePath(pathname: string): boolean {
+  return pathname === "/" || pathname.startsWith("/reports/");
+}
+
 // Decodes a `Basic base64(user:pass)` Authorization header and checks the
 // password half against the expected value. Any username is accepted.
 export function checkBasicAuth(authHeader: string | null, expectedPassword: string): boolean {

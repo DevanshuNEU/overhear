@@ -17,7 +17,7 @@ const bricolage = localFont({
 
 export const metadata: Metadata = {
   title: "Overhear",
-  description: "An AI QA analyst for voice agents: it scores every call and measures how accurate that scoring is.",
+  description: "Checks that your voice agent did what it told the caller.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

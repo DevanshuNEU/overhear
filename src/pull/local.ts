@@ -1,5 +1,5 @@
 // Local mode: the product runs on the user's own machine (`OVERHEAR_LOCAL=1`). Without it the app is a hosted
-// copy, such as the Railway demo, where `/` sends visitors to the demo at /demo and the product routes answer 404.
+// copy, such as the Railway demo, where `/` shows the sample calls and the product routes answer 404.
 //
 // In local mode the server holds a Retell key that can read every call on the account, so it answers only this
 // computer:

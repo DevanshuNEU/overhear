@@ -108,6 +108,41 @@ describe("proxy", () => {
     }
   });
 
+  describe("public sample calls (OVERHEAR_PUBLIC_SAMPLES)", () => {
+    const PUBLIC = ["/", "/reports/call_sample_failed", "/reports/call_nope"];
+    const STILL_GATED = ["/demo", "/demo/calls/call_abc", "/calls/call_abc", "/how-it-works", "/eval", "/api/web-call", "/reportsx", "/test-call"];
+
+    it("is off by default: every page stays behind the password", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "");
+      process.env.DASHBOARD_PASSWORD = "secret";
+      for (const path of [...PUBLIC, ...STILL_GATED]) expect((await proxy(reqOf(path))).status, path).toBe(401);
+    });
+
+    it("when set to 1, lets / and the reports through without the password and keeps the gate on everything else", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
+      process.env.DASHBOARD_PASSWORD = "secret";
+      for (const path of PUBLIC) expect((await proxy(reqOf(path))).status, path).toBe(200);
+      for (const path of STILL_GATED) expect((await proxy(reqOf(path))).status, path).toBe(401);
+      expect((await proxy(reqOf("/_next/static/chunks/app.js"))).status).toBe(200);
+    });
+
+    it("any other value leaves the gate as it was", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "true");
+      process.env.DASHBOARD_PASSWORD = "secret";
+      expect((await proxy(reqOf("/"))).status).toBe(401);
+    });
+
+    it("never opens the product API routes, which answer 404 on a hosted copy", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
+      process.env.DASHBOARD_PASSWORD = "secret";
+      expect((await proxy(reqOf("/api/pulls"))).status).toBe(404);
+    });
+  });
+
   describe("old demo links", () => {
     it("redirects /calls/{id} to /demo/calls/{id}, keeping the query", async () => {
       delete process.env.DASHBOARD_PASSWORD;
