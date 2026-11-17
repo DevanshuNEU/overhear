@@ -12,30 +12,30 @@ No cases yet.
 
 ## Constructed data
 
-35 cases (real 3, mutation 32, external 0). Engine outcomes: 35 reports, 0 with no content, 0 errors.
+41 cases (real 3, mutation 38, external 0). Engine outcomes: 41 reports, 0 with no content, 0 errors.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 100% (35 of 35) | 35 | 90% to 100% |
-| Verdict accuracy | 100% (35 of 35) | 35 | 90% to 100% |
-| Precision of failed | 100% (14 of 14) | 14 | 78% to 100% |
-| Recall of failed | 100% (14 of 14) | 14 | 78% to 100% |
+| Cases passing every check | 100% (41 of 41) | 41 | 91% to 100% |
+| Verdict accuracy | 100% (41 of 41) | 41 | 91% to 100% |
+| Precision of failed | 100% (16 of 16) | 16 | 81% to 100% |
+| Recall of failed | 100% (16 of 16) | 16 | 81% to 100% |
 | False failed on normal calls | 0% (0 of 7) | 7 | 0% to 35% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 35 | 100% (35 of 35) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 7) | 19% (6 of 31) |
+| promise_backed | 41 | 100% (41 of 41) | 100% (6 of 6) | 100% (6 of 6) | 0% (0 of 7) | 16% (6 of 37) |
 | verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 7) | no data (n = 0) |
-| spoken_matches_committed | 35 | 100% (35 of 35) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 7) | 22% (5 of 23) |
-| transfer_kept | 35 | 100% (35 of 35) | 100% (5 of 5) | 100% (5 of 5) | 0% (0 of 7) | 22% (2 of 9) |
-| committed_matches_request | 35 | 100% (35 of 35) | no data (n = 0) | no data (n = 0) | 0% (0 of 7) | no data (n = 0) |
+| spoken_matches_committed | 41 | 100% (41 of 41) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 7) | 18% (5 of 28) |
+| transfer_kept | 41 | 100% (41 of 41) | 100% (6 of 6) | 100% (6 of 6) | 0% (0 of 7) | 43% (6 of 14) |
+| committed_matches_request | 41 | 100% (41 of 41) | no data (n = 0) | no data (n = 0) | 0% (0 of 7) | no data (n = 0) |
 
 Verdicts, expected (rows) by what the engine said (columns):
 
 | Expected | failed | needs_review | passed | nothing_done | no_content | error |
 | --- | --- | --- | --- | --- | --- | --- |
-| failed | 14 | 0 | 0 | 0 | 0 | 0 |
-| needs_review | 0 | 13 | 0 | 0 | 0 | 0 |
+| failed | 16 | 0 | 0 | 0 | 0 | 0 |
+| needs_review | 0 | 17 | 0 | 0 | 0 | 0 |
 | passed | 0 | 0 | 7 | 0 | 0 | 0 |
 | nothing_done | 0 | 0 | 0 | 1 | 0 | 0 |
 
@@ -46,6 +46,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-agent-reads-tool-call-aloud | constructed | mutation | yes | failed | failed | yes |
 | mut-booking-after-claim | constructed | mutation | yes | failed | failed | yes |
 | mut-booking-call-deleted | constructed | mutation | yes | failed | failed | yes |
+| mut-booking-claimed-then-caller-hung-up | constructed | mutation | yes | failed | failed | yes |
 | mut-booking-never-confirmed | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-result-error-body-with-http-ok | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-result-failed | constructed | mutation | yes | failed | failed | yes |
@@ -71,6 +72,11 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-spoken-time-one-hour-off | constructed | mutation | yes | failed | failed | yes |
 | mut-transfer-added-and-failed | constructed | mutation | yes | failed | failed | yes |
 | mut-transfer-added-and-worked | constructed | mutation | yes | passed | passed | yes |
+| mut-transfer-claim-caller-barged-in-then-left | constructed | mutation | yes | needs_review | needs_review | yes |
+| mut-transfer-claim-caller-hung-up-during | constructed | mutation | yes | needs_review | needs_review | yes |
+| mut-transfer-claim-caller-left-no-times | constructed | mutation | yes | needs_review | needs_review | yes |
+| mut-transfer-claim-caller-waited-then-left | constructed | mutation | yes | failed | failed | yes |
+| mut-transfer-claim-ended-in-transfer-unlogged | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-transfer-claim-no-tool-transcript | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-transfer-claimed-no-transfer-tool-demo-agent | constructed | mutation | yes | failed | failed | yes |
 | mut-transfer-claimed-no-transfer-tool-other-agent | constructed | mutation | yes | needs_review | needs_review | yes |
