@@ -9,6 +9,7 @@
 // The key never reaches this file: the server holds it. A pull's id (not secret) is kept for the tab, so a reload
 // shows the same pull instead of starting another.
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, TriangleAlert } from "lucide-react";
 import type { PullProgress } from "@/pull/pull";
@@ -475,7 +476,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
           {filter !== "all" && matches.length === 0 && counts.total > 0 && settled ? (
             <div className="mt-10 max-w-[760px]">
               <h2 className="text-lg font-semibold">{LIST_WORDS.noMatches[filter](count)}</h2>
-              <a
+              <Link
                 href="/"
                 onClick={(e) => {
                   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -485,7 +486,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
                 className="mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-medium text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
               >
                 {LIST_WORDS.showAll}
-              </a>
+              </Link>
             </div>
           ) : null}
 
