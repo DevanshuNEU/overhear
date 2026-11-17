@@ -312,6 +312,21 @@ export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";
 /** The link above a call screen. Local mode goes to the call list; a hosted copy has no list, so it goes to the demo. */
 export const BACK_LABEL = { local: "All calls", hosted: "Back to the demo" } as const;
+/** Under the shell on a local call report: the way back to the list the person came from, and the two steps along it. */
+export const STEP_LABEL = {
+  back: {
+    all: "Back to all calls",
+    failed: "Back to failed calls",
+    needs_review: "Back to calls that need review",
+    passed: "Back to passed calls",
+    nothing_done: "Back to calls with nothing done",
+  },
+  previous: "Previous call",
+  next: "Next call",
+  /** The shortcut sits in the link's title only, never on the page. */
+  previousTitle: "Previous call (K)",
+  nextTitle: "Next call (J)",
+} as const;
 /** The tab's title in place of an address that does not look like a call ID, so a crafted address is never repeated. */
 export const REPORT_TITLE = "Call report";
 

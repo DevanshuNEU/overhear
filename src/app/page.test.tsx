@@ -5,6 +5,8 @@ import { KeyStoreError } from "@/pull/key-store";
 import { CONNECT_WORDS } from "./ConnectScreen";
 import Home, { dynamic } from "./page";
 
+vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), ...(await import("@/test-utils/fakeNavigation")).navigationMock }));
+
 const hasKey = vi.fn<() => Promise<boolean>>();
 vi.mock("@/pull/key-store", async (importOriginal) => ({ ...(await importOriginal<object>()), hasKey: () => hasKey() }));
 

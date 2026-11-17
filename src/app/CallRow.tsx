@@ -5,6 +5,7 @@
 // turn shows skeleton bars where the verdict and the line will land, with the real time and length already there.
 import { ChevronRight, Loader2 } from "lucide-react";
 import type { PullRow } from "@/pull/pull";
+import type { Verdict } from "@/report/schema";
 import { experienceLine, formatDuration } from "@/report/labels";
 import { Badge, ResultBadge, VerdictBadge } from "@/components/report/StatusBadge";
 import { formatCallTime } from "./callListModel";
@@ -20,6 +21,8 @@ type Props = {
   /** A retry of this call has come back and it is still an error. */
   retryFailed: boolean;
   onRetry: (callId: string) => void;
+  /** The filter the list is showing, carried to the report so it can step through the same calls. Unset for All. */
+  from?: Verdict;
 };
 
 // On a phone: time, length and verdict on one line, the sentence under them. From sm up: one aligned line.
@@ -45,11 +48,11 @@ function Verdict({ row, settled }: { row: PullRow; settled: boolean }) {
 
 function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; retryFailed: boolean }) {
   if (row.state === "report") {
-    // The sentence the call screen leads with says what went wrong; a passed or Nothing done call has none and keeps
-    // its short line, in quiet type. Call experience problems sit under it in the same quiet type, whatever the verdict,
+    // The sentence the call screen leads with says what went wrong; a Nothing done call has none and keeps its short
+    // line, in quiet type. A Passed call says only what differs from the others: whether there were promises to check. Call experience problems sit under it in the same quiet type, whatever the verdict,
     // so a long sentence is never cut short to make room.
     const quiet = row.verdict === "passed" || row.verdict === "nothing_done";
-    const text = row.lead ?? row.headline;
+    const text = row.verdict === "passed" ? (row.notes?.includes("no_promises_made") ? LIST_WORDS.noPromises : LIST_WORDS.everyPromiseKept) : (row.lead ?? row.headline);
     return (
       <>
         <span title={text} className={`block truncate text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>
@@ -71,7 +74,7 @@ function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; r
   return settled ? null : <Skeleton className="w-3/5 max-w-72" />;
 }
 
-export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry }: Props) {
+export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry, from }: Props) {
   const started = formatCallTime(row.startedAt, timeZone);
   const linked = row.state === "report";
   const cells = (
@@ -112,7 +115,7 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
     <li data-call-id={row.callId} data-state={row.state === "report" ? row.verdict : row.state} className="border-b border-report-line last:border-b-0">
       {linked ? (
         <a
-          href={`/reports/${encodeURIComponent(row.callId)}`}
+          href={`/reports/${encodeURIComponent(row.callId)}${from ? `?from=${from}` : ""}`}
           className={`${GRID} -outline-offset-2 hover:bg-report-calm-mark/40 focus-visible:outline-2 focus-visible:outline-report-accent`}
         >
           {cells}
