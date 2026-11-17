@@ -106,9 +106,11 @@ function judge(ctx: ContractContext, seq: number): Finding {
     case "none": {
       // The caller left before a transfer could run, or the call ended in one the record doesn't show. Neither is the
       // agent saying something false, so neither reads Failed.
-      const left = callerLeftAfter(ev, seq);
+      // With the tool calls missing from the record, "no attempt" is not known, so the hang-up can't stand in for that.
+      const toolsKnown = hasToolCalls(ev) && !ev.gaps.some((g) => g.code === "missing_tool_transcript");
+      const left = toolsKnown ? callerLeftAfter(ev, seq) : null;
       if (left) return finding("unverified", unverifiedText("transfer_kept", [left.left === "during" ? REASONS.caller_left_during_transfer : REASONS.caller_left_untimed]), []);
-      if (ev.callFields.disconnection_reason === "call_transfer") return finding("unverified", unverifiedText("transfer_kept", [REASONS.ended_in_unlogged_transfer]), []);
+      if (toolsKnown && ev.callFields.disconnection_reason === "call_transfer") return finding("unverified", unverifiedText("transfer_kept", [REASONS.ended_in_unlogged_transfer]), []);
       // A tool the policy doesn't describe might have been the transfer, so nothing here proves one wasn't attempted.
       const unknown = undescribedAfter(ctx, seq);
       if (unknown.tools.length > 0) {

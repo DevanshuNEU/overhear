@@ -162,13 +162,26 @@ describe("callerLeftAfter", () => {
     expect(callerLeftAfter(hung(items, { duration_ms: 33000 }), 1)).toBeNull();
   });
 
-  it("a caller who barged in within the cutoff and then left in silence is during", () => {
-    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 12)], { duration_ms: 90000 }), 1)).toEqual({ left: "during" });
-    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 22)], { duration_ms: 90000 }), 1)).toEqual({ left: "during" });
+  it("a quick barge-in and a hang-up 2 s later is during", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 12)], { duration_ms: 14800 }), 1)).toEqual({ left: "during" });
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 21)], { duration_ms: 29000 }), 1)).toEqual({ left: "during" });
+  });
+
+  it("a barge-in inside the cutoff then 30 s of silence before the hang-up is null", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 12)], { duration_ms: 45000 }), 1)).toBeNull();
+  });
+
+  it("a caller who kept asking (Hello? ... Hello? Anyone there?) was still waiting: null", () => {
+    const items = [agent("Transferring you now.", 10), caller("Hello?", 16), caller("Hello? Anyone there?", 40)];
+    expect(callerLeftAfter(hung(items, { duration_ms: 45000 }), 1)).toBeNull();
   });
 
   it("a caller turn past the cutoff, with a long silence, is null", () => {
     expect(callerLeftAfter(hung([agent(TEN, 10), caller("hello?", 40)], { duration_ms: 90000 }), 1)).toBeNull();
+  });
+
+  it("a caller turn with no start is untimed", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", null)]), 1)).toEqual({ left: "untimed" });
   });
 
   it("is untimed when the last agent turn has no start or the call no duration", () => {

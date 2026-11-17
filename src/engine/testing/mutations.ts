@@ -495,9 +495,17 @@ export const MUTATIONS: readonly Mutation[] = [
   {
     id: "mut-transfer-claim-caller-barged-in-then-left",
     parent: PASSED,
-    note: "The caller says \"wait, no\" 2 seconds into the announcement, then hangs up long after with the agent never speaking again. They left in reaction to the announcement, so the claim is unverified.",
-    edit: (r) => appendTimedTurn(announceThenEnd(r, 175000), "user", "wait, no", 152),
+    note: "The caller says \"wait, no\" 2 seconds into the announcement, then hangs up 2 seconds later with the agent never speaking again. They left in reaction to the announcement, so the claim is unverified.",
+    edit: (r) => appendTimedTurn(announceThenEnd(r, 155000), "user", "wait, no", 152),
     expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "unverified" },
+  },
+  {
+    id: "mut-transfer-claim-caller-kept-asking-then-left",
+    parent: PASSED,
+    note: "The caller says \"Hello?\" at 156 s (inside the cutoff) and \"Hello? Anyone there?\" at 180 s, then hangs up at 195 s. They waited for a transfer that never fired, so the claim stays violated.",
+    edit: (r) => appendTimedTurn(appendTimedTurn(announceThenEnd(r, 195000), "user", "Hello?", 156), "user", "Hello? Anyone there?", 180),
+    expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
+    cites: [{ contract: "transfer_kept", turn: "Transferring you to a nurse now." }],
   },
   {
     id: "mut-transfer-claim-caller-waited-then-left",

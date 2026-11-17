@@ -502,8 +502,8 @@ describe("transfer_kept", () => {
       expect(r.finding.said).toEqual([3]);
     });
 
-    it("a caller who barged in and then left in silence is unverified", () => {
-      const r = run(hangup([...lookup(), agent(CLAIM, 9), caller("wait, no", 11)], 60000));
+    it("a caller who barged in and left 2 s later is unverified", () => {
+      const r = run(hangup([...lookup(), agent(CLAIM, 9), caller("wait, no", 11)], 13000));
       expect(r.out.result).toBe("unverified");
     });
 
@@ -532,6 +532,18 @@ describe("transfer_kept", () => {
       const r = run(hangup([...lookup(), agent(CLAIM, 9)], 54000, "call_transfer"));
       expect(r.out.result).toBe("unverified");
       expect(r.finding.text).toContain("the call ended in a transfer, but the record has no transfer tool call to show where it went");
+    });
+
+    it("a turns-only record still names the missing tool transcript", () => {
+      const r = run(hangup([agent(CLAIM, 9)], 12000));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.gaps).toEqual(["missing_tool_transcript"]);
+      expect(r.finding.text).not.toContain("hung up");
+    });
+
+    it("a caller who kept asking is still violated", () => {
+      const r = run(hangup([...lookup(), agent("Transferring you now.", 10), caller("Hello?", 16), caller("Hello? Anyone there?", 40)], 45000));
+      expect(r.out.result).toBe("violated");
     });
 
     it("a transfer call the caller hung up on says the result never came back", () => {

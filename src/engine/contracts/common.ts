@@ -109,8 +109,15 @@ export function callerLeftAfter(ev: Evidence, seq: number): { left: "during" | "
   if (!last || last.startSec === null || durationMs === undefined) return { left: "untimed" };
   const words = last.text.split(/\s+/).filter(Boolean).length;
   const cutoff = last.startSec + words / SPEAKING_WORDS_PER_SEC + HANGUP_GRACE_SEC;
-  const bargedAt = firstCaller >= 0 ? turns[firstCaller].startSec : null;
-  if (durationMs / 1000 <= cutoff || (bargedAt !== null && bargedAt <= cutoff)) return { left: "during" };
+  // Every caller turn after the announcement must start inside the cutoff: one that starts later means the caller was
+  // still waiting, so the claim stands. A caller turn with no start time can't be placed.
+  const callers = firstCaller < 0 ? [] : turns.slice(firstCaller);
+  if (callers.some((t) => t.startSec !== null && t.startSec > cutoff)) return null;
+  if (callers.some((t) => t.startSec === null)) return { left: "untimed" };
+  // The caller left in reaction when the call ended within the grace of the announcement, or of their own last words.
+  const lastCaller = callers.at(-1);
+  const callerEnd = lastCaller ? lastCaller.startSec! + lastCaller.text.split(/\s+/).filter(Boolean).length / SPEAKING_WORDS_PER_SEC : -Infinity;
+  if (durationMs / 1000 <= Math.max(cutoff, callerEnd + HANGUP_GRACE_SEC)) return { left: "during" };
   return null;
 }
 
