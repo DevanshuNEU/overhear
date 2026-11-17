@@ -502,8 +502,8 @@ export const MUTATIONS: readonly Mutation[] = [
   {
     id: "mut-transfer-claim-caller-kept-asking-then-left",
     parent: PASSED,
-    note: "The caller says \"Hello?\" at 156 s (inside the cutoff) and \"Hello? Anyone there?\" at 180 s, then hangs up at 195 s. They waited for a transfer that never fired, so the claim stays violated.",
-    edit: (r) => appendTimedTurn(appendTimedTurn(announceThenEnd(r, 195000), "user", "Hello?", 156), "user", "Hello? Anyone there?", 180),
+    note: "The caller says \"Hello?\" at 156 s (inside the cutoff) and \"Hello? Anyone there?\" at 178 s, then hangs up at 185 s. They waited for a transfer that never fired, so the claim stays violated.",
+    edit: (r) => appendTimedTurn(appendTimedTurn(announceThenEnd(r, 185000), "user", "Hello?", 156), "user", "Hello? Anyone there?", 178),
     expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated" },
     cites: [{ contract: "transfer_kept", turn: "Transferring you to a nurse now." }],
   },

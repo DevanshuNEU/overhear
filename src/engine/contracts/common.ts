@@ -87,6 +87,8 @@ export const SPEAKING_WORDS_PER_SEC = 2.5;
 /** How long after the agent stops talking a caller is still taken to have left in reaction, in seconds. */
 export const HANGUP_GRACE_SEC = 8;
 
+const wordCount = (text: string): number => text.split(/\s+/).filter(Boolean).length;
+
 /**
  * Did the caller hang up during or right after the agent's words at this turn, before anything else could happen?
  * "during": yes. "untimed": the shape fits but the record has no times to show how long they waited. null: not this
@@ -104,19 +106,31 @@ export function callerLeftAfter(ev: Evidence, seq: number): { left: "during" | "
   const block = firstCaller < 0 ? turns : turns.slice(0, firstCaller);
   if (firstCaller >= 0 && turns.slice(firstCaller).some((t) => t.role === "agent")) return null;
 
-  const last = block.at(-1);
-  const durationMs = ev.callFields.duration_ms;
-  if (!last || last.startSec === null || durationMs === undefined) return { left: "untimed" };
-  const words = last.text.split(/\s+/).filter(Boolean).length;
-  const cutoff = last.startSec + words / SPEAKING_WORDS_PER_SEC + HANGUP_GRACE_SEC;
+  const first = block[0];
+  if (!first || first.startSec === null) return { left: "untimed" };
+  // Walk the announcement: a fragment belongs to it only if it starts by the cutoff set by the one before. The first
+  // that starts later means the caller already waited past the cutoff. A fragment with no start leaves the end unknown.
+  const cutoffAfter = (t: { startSec: number | null; text: string }) => t.startSec! + wordCount(t.text) / SPEAKING_WORDS_PER_SEC + HANGUP_GRACE_SEC;
+  let untimed = false;
+  let cutoff = cutoffAfter(first);
+  for (const frag of block.slice(1)) {
+    if (frag.startSec === null) {
+      untimed = true;
+      break;
+    }
+    if (frag.startSec > cutoff) return null;
+    cutoff = cutoffAfter(frag);
+  }
   // Every caller turn after the announcement must start inside the cutoff: one that starts later means the caller was
-  // still waiting, so the claim stands. A caller turn with no start time can't be placed.
+  // still waiting, so the claim stands. A caller turn with no start time can't be placed. Known lateness wins over
+  // anything the record leaves out.
   const callers = firstCaller < 0 ? [] : turns.slice(firstCaller);
   if (callers.some((t) => t.startSec !== null && t.startSec > cutoff)) return null;
-  if (callers.some((t) => t.startSec === null)) return { left: "untimed" };
+  const durationMs = ev.callFields.duration_ms;
+  if (untimed || durationMs === undefined || callers.some((t) => t.startSec === null)) return { left: "untimed" };
   // The caller left in reaction when the call ended within the grace of the announcement, or of their own last words.
   const lastCaller = callers.at(-1);
-  const callerEnd = lastCaller ? lastCaller.startSec! + lastCaller.text.split(/\s+/).filter(Boolean).length / SPEAKING_WORDS_PER_SEC : -Infinity;
+  const callerEnd = lastCaller ? lastCaller.startSec! + wordCount(lastCaller.text) / SPEAKING_WORDS_PER_SEC : -Infinity;
   if (durationMs / 1000 <= Math.max(cutoff, callerEnd + HANGUP_GRACE_SEC)) return { left: "during" };
   return null;
 }

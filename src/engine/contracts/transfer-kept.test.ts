@@ -541,6 +541,12 @@ describe("transfer_kept", () => {
       expect(r.finding.text).not.toContain("hung up");
     });
 
+    it("a backend-only record still gets the hang-up rule", () => {
+      const action: ItemSpec = { kind: "backend_action", id: null, toolCallId: null, tool: "check_availability", args: {}, result: {}, ok: true, ts: "2026-11-17T00:00:00Z", link: null };
+      const r = run({ ...hangup([action, agent(CLAIM, 9)], 12000), tier: 2, gaps: [{ code: "unlinked_backend_action", detail: "d", seqs: [1] }] });
+      expect(r.finding.text).toContain("the caller hung up while the agent was announcing the transfer");
+    });
+
     it("a caller who kept asking is still violated", () => {
       const r = run(hangup([...lookup(), agent("Transferring you now.", 10), caller("Hello?", 16), caller("Hello? Anyone there?", 40)], 45000));
       expect(r.out.result).toBe("violated");

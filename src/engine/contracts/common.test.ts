@@ -180,6 +180,23 @@ describe("callerLeftAfter", () => {
     expect(callerLeftAfter(hung([agent(TEN, 10), caller("hello?", 40)], { duration_ms: 90000 }), 1)).toBeNull();
   });
 
+  it("an agent turn after a long silence is not part of the announcement: null", () => {
+    // Claim at 10 s, cutoff 22 s, then "Are you still there?" at 50 s and a hang-up at 53 s.
+    expect(callerLeftAfter(hung([agent(TEN, 10), agent("Are you still there?", 50)], { duration_ms: 53000 }), 1)).toBeNull();
+  });
+
+  it("a fragment with no start is untimed, unless an earlier known-late turn gave null", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), agent("more", null)]), 1)).toEqual({ left: "untimed" });
+    expect(callerLeftAfter(hung([agent(TEN, 10), agent("late", 50), agent("more", null)]), 1)).toBeNull();
+  });
+
+  it("known lateness beats a missing duration", () => {
+    const noDuration = (items: ItemSpec[]) => ev(items, { callFields: { disconnection_reason: "user_hangup" } });
+    expect(callerLeftAfter(noDuration([agent(TEN, 10), agent("Are you still there?", 50)]), 1)).toBeNull();
+    expect(callerLeftAfter(noDuration([agent(TEN, 10), caller("hello?", 40)]), 1)).toBeNull();
+    expect(callerLeftAfter(noDuration([agent(TEN, 10), caller("hello?", 12)]), 1)).toEqual({ left: "untimed" });
+  });
+
   it("a caller turn with no start is untimed", () => {
     expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", null)]), 1)).toEqual({ left: "untimed" });
   });
