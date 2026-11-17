@@ -33,6 +33,12 @@ describe("the sample list", () => {
     for (const row of rows) expect(document.querySelector(`[data-call-id="${row.callId}"] a`)).toHaveAttribute("href", `/reports/${row.callId}`);
   });
 
+  it("shows the length of each call but not when it started, since the samples share start times", () => {
+    render(<SampleListScreen rows={rows} />);
+    expect(screen.queryByText(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2}$/)).toBeNull();
+    expect(screen.getAllByText(/^\d+ (min|s)/).length).toBeGreaterThanOrEqual(rows.length);
+  });
+
   it("has the hosted shell and no pull controls", () => {
     render(<SampleListScreen rows={rows} />);
     expect(screen.getByText(SAMPLE_WORDS.navNote)).toBeInTheDocument();

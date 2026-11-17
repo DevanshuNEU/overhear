@@ -23,11 +23,16 @@ type Props = {
   onRetry: (callId: string) => void;
   /** The filter the list is showing, carried to the report so it can step through the same calls. Unset for All. */
   from?: Verdict;
+  /** Show when the call started. False on the sample list, whose calls share start times. */
+  showTime?: boolean;
 };
 
 // On a phone: time, length and verdict on one line, the sentence under them. From sm up: one aligned line.
 const GRID =
   "grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-3 py-3 sm:grid-cols-[9rem_6.5rem_9.5rem_minmax(0,1fr)_auto] sm:gap-y-0";
+// Without the time (the sample list): length and verdict, then the sentence.
+const GRID_NO_TIME =
+  "grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-3 py-3 sm:grid-cols-[6.5rem_9.5rem_minmax(0,1fr)_auto] sm:gap-y-0";
 
 function Skeleton({ className }: { className: string }) {
   return <span aria-hidden className={`block h-4 rounded bg-report-calm-mark ${className}`} />;
@@ -82,17 +87,19 @@ function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; r
   return settled ? null : <Skeleton className="w-3/5 max-w-72" />;
 }
 
-export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry, from }: Props) {
+export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry, from, showTime = true }: Props) {
   const started = formatCallTime(row.startedAt, timeZone);
+  const grid = showTime ? GRID : GRID_NO_TIME;
+  const span = showTime ? "col-span-3" : "col-span-2";
   const linked = row.state === "report";
   const cells = (
     <>
-      <span className="text-sm font-medium tabular-nums">{started ?? "Time unknown"}</span>
+      {showTime ? <span className="text-sm font-medium tabular-nums">{started ?? "Time unknown"}</span> : null}
       <span className="text-[13px] tabular-nums text-report-muted">{row.durationMs === null ? LIST_WORDS.unknownLength : formatDuration(row.durationMs)}</span>
       <span className="justify-self-end sm:justify-self-start">
         <Verdict row={row} settled={settled} />
       </span>
-      <span className="col-span-3 min-w-0 sm:col-span-1">
+      <span className={`${span} min-w-0 sm:col-span-1`}>
         <Line row={row} settled={settled} retryFailed={retryFailed} />
       </span>
       {linked ? (
@@ -102,7 +109,7 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
           type="button"
           onClick={() => onRetry(row.callId)}
           disabled={retrying}
-          className="col-span-3 inline-flex min-h-11 items-center justify-center gap-2 justify-self-start rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2 sm:col-span-1"
+          className={`${span} inline-flex min-h-11 items-center justify-center gap-2 justify-self-start rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2 sm:col-span-1`}
         >
           {retrying ? (
             <>
@@ -124,12 +131,12 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
       {linked ? (
         <a
           href={`/reports/${encodeURIComponent(row.callId)}${from ? `?from=${from}` : ""}`}
-          className={`${GRID} -outline-offset-2 hover:bg-report-calm-mark/40 focus-visible:outline-2 focus-visible:outline-report-accent`}
+          className={`${grid} -outline-offset-2 hover:bg-report-calm-mark/40 focus-visible:outline-2 focus-visible:outline-report-accent`}
         >
           {cells}
         </a>
       ) : (
-        <div className={GRID}>{cells}</div>
+        <div className={grid}>{cells}</div>
       )}
     </li>
   );

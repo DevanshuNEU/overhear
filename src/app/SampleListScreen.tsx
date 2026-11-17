@@ -32,7 +32,7 @@ export function SampleListScreen({ rows }: Props) {
   const from: Verdict | undefined = filter === "all" ? undefined : filter;
 
   const renderRows = (list: PullRow[]) =>
-    list.map((row) => <CallRow key={row.callId} row={row} timeZone="UTC" settled retrying={false} retryFailed={false} onRetry={noop} from={from} />);
+    list.map((row) => <CallRow key={row.callId} row={row} timeZone="UTC" settled retrying={false} retryFailed={false} onRetry={noop} from={from} showTime={false} />);
 
   return (
     <div className="report min-h-screen bg-report-canvas font-sans text-report-ink">
@@ -95,7 +95,7 @@ export function SampleListScreen({ rows }: Props) {
 
           {matches.some((r) => r.notes?.includes("request_not_checked")) ? <p className="mt-4 text-[13px] text-report-muted">{LIST_WORDS.requestNotChecked}</p> : null}
 
-          <p className="mt-10 max-w-[760px] text-[13px] text-report-muted">{SAMPLE_WORDS.footer}</p>
+          <p className="mt-4 max-w-[760px] text-[13px] text-report-muted">{SAMPLE_WORDS.footer}</p>
         </main>
       </div>
     </div>
