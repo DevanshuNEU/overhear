@@ -21,11 +21,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { RetellWebClient } from "retell-client-js-sdk";
-import { BackLink } from "@/components/report/BackLink";
 import { CallReportView } from "@/components/report/CallReportView";
 import { NO_CONTENT_LINE, NO_CONTENT_REASONS, type NoContentReason } from "@/report/labels";
 import { CallReportSchema, type CallReport } from "@/report/schema";
-import { CONNECT_WORDS } from "./ConnectScreen";
+import { ProductNav } from "./ProductNav";
 import { TEST_WORDS, type ConnectionState, type MicState } from "./testCallWords";
 
 /** The least time between two asks for a result. A caller's own setting can slow this down, never speed it up. */
@@ -563,10 +562,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   return (
     <div className="report min-h-screen bg-report-canvas font-sans text-report-ink">
       <div className={`mx-auto px-4 pb-24 pt-6 sm:px-6 ${reportShown ? "max-w-[1360px]" : "max-w-[1200px]"}`}>
-        <div className="-mt-3 mb-7 flex items-center gap-4 sm:mb-11">
-          <p className="text-sm font-semibold tracking-[-0.01em] text-report-ink-2">{CONNECT_WORDS.product}</p>
-          <BackLink local />
-        </div>
+        <ProductNav current="test-call" className="mb-7 sm:mb-11" />
         <main>
           {headline ? <Heading lead={headline.lead} next={headline.next} /> : <p className="text-sm text-report-muted">{TEST_WORDS.finished}</p>}
 
