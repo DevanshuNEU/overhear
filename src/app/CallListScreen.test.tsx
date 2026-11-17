@@ -277,7 +277,8 @@ describe("when the pull is done", () => {
     renderList();
     const quiet = await findRow("call_1");
     expect(within(quiet).getByText(VERDICT_LABEL.nothing_done)).toBeInTheDocument();
-    const line = within(quiet).getByText(NOTHING_DONE_LINE);
+    const line = within(quiet).getByText(NOTHING_DONE_LINE.replace(/^Nothing done\. /, ""));
+    expect(quiet).not.toHaveTextContent(NOTHING_DONE_LINE);
     expect(line).toHaveClass("text-report-muted");
     expect(line).not.toHaveClass("font-medium");
     const loud = within(rowFor(2)).getByText(FAILED_LEAD);
@@ -595,6 +596,15 @@ describe("the shell", () => {
     expect(test).not.toHaveAttribute("aria-current");
     expect(test).toHaveClass("text-report-ink-2", "min-h-11");
     expect(screen.getByRole("button", { name: LIST_WORDS.disconnect })).toBeInTheDocument();
+  });
+
+  it("shows the key path only from the sm breakpoint up, so a phone never breaks it mid-word", async () => {
+    fakeServer([done([passedRow(1)])]);
+    renderList();
+    await findRow("call_1");
+    const path = screen.getByText(LOCATION);
+    expect(path.parentElement).toHaveClass("hidden", "sm:inline");
+    expect(screen.getByText(LIST_WORDS.connected, { exact: false })).toBeInTheDocument();
   });
 
   it("no longer has a Test call button among the list's controls", async () => {

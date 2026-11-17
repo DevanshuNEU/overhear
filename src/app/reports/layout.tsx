@@ -23,14 +23,14 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
       <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
         {local ? (
           <>
-            <ProductNav className="mb-2 sm:mb-3" />
+            <ProductNav section="calls" className="mb-2 sm:mb-3" />
             <CallSteps />
           </>
         ) : (
           /* The row is 44 px tall for the link's touch target; the negative top margin keeps the name where it was. */
           <div className="-mt-3 mb-7 flex items-center gap-4 sm:mb-11">
             <p className="text-sm font-semibold tracking-[-0.01em] text-report-ink-2">{PAGE_NAME}</p>
-            <BackLink local={false} />
+            <BackLink />
           </div>
         )}
         <main id="call" tabIndex={-1} className="outline-none">

@@ -121,7 +121,7 @@ export function CallSteps() {
   };
 
   return (
-    <div className="mb-7 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:mb-11">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:mb-3">
       <Link href={listHref(from)} className={`${ITEM} -ml-2 text-report-accent underline-offset-2 hover:underline`}>
         <Arrow dir="left" />
         {STEP_LABEL.back[from]}

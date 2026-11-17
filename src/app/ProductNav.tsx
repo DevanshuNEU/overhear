@@ -14,6 +14,8 @@ export const NAV_WORDS = {
 type Props = {
   /** Which link is the page the person is on. None on a call's report. */
   current?: "calls" | "test-call";
+  /** A page inside the Calls section (a call report): Calls shows as current, but is not the page itself. */
+  section?: "calls";
   /** The right side. Without it: "Connected to Retell." in muted text. */
   right?: React.ReactNode;
   /** Room below the shell, set by the screen. */
@@ -23,11 +25,12 @@ type Props = {
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent";
 const LINK = `inline-flex min-h-11 items-center rounded-md px-2 text-sm font-medium ${FOCUS}`;
 
-export function ProductNav({ current, right, className = "mb-10 sm:mb-14" }: Props) {
+export function ProductNav({ current, section, right, className = "mb-10 sm:mb-14" }: Props) {
   const item = (id: "calls" | "test-call", href: string, label: string) => {
-    const here = current === id;
+    const page = current === id;
+    const here = page || (id === "calls" && section === "calls");
     return (
-      <Link href={href} aria-current={here ? "page" : undefined} className={`${LINK} ${here ? "text-report-accent" : "text-report-ink-2 hover:text-report-ink"}`}>
+      <Link href={href} aria-current={page ? "page" : here ? "true" : undefined} className={`${LINK} ${here ? "text-report-accent" : "text-report-ink-2 hover:text-report-ink"}`}>
         {label}
       </Link>
     );

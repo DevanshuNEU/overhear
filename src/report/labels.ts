@@ -310,8 +310,8 @@ export const RAW_UNAVAILABLE = "The raw record couldn't be shown.";
 export const BACKEND_LOG_TAG = "Backend log";
 export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";
-/** The link above a call screen. Local mode goes to the call list; a hosted copy has no list, so it goes to the demo. */
-export const BACK_LABEL = { local: "All calls", hosted: "Back to the demo" } as const;
+/** The link above a hosted call screen: a hosted copy has no call list, so it goes to the demo. */
+export const BACK_LABEL = { hosted: "Back to the demo" } as const;
 /** Under the shell on a local call report: the way back to the list the person came from, and the two steps along it. */
 export const STEP_LABEL = {
   back: {

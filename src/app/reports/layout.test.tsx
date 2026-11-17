@@ -20,13 +20,15 @@ afterEach(() => {
 const shell = () => render(<ReportsLayout><p>the call</p></ReportsLayout>);
 
 describe("the shell on a local call report", () => {
-  it("has the product navigation, with neither main page marked as current", () => {
+  it("has the product navigation, with Calls marked as the current section but not as the page", () => {
     vi.stubEnv("OVERHEAR_LOCAL", "1");
     shell();
     expect(screen.getByRole("link", { name: "Overhear" })).toHaveAttribute("href", "/");
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("link", { name: "Calls" })).toHaveAttribute("href", "/");
-    expect(within(nav).getByRole("link", { name: "Calls" })).not.toHaveAttribute("aria-current");
+    expect(within(nav).getByRole("link", { name: "Calls" })).toHaveAttribute("aria-current", "true");
+    expect(within(nav).getByRole("link", { name: "Calls" })).toHaveClass("text-report-accent");
+    expect(within(nav).getByRole("link", { name: "Test call" })).not.toHaveAttribute("aria-current");
     expect(within(nav).getByRole("link", { name: "Test call" })).toHaveAttribute("href", "/test-call");
     expect(screen.getByText("Connected to Retell.")).toHaveClass("text-report-muted");
   });

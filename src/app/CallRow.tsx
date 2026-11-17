@@ -52,7 +52,15 @@ function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; r
     // line, in quiet type. A Passed call says only what differs from the others: whether there were promises to check. Call experience problems sit under it in the same quiet type, whatever the verdict,
     // so a long sentence is never cut short to make room.
     const quiet = row.verdict === "passed" || row.verdict === "nothing_done";
-    const text = row.verdict === "passed" ? (row.notes?.includes("no_promises_made") ? LIST_WORDS.noPromises : LIST_WORDS.everyPromiseKept) : (row.lead ?? row.headline);
+    // A Nothing done row already wears the badge, so its line drops the leading "Nothing done." (the report keeps it).
+    const text =
+      row.verdict === "passed"
+        ? row.notes?.includes("no_promises_made")
+          ? LIST_WORDS.noPromises
+          : LIST_WORDS.everyPromiseKept
+        : row.verdict === "nothing_done"
+          ? (row.lead ?? row.headline ?? "").replace(/^Nothing done\.\s*/, "")
+          : (row.lead ?? row.headline);
     return (
       <>
         <span title={text} className={`block truncate text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>
