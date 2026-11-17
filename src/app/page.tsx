@@ -1,14 +1,14 @@
-// `/` belongs to the product. A hosted copy has no product, so it sends visitors to the demo at /demo, as the
-// Railway URL always showed the demo. In local mode (`OVERHEAR_LOCAL=1`) it is the connect screen: paste a Retell
-// key, or, when one is saved, the list of the latest calls and what the engine found in each. Rendered per
+// `/` belongs to the product. A hosted copy has no Retell key, so it shows the sample calls: real calls from the demo
+// agent, checked by the engine on the server. In local mode (`OVERHEAR_LOCAL=1`) it is the connect screen: paste a
+// Retell key, or, when one is saved, the list of the latest calls and what the engine found in each. Rendered per
 // request (see `dynamic`), so `next build` cannot bake in either branch.
-import { redirect } from "next/navigation";
-import { DEMO_HOME } from "@/lib/demo-paths";
+import { sampleRows } from "@/demo-samples";
 import { displayConfigPath, hasKey, KeyStoreError } from "@/pull/key-store";
 import { isLocalMode } from "@/pull/local";
 import type { ConnectError } from "@/pull/labels";
 import { logSafe, safeError } from "@/pull/redact";
 import { HomeScreen } from "./HomeScreen";
+import { SampleListScreen } from "./SampleListScreen";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ async function savedKey(): Promise<{ stored: boolean; storeError?: ConnectError 
 }
 
 export default async function Home() {
-  if (!isLocalMode()) redirect(DEMO_HOME);
+  if (!isLocalMode()) return <SampleListScreen rows={sampleRows()} />;
 
   const { stored, storeError } = await savedKey();
   return <HomeScreen stored={stored} location={displayConfigPath()} storeError={storeError} />;

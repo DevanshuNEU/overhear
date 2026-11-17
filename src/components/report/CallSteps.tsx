@@ -45,15 +45,23 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
   );
 }
 
-export function CallSteps() {
+type Props = {
+  /** A hosted copy: the order comes from the server (the sample calls), nothing is fetched, and the words say sample calls. */
+  samples?: PullRow[];
+};
+
+export function CallSteps({ samples }: Props = {}) {
   const router = useRouter();
   const params = useParams<{ callId?: string }>();
   const from = parseFilter(useSearchParams()?.get("from"));
   const callId = typeof params?.callId === "string" ? params.callId : null;
-  const [rows, setRows] = useState<PullRow[] | null>(null);
+  const [pulled, setRows] = useState<PullRow[] | null>(null);
+  const hosted = samples !== undefined;
+  const rows = samples ?? pulled;
 
-  // One read of the pull, when the report opens. A failure leaves only the way back.
+  // One read of the pull, when the report opens. A failure leaves only the way back. A hosted copy has no pull.
   useEffect(() => {
+    if (hosted) return;
     const id = rememberedPull();
     if (id === null) return;
     let live = true;
@@ -67,7 +75,7 @@ export function CallSteps() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [hosted]);
 
   const steps = useMemo(() => {
     if (rows === null || callId === null) return null;
@@ -124,7 +132,7 @@ export function CallSteps() {
     <div className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:mb-3">
       <Link href={listHref(from)} className={`${ITEM} -ml-2 text-report-accent underline-offset-2 hover:underline`}>
         <Arrow dir="left" />
-        {STEP_LABEL.back[from]}
+        {(hosted ? STEP_LABEL.backSamples : STEP_LABEL.back)[from]}
       </Link>
       {steps ? (
         <div className="flex items-center gap-x-2">

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { visit } from "@/test-utils/fakeNavigation";
+import { RUN_IT_URL } from "@/app/sampleListWords";
 import ReportsLayout, { dynamic } from "./layout";
 
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), ...(await import("@/test-utils/fakeNavigation")).navigationMock }));
@@ -55,25 +56,31 @@ describe("the shell on a local call report", () => {
 });
 
 describe("the shell on a hosted copy", () => {
-  it("links to the demo, since / only redirects there, and has no product navigation", () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "");
+  beforeEach(() => vi.stubEnv("OVERHEAR_LOCAL", ""));
+
+  it("has the hosted navigation: Overhear and Calls, no Test call, the note and the way to run it on your calls", () => {
     shell();
-    expect(screen.getByRole("link", { name: "Back to the demo" })).toHaveAttribute("href", "/demo");
-    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Back to all calls/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Overhear" })).toHaveAttribute("href", "/");
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Calls" })).toHaveAttribute("aria-current", "true");
+    expect(within(nav).queryByRole("link", { name: "Test call" })).not.toBeInTheDocument();
+    expect(screen.getByText("Sample calls from our demo agent.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Run it on your calls" })).toHaveAttribute("href", RUN_IT_URL);
     expect(screen.queryByText("Connected to Retell.")).not.toBeInTheDocument();
   });
 
-  it("keeps the product name on screen beside the link", () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "");
+  it("goes back to the sample calls and never to the old demo", () => {
     shell();
-    expect(screen.getByText("Overhear")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to sample calls" })).toHaveAttribute("href", "/");
+    for (const link of screen.getAllByRole("link")) expect(link.getAttribute("href")).not.toMatch(/^\/(demo|how-it-works|eval)/);
   });
 
-  it("can be reached by keyboard, after the skip link and before the call", () => {
-    vi.stubEnv("OVERHEAR_LOCAL", "");
+  it("steps along the sample calls without asking the pull for anything", async () => {
+    visit("/reports/call_sample_failed?from=failed", { callId: "call_sample_failed" });
     shell();
-    expect(screen.getAllByRole("link").map((l) => l.textContent)).toEqual(["Skip to the call", "Back to the demo"]);
+    expect(screen.getByRole("link", { name: "Back to failed sample calls" })).toHaveAttribute("href", "/?show=failed");
+    expect(await screen.findByRole("link", { name: "Next call" })).toHaveAttribute("href", expect.stringMatching(/^\/reports\/call_[a-z_]+\?from=failed$/));
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 
