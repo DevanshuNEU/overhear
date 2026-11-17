@@ -632,4 +632,28 @@ describe("promise_backed", () => {
       expect(SAMPLE_REPORTS).toHaveLength(3);
     });
   });
+  describe("the caller hung up", () => {
+    const hangup = (items: ItemSpec[]): Evidence => ev(items, { callFields: { disconnection_reason: "user_hangup", duration_ms: 45000 } });
+
+    it("a completion claim with no attempt stays violated: the caller left believing something false", () => {
+      const r = run(hangup([...lookup(), agent(BOOKED, 40)]));
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a booking call with no result that the caller hung up on says the result never came back", () => {
+      const r = run(hangup([call("tc_1", "book_appointment"), agent(BOOKED, 40), caller("hello?", 42)]));
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check promises backed by the system: the caller hung up before book_appointment returned, so the record can't show whether it worked.");
+    });
+
+    it("without the hang-up the words are the old ones", () => {
+      const r = run(ev([call("tc_1", "book_appointment"), agent(BOOKED, 40)], { callFields: { disconnection_reason: "agent_hangup" } }));
+      expect(r.finding.text).toMatch(/has no result in the record/);
+    });
+
+    it("an agent turn after the claim means the call went on, so the old words stay", () => {
+      const r = run(hangup([call("tc_1", "book_appointment"), agent(BOOKED, 40), caller("ok", 42), agent("Anything else?", 44)]));
+      expect(r.finding.text).toMatch(/has no result in the record/);
+    });
+  });
 });

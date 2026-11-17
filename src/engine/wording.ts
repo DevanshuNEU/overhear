@@ -87,6 +87,22 @@ export const REASONS = {
     missing: "the {tool} call has no result in the record, so we couldn't tell whether the {kind} went through",
     fix: "Export the call with its tool results, or add a backend log with --actions.",
   },
+  caller_left_during_transfer: {
+    missing: "the caller hung up while the agent was announcing the transfer, so it never had the chance to start",
+    fix: "Nothing in the record to fix: a transfer can't run after the caller leaves.",
+  },
+  caller_left_untimed: {
+    missing: "the caller hung up right after the agent announced the transfer, and the record has no times to show how long they waited",
+    fix: "Export the call with word timestamps.",
+  },
+  ended_in_unlogged_transfer: {
+    missing: "the call ended in a transfer, but the record has no transfer tool call to show where it went",
+    fix: "Add the agent's transfer tool to the policy, or export the call with its tool calls.",
+  },
+  caller_left_before_result: {
+    missing: "the caller hung up before {tool} returned, so the record can't show whether it worked",
+    fix: "Nothing in the record to fix: the result never came back.",
+  },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
   zone_unsure: {
     missing: "the agent said {said}, and the {kind} is {matched} {matchedWhere}, which is {primary} {primaryWhere}, so we couldn't tell which {what} the caller meant",

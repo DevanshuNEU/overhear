@@ -190,6 +190,12 @@ describe("callerHungUpBeforeResult", () => {
     expect(callerHungUpBeforeResult(withReason([turn, call, caller, event]), 2)).toBe(true);
   });
 
+  it("through exempts the claim made over the call", () => {
+    const claim = turn;
+    expect(callerHungUpBeforeResult(withReason([call, claim, caller]), 1)).toBe(false);
+    expect(callerHungUpBeforeResult(withReason([call, claim, caller]), 1, 2)).toBe(true);
+  });
+
   it("fails for another reason, an agent turn, or another tool item after the call", () => {
     expect(callerHungUpBeforeResult(withReason([turn, call], "agent_hangup"), 2)).toBe(false);
     expect(callerHungUpBeforeResult(withReason([turn, call, turn]), 2)).toBe(false);

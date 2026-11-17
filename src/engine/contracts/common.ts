@@ -116,9 +116,10 @@ export function callerLeftAfter(ev: Evidence, seq: number): { left: "during" | "
 
 /**
  * Whether the caller hung up right after a tool call went out with no answer: user_hangup and nothing after the call
- * but caller turns and events.
+ * but caller turns and events. `through` exempts everything up to that seq too: a claim made after the call (the agent
+ * said "booked" while the booking was still out) is what the caller heard before leaving, not something that happened.
  */
-export function callerHungUpBeforeResult(ev: Evidence, callSeq: number): boolean {
+export function callerHungUpBeforeResult(ev: Evidence, callSeq: number, through = callSeq): boolean {
   if (ev.callFields.disconnection_reason !== "user_hangup") return false;
-  return ev.items.every((it) => it.seq <= callSeq || (it.kind === "turn" && it.role === "caller") || it.kind === "event");
+  return ev.items.every((it) => it.seq <= Math.max(callSeq, through) || (it.kind === "turn" && it.role === "caller") || it.kind === "event");
 }
