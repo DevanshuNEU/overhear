@@ -306,7 +306,7 @@ describe("transfer_kept", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promised transfers happen: the transfer_call call has no result and nothing else in the record shows the caller was connected.",
+        text: "Couldn't check the transfer: the transfer_call call has no result and nothing else in the record shows the caller was connected.",
         said: [1],
         did: [2],
         asked: [],
@@ -319,7 +319,7 @@ describe("transfer_kept", () => {
       const r = run(ev([agent(CLAIM, 9), ...tool("tc_1", "transfer_call", { note: "queued" }, null)]));
       expect(r.out.result).toBe("unverified");
       expect(r.finding.gaps).toEqual(["unknown_success"]);
-      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the transfer_call result doesn't say whether it worked.");
+      expect(r.finding.text).toBe("Couldn't check the transfer: the transfer_call result doesn't say whether it worked.");
     });
 
     it("with an inferred policy and no transfer tool, a claim is unverified, not violated", () => {
@@ -330,7 +330,7 @@ describe("transfer_kept", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promised transfers happen: no transfer tool is known for this agent.",
+        text: "Couldn't check the transfer: no transfer tool is known for this agent.",
         said: [3],
         did: [],
         asked: [],
@@ -355,7 +355,7 @@ describe("transfer_kept", () => {
       const r = runWith(input, picked.policy, picked.source);
       expect(r.out.result).toBe("unverified");
       expect(r.finding.gaps).toEqual(["missing_tool_transcript"]);
-      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the call record has no tool calls.");
+      expect(r.finding.text).toBe("Couldn't check the transfer: the call record has no tool calls.");
       expect(r.evidence.gaps).toEqual([{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }]);
     });
 
@@ -371,7 +371,7 @@ describe("transfer_kept", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promised transfers happen: the call used connect_agent, which the policy doesn't describe, so we couldn't tell whether it was the transfer.",
+        text: "Couldn't check the transfer: the call used connect_agent, which the policy doesn't describe, so we couldn't tell whether it was the transfer.",
         said: [3],
         did: [4, 5],
         asked: [],
@@ -383,7 +383,7 @@ describe("transfer_kept", () => {
     it("several undescribed tools are named together", () => {
       const r = run(ev([...lookup(), agent(CLAIM, 9), call("tc_x", "connect_agent"), call("tc_y", "ring_desk")]));
       expect(r.finding.text).toBe(
-        "Couldn't check promised transfers happen: the call used connect_agent and ring_desk, which the policy doesn't describe, so we couldn't tell whether any of them was the transfer.",
+        "Couldn't check the transfer: the call used connect_agent and ring_desk, which the policy doesn't describe, so we couldn't tell whether any of them was the transfer.",
       );
     });
 
@@ -396,7 +396,7 @@ describe("transfer_kept", () => {
       const r = run(ev([agent("Let me get you to a nurse, transferring you now.", 9)]));
       expect(r.out.result).toBe("unverified");
       expect(r.finding.gaps).toEqual(["missing_tool_transcript"]);
-      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the call record has no tool calls.");
+      expect(r.finding.text).toBe("Couldn't check the transfer: the call record has no tool calls.");
       expect(r.evidence.gaps).toEqual([{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }]);
     });
 
@@ -432,14 +432,14 @@ describe("transfer_kept", () => {
     it("with ordering none, nothing is before or after anything, so a claim is unverified", () => {
       const r = run(ev([agent(CLAIM, 9), ...tool("tc_1", "transfer_call", { ok: true })], { ordering: "none" }));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the call record doesn't say what happened first.");
+      expect(r.finding.text).toBe("Couldn't check the transfer: the call record doesn't say what happened first.");
     });
 
     it("tool syntax with ordering none is unverified, since the report schema allows no violated finding then", () => {
       const r = run(ev([...lookup(), agent("transfer_call(to: nurse)", 9)], { ordering: "none" }));
       expect(r.out.result).toBe("unverified");
       expect(r.finding.said).toEqual([3]);
-      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the call record doesn't say what happened first.");
+      expect(r.finding.text).toBe("Couldn't check the transfer: the call record doesn't say what happened first.");
     });
   });
 
@@ -497,7 +497,7 @@ describe("transfer_kept", () => {
       const r = run(hangup([...lookup(), agent(CLAIM, 9)], 12000));
       expect(r.out.result).toBe("unverified");
       expect(r.finding.text).toBe(
-        "Couldn't check promised transfers happen: the caller hung up while the agent was announcing the transfer, so it never had the chance to start.",
+        "Couldn't check the transfer: the caller hung up while the agent was announcing the transfer, so it never had the chance to start.",
       );
       expect(r.finding.said).toEqual([3]);
     });
@@ -555,7 +555,7 @@ describe("transfer_kept", () => {
     it("a transfer call the caller hung up on says the result never came back", () => {
       const r = run(hangup([agent(CLAIM, 9), call("tc_1", "transfer_call")], 12000));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check promised transfers happen: the caller hung up before transfer_call returned, so the record can't show whether it worked.");
+      expect(r.finding.text).toBe("Couldn't check the transfer: the caller hung up before transfer_call returned, so the record can't show whether it worked.");
     });
 
     it("a transfer call with no result and no hang-up keeps the old words", () => {

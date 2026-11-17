@@ -26,6 +26,15 @@ export const CONTRACT_TITLE: Record<ContractId, string> = {
   committed_matches_request: "booking matches the request",
 };
 
+/** What each contract is about, as a noun phrase that follows "Couldn't check" in a sentence. */
+export const CONTRACT_NOUN: Record<ContractId, string> = {
+  promise_backed: "the promise",
+  verified_before_change: "the identity check",
+  spoken_matches_committed: "the spoken details",
+  transfer_kept: "the transfer",
+  committed_matches_request: "the caller's request",
+};
+
 /** The call experience checks, named the way CONTRACT_TITLE names a contract: lowercase, to sit in a sentence. */
 export const EXPERIENCE_TITLE: Record<ExperienceCheckId, string> = {
   agent_ends_call: "how the call ends",
