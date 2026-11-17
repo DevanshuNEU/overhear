@@ -113,7 +113,7 @@ describe("callerLeftAfter", () => {
   const agent = (text: string, startSec: number | null): ItemSpec => ({ kind: "turn", role: "agent", text, startSec, interrupted: null });
   const caller = (text: string, startSec: number | null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
   // Ten words: 4 s of speech at 2.5 words a second, so the announcement ends at 14 s and the cutoff is 22 s.
-  const TEN = "I am transferring you to the nurse line right now please";
+  const TEN = "I am transferring you to the nurse line right now";
   const hung = (items: ItemSpec[], over: Record<string, unknown> = {}) =>
     ev(items, { callFields: { disconnection_reason: "user_hangup", duration_ms: 16000, ...over } });
 
