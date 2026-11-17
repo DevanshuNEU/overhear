@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sampleRows } from "@/demo-samples";
 import { getReport } from "./store";
 import { failedSample, needsReviewSample, passedSample } from "./samples";
 
@@ -6,8 +7,14 @@ describe("getReport", () => {
   it("finds each sample by its call id", async () => {
     for (const sample of [failedSample, needsReviewSample, passedSample]) {
       const found = await getReport(sample.callId);
-      expect(found).toEqual({ status: "found", report: sample });
+      // The engine's own report for the sample call is served, so the list and the report always agree.
+      expect(found.status).toBe("found");
+      if (found.status === "found") expect(found.report).toMatchObject({ callId: sample.callId, verdict: sample.verdict });
     }
+  });
+
+  it("finds every demo sample by its call id", async () => {
+    for (const row of sampleRows()) expect(await getReport(row.callId)).toMatchObject({ status: "found" });
   });
 
   it("says not found for an id it does not hold", async () => {
