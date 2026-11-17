@@ -76,7 +76,7 @@ describe("verdictFor", () => {
   });
 
   it("an unverified result with no gap behind it says what its finding says", () => {
-    const f = finding("unverified", { text: "Couldn't check promises backed by the system: the agent never confirmed the booking." });
+    const f = finding("unverified", { text: "Couldn't check the promise: the agent never confirmed the booking." });
     const v = verdictFor(withResult("promise_backed", contract("promise_backed", "unverified", [f])), [], evidence());
     expect(v.reasons[0].text).toBe(f.text);
   });

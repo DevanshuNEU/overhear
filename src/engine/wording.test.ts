@@ -1,7 +1,7 @@
 // @vitest-environment node
 // The engine's words: the gap table, the finding templates, and the rules that keep them honest and dash-free.
 import { describe, expect, it } from "vitest";
-import { CONTRACT_TITLE } from "@/report/labels";
+import { CONTRACT_NOUN } from "@/report/labels";
 import { CONTRACT_IDS, GAP_CODES } from "@/report/schema";
 import {
   GAP_DETAIL,
@@ -169,7 +169,7 @@ describe("wording", () => {
 
     it("STORE_FIX_CLAUSE false drops the clause and nothing else", () => {
       const gap = describeGap({ code: "missing_tool_transcript" });
-      const sentence = `Couldn't check ${CONTRACT_TITLE.promise_backed}: ${gap.missing}.`;
+      const sentence = `Couldn't check ${CONTRACT_NOUN.promise_backed}: ${gap.missing}.`;
       expect(withFix(sentence, gap.fix, false)).toBe(sentence);
       expect(withFix(sentence, gap.fix, true)).toBe(`${sentence} ${gap.fix}`);
       // The default follows the constant, so flipping it is the whole switch.
@@ -182,16 +182,16 @@ describe("wording", () => {
       const a = describeGap({ code: "unknown_success", tool: "book" });
       const b = describeGap({ code: "missing_tool_transcript" });
       expect(unverifiedText("promise_backed", [a, b, a])).toBe(
-        `Couldn't check promises backed by the system: ${a.missing}; ${b.missing}.`,
+        `Couldn't check the promise: ${a.missing}; ${b.missing}.`,
       );
     });
   });
 
   describe("contract titles come from labels.ts", () => {
-    it("every unverified finding's title equals CONTRACT_TITLE", () => {
+    it("every unverified finding names its rule with CONTRACT_NOUN", () => {
       for (const id of CONTRACT_IDS) {
         const text = unverifiedText(id, [describeGap({ code: "missing_tool_transcript" })]);
-        expect(text.startsWith(`Couldn't check ${CONTRACT_TITLE[id]}: `), id).toBe(true);
+        expect(text.startsWith(`Couldn't check ${CONTRACT_NOUN[id]}: `), id).toBe(true);
       }
     });
   });

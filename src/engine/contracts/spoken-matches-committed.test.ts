@@ -247,7 +247,7 @@ describe("spoken_matches_committed", () => {
       expect(r.out.findings).toEqual([
         {
           result: "unverified",
-          text: "Couldn't check spoken details match the booking: the agent never confirmed the booking.",
+          text: "Couldn't check the spoken details: the agent never confirmed the booking.",
           said: [],
           did: [2, 3, 4],
           asked: [],
@@ -260,7 +260,7 @@ describe("spoken_matches_committed", () => {
     it("a required field resolved but not spoken is unverified and the finding lists checked and unchecked fields", () => {
       const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6 with Dr. Nair.", 20)]));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the agent didn't say the time.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the agent didn't say the time.");
       expect(r.finding.said).toEqual([5]);
       expect(r.finding.gaps).toEqual([]);
       expect(r.finding.fields).toEqual([
@@ -273,13 +273,13 @@ describe("spoken_matches_committed", () => {
     it("a claim that names no field at all says what was not said", () => {
       const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("Your appointment is booked.", 20)]));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the agent didn't say the date; the agent didn't say the time.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the agent didn't say the date; the agent didn't say the time.");
     });
 
     it("a required field that couldn't be resolved is unverified, whatever was said", () => {
       const r = run(ev([...lookup([slot("other")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6 at 3 PM.", 20)]));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the date of the booking isn't in the call; the time of the booking isn't in the call.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the date of the booking isn't in the call; the time of the booking isn't in the call.");
       expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
       expect(r.finding.fields.map((f) => [f.field, f.committed, f.status])).toEqual([
         ["date", null, "unresolved"],
@@ -300,7 +300,7 @@ describe("spoken_matches_committed", () => {
     it("a scrubbed optional provider the agent named is unverified, with its row unresolved", () => {
       const r = run(ev([...lookup([slot("s1", undefined, "[person name 1]")]), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the provider of the booking isn't in the call.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the provider of the booking isn't in the call.");
       expect(r.finding.text).not.toContain("person name");
       expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
       expect(r.finding.fields.find((f) => f.field === "provider")).toEqual({
@@ -352,14 +352,14 @@ describe("spoken_matches_committed", () => {
       const r = run(e);
       expect(r.out.result).toBe("unverified");
       expect(r.finding.gaps).toEqual(["evidence_conflict"]);
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the backend log and the call record disagree about book_appointment.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the backend log and the call record disagree about book_appointment.");
     });
 
     it("with ordering none it is unverified, never violated", () => {
       const e = ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Friday, November 6 at 3 PM with Dr. Nair.", 20)], { ordering: "none" });
       const r = run(e);
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the call record doesn't say what happened first.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the call record doesn't say what happened first.");
     });
   });
 
@@ -413,7 +413,7 @@ describe("spoken_matches_committed", () => {
     it("a required field the policy has no definition for is unresolved, so the finding is unverified", () => {
       const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]), withRoom);
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check spoken details match the booking: the room of the booking isn't in the call.");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the room of the booking isn't in the call.");
       expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
       expect(r.finding.fields.at(-1)).toEqual({ field: "room", type: "string", from: "spoken", values: [], committed: null, status: "unresolved" });
     });
@@ -424,7 +424,7 @@ describe("spoken_matches_committed", () => {
       expect(r.out.findings).toEqual([
         {
           result: "unverified",
-          text: "Couldn't check spoken details match the booking: the agent never confirmed the cancellation.",
+          text: "Couldn't check the spoken details: the agent never confirmed the cancellation.",
           said: [],
           did: [1, 2],
           asked: [],
@@ -480,7 +480,7 @@ describe("spoken_matches_committed", () => {
         ]),
       );
       expect(r.out.findings.map((f) => f.result)).toEqual(["unverified", "passed"]);
-      expect(r.out.findings[0].text).toBe("Couldn't check spoken details match the booking: the agent never confirmed the booking.");
+      expect(r.out.findings[0].text).toBe("Couldn't check the spoken details: the agent never confirmed the booking.");
       expect(r.out.result).toBe("unverified");
     });
 
@@ -545,7 +545,7 @@ describe("spoken_matches_committed", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding.result).toBe("unverified");
       expect(r.finding.text).toBe(
-        "Couldn't check spoken details match the booking: the agent said Friday, November 13 at 7 PM, and the booking is Friday, November 13 at 7:00 PM UTC, which is Friday, November 13 at 2:00 PM where this check ran, so we couldn't tell which date and time the caller meant.",
+        "Couldn't check the spoken details: the agent said Friday, November 13 at 7 PM, and the booking is Friday, November 13 at 7:00 PM UTC, which is Friday, November 13 at 2:00 PM where this check ran, so we couldn't tell which date and time the caller meant.",
       );
       expect(r.finding.fields.map((f) => [f.field, f.status])).toEqual([
         ["date", "match"],
@@ -591,7 +591,7 @@ describe("spoken_matches_committed", () => {
       ]);
       expect(r.finding.fields[0].committed).toBe("Friday, November 13 here or Saturday, November 14 UTC");
       expect(r.finding.text).toBe(
-        "Couldn't check spoken details match the booking: the agent said Saturday, November 14 at 1 AM, and the booking is Saturday, November 14 at 1:00 AM UTC, which is Friday, November 13 at 8:00 PM where this check ran, so we couldn't tell which date and time the caller meant.",
+        "Couldn't check the spoken details: the agent said Saturday, November 14 at 1 AM, and the booking is Saturday, November 14 at 1:00 AM UTC, which is Friday, November 13 at 8:00 PM where this check ran, so we couldn't tell which date and time the caller meant.",
       );
     });
 

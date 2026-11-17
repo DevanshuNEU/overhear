@@ -72,7 +72,7 @@ describe("softenForMissingTools", () => {
     const e = ev([turn]);
     const out = softenForMissingTools(e, violated, "promise_backed");
     expect(out.result).toBe("unverified");
-    expect(out.text).toBe("Couldn't check promises backed by the system: the call record has no tool calls.");
+    expect(out.text).toBe("Couldn't check the promise: the call record has no tool calls.");
     expect(out.gaps).toEqual(["missing_tool_transcript"]);
     expect(out.said).toEqual([1]);
     expect(e.gaps).toEqual([{ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] }]);

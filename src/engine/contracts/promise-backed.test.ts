@@ -231,7 +231,7 @@ describe("promise_backed", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promises backed by the system: the book_appointment call has no result in the record, so we couldn't tell whether the booking went through.",
+        text: "Couldn't check the promise: the book_appointment call has no result in the record, so we couldn't tell whether the booking went through.",
         said: [2],
         did: [1],
         asked: [],
@@ -262,7 +262,7 @@ describe("promise_backed", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promises backed by the system: the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking.",
+        text: "Couldn't check the promise: the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking.",
         said: [3],
         did: [1],
         asked: [],
@@ -277,7 +277,7 @@ describe("promise_backed", () => {
       );
       expect(r.out.result).toBe("unverified");
       expect(r.finding.text).toBe(
-        "Couldn't check promises backed by the system: the call used make_appointment and set_appointment, which the policy doesn't describe, so we couldn't tell whether any of them was the booking.",
+        "Couldn't check the promise: the call used make_appointment and set_appointment, which the policy doesn't describe, so we couldn't tell whether any of them was the booking.",
       );
     });
 
@@ -305,7 +305,7 @@ describe("promise_backed", () => {
         expect(r.out.result).toBe("unverified");
         expect(r.finding).toEqual({
           result: "unverified",
-          text: "Couldn't check promises backed by the system: the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking.",
+          text: "Couldn't check the promise: the call used make_appointment, which the policy doesn't describe, so we couldn't tell whether it was the booking.",
           said: [5],
           did: [1, 2, 3],
           asked: [],
@@ -361,7 +361,7 @@ describe("promise_backed", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promises backed by the system: the book_appointment result doesn't say whether it worked.",
+        text: "Couldn't check the promise: the book_appointment result doesn't say whether it worked.",
         said: [3],
         did: [1, 2],
         asked: [],
@@ -380,7 +380,7 @@ describe("promise_backed", () => {
         expect(r.out.result, `seqs ${seqs}`).toBe("unverified");
         expect(r.finding.gaps).toEqual(["evidence_conflict"]);
         expect(r.finding.text).toBe(
-          "Couldn't check promises backed by the system: the backend log and the call record disagree about book_appointment.",
+          "Couldn't check the promise: the backend log and the call record disagree about book_appointment.",
         );
       }
     });
@@ -402,7 +402,7 @@ describe("promise_backed", () => {
       );
       expect(r.out.result).toBe("unverified");
       expect(r.finding.gaps).toEqual(["llm_code_disagreement"]);
-      expect(r.finding.text).toBe("Couldn't check promises backed by the system: the model and the code read this turn differently.");
+      expect(r.finding.text).toBe("Couldn't check the promise: the model and the code read this turn differently.");
     });
 
     it("a gap elsewhere in the call does not touch the finding", () => {
@@ -418,7 +418,7 @@ describe("promise_backed", () => {
       const items = [...lookup(), agent(BOOKED, 40)];
       const none = run(ev(items, { ordering: "none" }));
       expect(none.out.result).toBe("unverified");
-      expect(none.finding.text).toBe("Couldn't check promises backed by the system: the call record doesn't say what happened first.");
+      expect(none.finding.text).toBe("Couldn't check the promise: the call record doesn't say what happened first.");
       const failedChange = run(ev([...tool("tc_1", "book_appointment", { ok: false }), agent(BOOKED, 40)], { ordering: "none" }));
       expect(failedChange.out.result).toBe("unverified");
       const backed = run(ev([...tool("tc_1", "book_appointment", { ok: true }), agent(BOOKED, 40)], { ordering: "none" }));
@@ -436,7 +436,7 @@ describe("promise_backed", () => {
       expect(r.out.result).toBe("unverified");
       expect(r.finding).toEqual({
         result: "unverified",
-        text: "Couldn't check promises backed by the system: the call record has no tool calls.",
+        text: "Couldn't check the promise: the call record has no tool calls.",
         said: [1],
         did: [],
         asked: [],
@@ -450,7 +450,7 @@ describe("promise_backed", () => {
       const adapterGap = { code: "missing_tool_transcript" as const, detail: "from the adapter", seqs: [] };
       const r = run(ev([agent(BOOKED, 40)], { ordering: "none", gaps: [adapterGap] }));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check promises backed by the system: the call record has no tool calls.");
+      expect(r.finding.text).toBe("Couldn't check the promise: the call record has no tool calls.");
       expect(r.evidence.gaps).toEqual([adapterGap]);
     });
   });
@@ -643,7 +643,7 @@ describe("promise_backed", () => {
     it("a booking call with no result that the caller hung up on says the result never came back", () => {
       const r = run(hangup([call("tc_1", "book_appointment"), agent(BOOKED, 40), caller("hello?", 42)]));
       expect(r.out.result).toBe("unverified");
-      expect(r.finding.text).toBe("Couldn't check promises backed by the system: the caller hung up before book_appointment returned, so the record can't show whether it worked.");
+      expect(r.finding.text).toBe("Couldn't check the promise: the caller hung up before book_appointment returned, so the record can't show whether it worked.");
     });
 
     it("without the hang-up the words are the old ones", () => {

@@ -1,7 +1,7 @@
 // The engine's own words: the detail a gap carries, and the sentences a finding says (spec 6.8). Code values map to
-// these and nothing else writes them. Contract titles are not here: they come from CONTRACT_TITLE in
+// these and nothing else writes them. Contract titles are not here: they come from CONTRACT_TITLE (and CONTRACT_NOUN for "Couldn't check") in
 // @/report/labels, so a renamed title flows into every stored finding.
-import { CONTRACT_TITLE } from "@/report/labels";
+import { CONTRACT_NOUN } from "@/report/labels";
 import type { ChangeKind, ContractId, Evidence, Gap, GapCode } from "@/report/schema";
 import { isPlaceholder } from "./placeholder";
 import type { ZoneDoubt } from "./spoken";
@@ -217,11 +217,11 @@ export function withFix(sentence: string, fix: string, store: boolean = STORE_FI
   return store && fix !== "" ? `${sentence} ${fix}` : sentence;
 }
 
-/** "Couldn't check {contract title}: {what's missing}." from one or more causes, with their fixes behind withFix. */
+/** "Couldn't check {contract noun}: {what's missing}." from one or more causes, with their fixes behind withFix. */
 export function unverifiedText(contract: ContractId, causes: GapText[]): string {
   const missing = [...new Set(causes.map((c) => c.missing))].join("; ");
   const fix = [...new Set(causes.map((c) => c.fix))].join(" ");
-  return withFix(`Couldn't check ${CONTRACT_TITLE[contract]}: ${missing}.`, fix);
+  return withFix(`Couldn't check ${CONTRACT_NOUN[contract]}: ${missing}.`, fix);
 }
 
 /** A time inside the call as minutes and seconds: 142.6 becomes "2:22". */

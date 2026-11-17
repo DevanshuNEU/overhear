@@ -299,7 +299,7 @@ describe("an LLM finding alone never produces violated", () => {
     for (const f of t.findings) {
       f.result = "unverified";
       f.gaps = ["llm_code_disagreement"];
-      f.text = "Couldn't check transfers kept: only the model found this claim. Run the code detector over the turn.";
+      f.text = "Couldn't check the transfer: only the model found this claim. Run the code detector over the turn.";
     }
     r.evidence.gaps.push({ code: "llm_code_disagreement", detail: "The model found a transfer claim the code detector did not.", seqs: t.findings.flatMap((f) => f.said) });
     r.verdict = "needs_review";
@@ -398,7 +398,7 @@ describe("unverified results and gaps", () => {
     c.findings = [
       {
         result: "unverified",
-        text: "Couldn't check spoken details match the booking: the booked slot was not in any earlier availability result. Return the slot's time and provider from the booking tool.",
+        text: "Couldn't check the spoken details: the booked slot was not in any earlier availability result. Return the slot's time and provider from the booking tool.",
         said: [claim],
         did: c.findings[0].did,
         asked: [],
