@@ -6,7 +6,7 @@ import type { Finding, Gap, GapCode } from "@/report/schema";
 import { GAP_CODES } from "@/report/schema";
 import { ev, type ItemSpec } from "../testing/build";
 import { GAP_DETAIL, GAP_TEXT } from "../wording";
-import { RELEVANT_GAPS, gapsTouching, softenForMissingTools, worst } from "./common";
+import { HANGUP_GRACE_SEC, RELEVANT_GAPS, SPEAKING_WORDS_PER_SEC, callerHungUpBeforeResult, callerLeftAfter, gapsTouching, softenForMissingTools, worst } from "./common";
 
 const turn: ItemSpec = { kind: "turn", role: "agent", text: "You're booked", startSec: 3, interrupted: null };
 const call: ItemSpec = { kind: "tool_call", id: "tc_1", name: "book_appointment", args: {} };
@@ -106,5 +106,93 @@ describe("softenForMissingTools", () => {
 
   it("the words come from GAP_TEXT", () => {
     expect(GAP_TEXT.missing_tool_transcript.missing).toBe("the call record has no tool calls");
+  });
+});
+
+describe("callerLeftAfter", () => {
+  const agent = (text: string, startSec: number | null): ItemSpec => ({ kind: "turn", role: "agent", text, startSec, interrupted: null });
+  const caller = (text: string, startSec: number | null): ItemSpec => ({ kind: "turn", role: "caller", text, startSec, interrupted: null });
+  // Ten words: 4 s of speech at 2.5 words a second, so the announcement ends at 14 s and the cutoff is 22 s.
+  const TEN = "I am transferring you to the nurse line right now please";
+  const hung = (items: ItemSpec[], over: Record<string, unknown> = {}) =>
+    ev(items, { callFields: { disconnection_reason: "user_hangup", duration_ms: 16000, ...over } });
+
+  it("exports its two constants", () => {
+    expect(SPEAKING_WORDS_PER_SEC).toBe(2.5);
+    expect(HANGUP_GRACE_SEC).toBe(8);
+  });
+
+  it("is during when the call ended within the cutoff", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10)]), 1)).toEqual({ left: "during" });
+    expect(callerLeftAfter(hung([agent(TEN, 10)], { duration_ms: 22000 }), 1)).toEqual({ left: "during" });
+  });
+
+  it("is null when the caller waited past the cutoff", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10)], { duration_ms: 22100 }), 1)).toBeNull();
+    expect(callerLeftAfter(hung([agent(TEN, 10)], { duration_ms: 55000 }), 1)).toBeNull();
+  });
+
+  it("is null for any other end reason, or none", () => {
+    for (const reason of ["agent_hangup", "call_transfer", "inactivity", "max_duration_reached", "error_llm_websocket_open"]) {
+      expect(callerLeftAfter(hung([agent(TEN, 10)], { disconnection_reason: reason }), 1)).toBeNull();
+    }
+    expect(callerLeftAfter(ev([agent(TEN, 10)], { callFields: { duration_ms: 16000 } }), 1)).toBeNull();
+  });
+
+  it("is null when a tool call or backend action comes after", () => {
+    const call: ItemSpec = { kind: "tool_call", id: "t", name: "transfer_call", args: {} };
+    expect(callerLeftAfter(hung([agent(TEN, 10), call]), 1)).toBeNull();
+    const action: ItemSpec = { kind: "backend_action", toolCallId: null, tool: "x", ok: true, at: null } as unknown as ItemSpec;
+    expect(callerLeftAfter(hung([agent(TEN, 10), action]), 1)).toBeNull();
+  });
+
+  it("a tool call before the claim does not count", () => {
+    const call: ItemSpec = { kind: "tool_call", id: "t", name: "lookup", args: {} };
+    expect(callerLeftAfter(hung([call, agent(TEN, 10)]), 2)).toEqual({ left: "during" });
+  });
+
+  it("is null when the agent spoke again after a caller turn", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("ok", 12), agent("Still here?", 13)]), 1)).toBeNull();
+  });
+
+  it("a streamed second agent fragment is the same announcement, and the last fragment sets the end", () => {
+    // Fragment two starts at 20 s with ten words: ends at 24 s, cutoff 32 s.
+    const items = [agent(TEN, 10), agent(TEN, 20)];
+    expect(callerLeftAfter(hung(items, { duration_ms: 30000 }), 1)).toEqual({ left: "during" });
+    expect(callerLeftAfter(hung(items, { duration_ms: 33000 }), 1)).toBeNull();
+  });
+
+  it("a caller who barged in within the cutoff and then left in silence is during", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 12)], { duration_ms: 90000 }), 1)).toEqual({ left: "during" });
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("wait, no", 22)], { duration_ms: 90000 }), 1)).toEqual({ left: "during" });
+  });
+
+  it("a caller turn past the cutoff, with a long silence, is null", () => {
+    expect(callerLeftAfter(hung([agent(TEN, 10), caller("hello?", 40)], { duration_ms: 90000 }), 1)).toBeNull();
+  });
+
+  it("is untimed when the last agent turn has no start or the call no duration", () => {
+    expect(callerLeftAfter(hung([agent(TEN, null)]), 1)).toEqual({ left: "untimed" });
+    expect(callerLeftAfter(hung([agent(TEN, 10), agent(TEN, null)]), 1)).toEqual({ left: "untimed" });
+    const noDuration = ev([agent(TEN, 10)], { callFields: { disconnection_reason: "user_hangup" } });
+    expect(callerLeftAfter(noDuration, 1)).toEqual({ left: "untimed" });
+  });
+});
+
+describe("callerHungUpBeforeResult", () => {
+  const call: ItemSpec = { kind: "tool_call", id: "t", name: "book_appointment", args: {} };
+  const caller: ItemSpec = { kind: "turn", role: "caller", text: "hello?", startSec: 5, interrupted: null };
+  const event: ItemSpec = { kind: "event", type: "x", data: null };
+  const withReason = (items: ItemSpec[], reason = "user_hangup") => ev(items, { callFields: { disconnection_reason: reason } });
+
+  it("holds for user_hangup with only caller turns and events after the call", () => {
+    expect(callerHungUpBeforeResult(withReason([turn, call]), 2)).toBe(true);
+    expect(callerHungUpBeforeResult(withReason([turn, call, caller, event]), 2)).toBe(true);
+  });
+
+  it("fails for another reason, an agent turn, or another tool item after the call", () => {
+    expect(callerHungUpBeforeResult(withReason([turn, call], "agent_hangup"), 2)).toBe(false);
+    expect(callerHungUpBeforeResult(withReason([turn, call, turn]), 2)).toBe(false);
+    expect(callerHungUpBeforeResult(withReason([turn, call, { ...call, id: "u" }]), 2)).toBe(false);
   });
 });

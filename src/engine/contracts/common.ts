@@ -81,3 +81,44 @@ export function softenForMissingTools(ev: Evidence, finding: Finding, contract: 
     gaps: [...new Set<GapCode>([...finding.gaps, "missing_tool_transcript"])],
   };
 }
+
+/** How fast an agent speaks, in words a second: how long an announcement takes to say. */
+export const SPEAKING_WORDS_PER_SEC = 2.5;
+/** How long after the agent stops talking a caller is still taken to have left in reaction, in seconds. */
+export const HANGUP_GRACE_SEC = 8;
+
+/**
+ * Did the caller hang up during or right after the agent's words at this turn, before anything else could happen?
+ * "during": yes. "untimed": the shape fits but the record has no times to show how long they waited. null: not this
+ * case (the call went on, someone else ended it, or the caller waited too long).
+ */
+export function callerLeftAfter(ev: Evidence, seq: number): { left: "during" | "untimed" } | null {
+  if (ev.callFields.disconnection_reason !== "user_hangup") return null;
+  const after = ev.items.filter((it) => it.seq > seq);
+  if (after.some((it) => it.kind === "tool_call" || it.kind === "backend_action")) return null;
+
+  // The announcement is the agent's turn at seq and the agent turns right after it with no caller turn between: Retell
+  // keeps streamed fragments as separate items. An agent turn after a caller turn means the call went on.
+  const turns = [ev.items.find((it) => it.seq === seq), ...after].flatMap((it) => (it?.kind === "turn" ? [it] : []));
+  const firstCaller = turns.findIndex((t) => t.role === "caller");
+  const block = firstCaller < 0 ? turns : turns.slice(0, firstCaller);
+  if (firstCaller >= 0 && turns.slice(firstCaller).some((t) => t.role === "agent")) return null;
+
+  const last = block.at(-1);
+  const durationMs = ev.callFields.duration_ms;
+  if (!last || last.startSec === null || durationMs === undefined) return { left: "untimed" };
+  const words = last.text.split(/\s+/).filter(Boolean).length;
+  const cutoff = last.startSec + words / SPEAKING_WORDS_PER_SEC + HANGUP_GRACE_SEC;
+  const bargedAt = firstCaller >= 0 ? turns[firstCaller].startSec : null;
+  if (durationMs / 1000 <= cutoff || (bargedAt !== null && bargedAt <= cutoff)) return { left: "during" };
+  return null;
+}
+
+/**
+ * Whether the caller hung up right after a tool call went out with no answer: user_hangup and nothing after the call
+ * but caller turns and events.
+ */
+export function callerHungUpBeforeResult(ev: Evidence, callSeq: number): boolean {
+  if (ev.callFields.disconnection_reason !== "user_hangup") return false;
+  return ev.items.every((it) => it.seq <= callSeq || (it.kind === "turn" && it.role === "caller") || it.kind === "event");
+}
