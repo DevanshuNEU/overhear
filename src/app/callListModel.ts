@@ -1,6 +1,7 @@
 // What the call list works out from a pull's rows, apart from how it looks: counts, which rows go on top, and
 // how a call's time reads. Pure, so each rule has a test of its own.
 import type { PullRow } from "@/pull/pull";
+import { VERDICTS, type Verdict } from "@/report/schema";
 
 export type Counts = {
   total: number;
@@ -46,6 +47,21 @@ export function splitRows(rows: PullRow[]): { attention: PullRow[]; rest: PullRo
   const settled = (row: PullRow) => (row.state === "report" && row.verdict === "nothing_done" ? 1 : 0);
   const rest = ranked.filter((r) => r.rank === null).sort((a, b) => settled(a.row) - settled(b.row) || a.index - b.index);
   return { attention: attention.map((r) => r.row), rest: rest.map((r) => r.row) };
+}
+
+/** What the list shows: every call, or only the calls with one verdict. In the address as ?show=, and as ?from= on a report. */
+export type Filter = "all" | Verdict;
+
+/** The filter an address asks for. Anything it does not know, or nothing, means All. */
+export function parseFilter(value: string | null | undefined): Filter {
+  return (VERDICTS as readonly string[]).includes(value ?? "") ? (value as Verdict) : "all";
+}
+
+/** The rows a filter keeps, in the order the list shows them. All is the two groups one after the other (attention, then the rest). A verdict keeps its calls in that same order. Calls that could not be checked, or have no transcript, belong to All only. */
+export function filterRows(rows: PullRow[], filter: Filter): PullRow[] {
+  const { attention, rest } = splitRows(rows);
+  const ordered = [...attention, ...rest];
+  return filter === "all" ? ordered : ordered.filter((row) => row.state === "report" && row.verdict === filter);
 }
 
 /** A call's start as "Nov 6, 15:42" in the reader's zone (or the one given). Null when the time cannot be printed. */

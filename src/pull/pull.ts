@@ -7,7 +7,7 @@
 import { randomUUID } from "node:crypto";
 import type { Outcome } from "@/engine/types";
 import { answerOf } from "@/components/report/answer";
-import type { CallReport, Verdict } from "@/report/schema";
+import type { CallReport, Note, Verdict } from "@/report/schema";
 import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError, type PoolResult } from "./pool";
 import { PULL_ERROR_MESSAGE, type PullErrorCode } from "./labels";
 import { logSafe } from "./redact";
@@ -28,6 +28,8 @@ export type PullRow = {
   lead?: string;
   /** How many call experience problems the report found. Absent when there are none, or when none was checked. */
   experienceProblems?: number;
+  /** The report's notes (no promises made, request not checked). Absent when it has none. */
+  notes?: Note[];
 };
 
 export type PullProgress = {
@@ -93,7 +95,7 @@ function rowFor(meta: CallMeta, outcome: Outcome | null): PullRow {
   if (outcome.kind === "report") {
     const lead = leadOf(outcome.report);
     const problems = outcome.report.experience.problems.length;
-    return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline, ...(lead ? { lead } : {}), ...(problems > 0 ? { experienceProblems: problems } : {}) };
+    return { ...base, state: "report", verdict: outcome.report.verdict, headline: outcome.report.headline, ...(lead ? { lead } : {}), ...(problems > 0 ? { experienceProblems: problems } : {}), ...(outcome.report.notes.length > 0 ? { notes: outcome.report.notes } : {}) };
   }
   return { ...base, state: outcome.kind };
 }
