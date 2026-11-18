@@ -475,7 +475,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
 
           {filter !== "all" && matches.length === 0 && counts.total > 0 && settled ? (
             <div className="mt-10 max-w-[760px]">
-              <h2 className="text-lg font-semibold">{LIST_WORDS.noMatches[filter](count)}</h2>
+              <h2 className="text-lg font-semibold">{LIST_WORDS.noMatches[filter](counts.total)}</h2>
               <Link
                 href="/"
                 onClick={(e) => {

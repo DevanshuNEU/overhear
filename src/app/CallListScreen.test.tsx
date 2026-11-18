@@ -709,10 +709,10 @@ describe("the status filters", () => {
   });
 
   it.each([
-    ["failed", "No failed calls in the last 25."],
-    ["needs_review", "No calls that need review in the last 25."],
-    ["passed", "No passed calls in the last 25."],
-    ["nothing_done", "No calls with nothing done in the last 25."],
+    ["failed", "No failed calls in the last 3."],
+    ["needs_review", "No calls that need review in the last 3."],
+    ["passed", "No passed calls in the last 3."],
+    ["nothing_done", "No calls with nothing done in the last 3."],
   ] as const)("with no %s calls says so and offers Show all calls", async (show, title) => {
     visit(`/?show=${show}`);
     const others = [failedRow(1), reviewRow(2), passedRow(3), nothingDoneRow(4)].filter((r) => r.verdict !== show);
@@ -728,9 +728,16 @@ describe("the status filters", () => {
 
   it("says the count the pull checked, not always 25", async () => {
     visit("/?show=failed");
-    fakeServer([done([passedRow(1)], { requested: 50 })]);
+    fakeServer([done(Array.from({ length: 50 }, (_, i) => passedRow(i + 1)), { requested: 50 })]);
     renderList();
     expect(await screen.findByText("No failed calls in the last 50.")).toBeInTheDocument();
+  });
+
+  it("says how many calls are in the list, not how many were asked for", async () => {
+    visit("/?show=failed");
+    fakeServer([done(Array.from({ length: 12 }, (_, i) => passedRow(i + 1)), { requested: 25 })]);
+    renderList();
+    expect(await screen.findByText("No failed calls in the last 12.")).toBeInTheDocument();
   });
 
   it("does not say there are none while calls are still being checked", async () => {

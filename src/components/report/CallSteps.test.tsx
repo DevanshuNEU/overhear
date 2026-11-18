@@ -244,3 +244,108 @@ describe("the J and K keys", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 });
+
+describe("the shortcuts panel", () => {
+  const press = (key: string, init: KeyboardEventInit = {}, target: Element | Document = document.body) => fireEvent.keyDown(target, { key, ...init });
+  const panel = () => screen.queryByRole("dialog", { name: "Keyboard shortcuts" });
+
+  beforeEach(() => window.localStorage.clear());
+
+  it("opens on ? with the heading, both keys and one button, and moves focus into it", async () => {
+    open("r1");
+    await screen.findByRole("link", { name: STEP_LABEL.next });
+    expect(panel()).toBeNull();
+    press("?", { shiftKey: true });
+    const dialog = panel()!;
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).not.toHaveAttribute("aria-modal", "true");
+    expect(screen.getByRole("heading", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Next callJ");
+    expect(dialog).toHaveTextContent("Previous callK");
+    expect(dialog.querySelectorAll("kbd")).toHaveLength(2);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(screen.getByRole("button", { name: "Turn off shortcuts" })).toHaveClass("min-h-11");
+  });
+
+  it("closes on Esc and gives focus back to what had it", async () => {
+    open("r1");
+    const next = await screen.findByRole("link", { name: STEP_LABEL.next });
+    next.focus();
+    press("?", { shiftKey: true });
+    expect(panel()).not.toBeNull();
+    press("Escape", {}, panel()!);
+    expect(panel()).toBeNull();
+    expect(document.activeElement).toBe(next);
+  });
+
+  it("closes on its close button and on a click outside", async () => {
+    open("r1");
+    await screen.findByRole("link", { name: STEP_LABEL.next });
+    press("?", { shiftKey: true });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(panel()).toBeNull();
+    press("?", { shiftKey: true });
+    fireEvent.mouseDown(document.body);
+    expect(panel()).toBeNull();
+    press("?", { shiftKey: true });
+    fireEvent.mouseDown(panel()!);
+    expect(panel()).not.toBeNull();
+  });
+
+  it("does nothing for ? typed in an input or with Ctrl, Alt or Meta held", async () => {
+    open("r1");
+    await screen.findByRole("link", { name: STEP_LABEL.next });
+    const input = document.body.appendChild(document.createElement("input"));
+    input.focus();
+    press("?", { shiftKey: true }, input);
+    input.remove();
+    for (const mod of [{ ctrlKey: true }, { altKey: true }, { metaKey: true }]) press("?", mod);
+    expect(panel()).toBeNull();
+  });
+
+  it("turning off stops J and K, persists across a remount, and turning on restores them", async () => {
+    const view = open("r1");
+    await screen.findByRole("link", { name: STEP_LABEL.next });
+    press("?", { shiftKey: true });
+    fireEvent.click(screen.getByRole("button", { name: "Turn off shortcuts" }));
+    expect(window.localStorage.getItem("overhear.shortcuts")).toBe("off");
+    press("j");
+    press("k");
+    expect(router.push).not.toHaveBeenCalled();
+    expect(link(STEP_LABEL.next)).toHaveAttribute("title", "Next call");
+    expect(link(STEP_LABEL.previous)).toHaveAttribute("title", "Previous call");
+    view.unmount();
+
+    open("r1");
+    await screen.findByRole("link", { name: STEP_LABEL.next });
+    press("j");
+    expect(router.push).not.toHaveBeenCalled();
+    press("?", { shiftKey: true });
+    fireEvent.click(screen.getByRole("button", { name: "Turn on shortcuts" }));
+    expect(window.localStorage.getItem("overhear.shortcuts")).toBeNull();
+    expect(link(STEP_LABEL.next)).toHaveAttribute("title", "Next call (J)");
+    press("j");
+    expect(router.push).toHaveBeenCalledWith("/reports/p1");
+  });
+
+  it("does not crash when localStorage throws, and the shortcuts stay on", async () => {
+    const boom = () => {
+      throw new Error("blocked");
+    };
+    const getItem = Storage.prototype.getItem;
+    const setItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+      return this === window.localStorage ? boom() : getItem.call(this, key);
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      return this === window.localStorage ? boom() : setItem.call(this, key, value);
+    });
+    open("r1");
+    await screen.findByRole("link", { name: STEP_LABEL.next });
+    press("j");
+    expect(router.push).toHaveBeenCalledWith("/reports/p1");
+    press("?", { shiftKey: true });
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "Turn off shortcuts" }))).not.toThrow();
+    vi.restoreAllMocks();
+  });
+});

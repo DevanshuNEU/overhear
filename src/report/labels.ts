@@ -334,6 +334,19 @@ export const STEP_LABEL = {
   /** The shortcut sits in the link's title only, never on the page. */
   previousTitle: "Previous call (K)",
   nextTitle: "Next call (J)",
+  /** The titles when the person has turned the shortcuts off: no key is named. */
+  previousTitleOff: "Previous call",
+  nextTitleOff: "Next call",
+} as const;
+
+/** The panel that lists the J and K keys and turns them off (WCAG 2.1.4). */
+export const SHORTCUT_LABEL = {
+  heading: "Keyboard shortcuts",
+  next: "Next call",
+  previous: "Previous call",
+  close: "Close",
+  turnOff: "Turn off shortcuts",
+  turnOn: "Turn on shortcuts",
 } as const;
 /** The tab's title in place of an address that does not look like a call ID, so a crafted address is never repeated. */
 export const REPORT_TITLE = "Call report";

@@ -5,14 +5,15 @@
 // tab's session, so the rows are fetched once here and cut by the same filter (callListModel) the list used.
 // With no pull, a failed fetch, or a call that is not in the pull, only the way back shows. J and K step too, when
 // the person is not typing. The pull id is not secret and nothing here touches the key.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { PullRow } from "@/pull/pull";
 import { filterRows, parseFilter, type Filter } from "@/app/callListModel";
-import { STEP_LABEL } from "@/report/labels";
+import { SHORTCUT_LABEL, STEP_LABEL } from "@/report/labels";
 
 const REMEMBER = "overhear.pull";
+const SHORTCUTS_KEY = "overhear.shortcuts";
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent";
 const ITEM = `inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-sm font-medium ${FOCUS}`;
 
@@ -25,6 +26,38 @@ function rememberedPull(): string | null {
   } catch {
     return null;
   }
+}
+
+/** Shortcuts are on unless the person turned them off. Storage can throw, and then they stay on. */
+let held: boolean | null = null;
+function shortcutsOn(): boolean {
+  try {
+    return window.localStorage.getItem(SHORTCUTS_KEY) !== "off";
+  } catch {
+    return held ?? true;
+  }
+}
+
+// The choice is a store of its own, so the server and the first paint say "on" and the saved choice follows.
+const watchers = new Set<() => void>();
+function watchShortcuts(tell: () => void) {
+  watchers.add(tell);
+  window.addEventListener("storage", tell);
+  return () => {
+    watchers.delete(tell);
+    window.removeEventListener("storage", tell);
+  };
+}
+
+function saveShortcuts(on: boolean) {
+  held = on;
+  try {
+    if (on) window.localStorage.removeItem(SHORTCUTS_KEY);
+    else window.localStorage.setItem(SHORTCUTS_KEY, "off");
+  } catch {
+    // The choice holds for this page only.
+  }
+  watchers.forEach((tell) => tell());
 }
 
 function isRows(value: unknown): value is PullRow[] {
@@ -56,6 +89,10 @@ export function CallSteps({ samples }: Props = {}) {
   const from = parseFilter(useSearchParams()?.get("from"));
   const callId = typeof params?.callId === "string" ? params.callId : null;
   const [pulled, setRows] = useState<PullRow[] | null>(null);
+  const keys = useSyncExternalStore(watchShortcuts, shortcutsOn, () => true);
+  const [open, setOpen] = useState(false);
+  const dialog = useRef<HTMLDivElement>(null);
+  const before = useRef<HTMLElement | null>(null);
   const hosted = samples !== undefined;
   const rows = samples ?? pulled;
 
@@ -91,7 +128,16 @@ export function CallSteps({ samples }: Props = {}) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || typing(e.target)) return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+      if (e.key === "?") {
+        e.preventDefault();
+        setOpen((was) => {
+          if (!was) before.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          return true;
+        });
+        return;
+      }
+      if (e.shiftKey || !keys) return;
       const key = e.key.toLowerCase();
       const href = key === "j" ? nextHref : key === "k" ? previousHref : null;
       if (href === null) return;
@@ -100,7 +146,39 @@ export function CallSteps({ samples }: Props = {}) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextHref, previousHref, router]);
+  }, [keys, nextHref, previousHref, router]);
+
+  function close() {
+    setOpen(false);
+    before.current?.focus();
+    before.current = null;
+  }
+
+  // Open: focus moves in. Esc and a click outside close it, and focus goes back to where it was.
+  useEffect(() => {
+    if (!open) return;
+    dialog.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      }
+    }
+    function onDown(e: MouseEvent) {
+      if (e.target instanceof Node && dialog.current?.contains(e.target)) return;
+      close();
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [open]);
+
+  function toggleKeys() {
+    saveShortcuts(!keys);
+  }
 
   const step = (href: string | null, label: string, title: string, dir: "left" | "right") => {
     const inside = dir === "left" ? (
@@ -129,15 +207,47 @@ export function CallSteps({ samples }: Props = {}) {
   };
 
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:mb-3">
+    <div className="relative mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:mb-3">
       <Link href={listHref(from)} className={`${ITEM} -ml-2 text-report-accent underline-offset-2 hover:underline`}>
         <Arrow dir="left" />
         {(hosted ? STEP_LABEL.backSamples : STEP_LABEL.back)[from]}
       </Link>
       {steps ? (
         <div className="flex items-center gap-x-2">
-          {step(previousHref, STEP_LABEL.previous, STEP_LABEL.previousTitle, "left")}
-          {step(nextHref, STEP_LABEL.next, STEP_LABEL.nextTitle, "right")}
+          {step(previousHref, STEP_LABEL.previous, keys ? STEP_LABEL.previousTitle : STEP_LABEL.previousTitleOff, "left")}
+          {step(nextHref, STEP_LABEL.next, keys ? STEP_LABEL.nextTitle : STEP_LABEL.nextTitleOff, "right")}
+        </div>
+      ) : null}
+      {open ? (
+        <div
+          ref={dialog}
+          role="dialog"
+          aria-label={SHORTCUT_LABEL.heading}
+          tabIndex={-1}
+          className="absolute right-0 top-full z-10 mt-1 w-64 rounded-md border border-report-line-strong bg-report-surface p-4 text-report-ink shadow-md focus:outline-none"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-sm font-semibold">{SHORTCUT_LABEL.heading}</h2>
+            <button type="button" onClick={close} className={`-mr-2 -mt-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-report-ink-2 ${FOCUS}`}>
+              <span className="sr-only">{SHORTCUT_LABEL.close}</span>
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="m4 4 8 8M12 4l-8 8" />
+              </svg>
+            </button>
+          </div>
+          <dl className="mt-1 text-sm">
+            {([["J", SHORTCUT_LABEL.next], ["K", SHORTCUT_LABEL.previous]] as const).map(([key, what]) => (
+              <div key={key} className="flex items-center justify-between py-1">
+                <dt>{what}</dt>
+                <dd>
+                  <kbd className="rounded border border-report-line-strong px-1.5 font-mono text-[13px]">{key}</kbd>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <button type="button" onClick={toggleKeys} className={`mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-report-line-strong px-3 text-sm font-medium ${FOCUS}`}>
+            {keys ? SHORTCUT_LABEL.turnOff : SHORTCUT_LABEL.turnOn}
+          </button>
         </div>
       ) : null}
     </div>

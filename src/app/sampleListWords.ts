@@ -2,7 +2,7 @@
 // src/report/labels.ts). Real apostrophes, no dashes.
 
 /** Where "Run it on your calls" goes: the README section that says how to run Overhear on your own calls. One line to change. */
-export const RUN_IT_URL = "https://github.com/DevanshuNEU/overhear#run-it-on-your-calls";
+export const RUN_IT_URL = "https://github.com/DevanshuNEU/overhear#run-overhear-on-your-machine";
 
 export const SAMPLE_WORDS = {
   // The headline: the count, then what it means.
