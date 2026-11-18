@@ -7,6 +7,8 @@ import { CONNECT_WORDS } from "./ConnectScreen";
 import { HomeScreen } from "./HomeScreen";
 import { LIST_WORDS } from "./callListWords";
 
+vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), ...(await import("@/test-utils/fakeNavigation")).navigationMock }));
+
 const LOCATION = "~/.overhear/config.json";
 const KEY = "key_0123456789abcdef0123456789ab";
 

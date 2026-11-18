@@ -28,11 +28,13 @@
 // 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`, `/api/pins`, `/api/agents`,
 //    `/api/test-calls`) answer 404.
 //    `/reports/` stays served, because there it shows only the samples.
+// 3b. Hosted copy with OVERHEAR_PUBLIC_SAMPLES=1: `/` and `/reports/*` pass without the password. Unset means this
+//    step does not exist.
 // 4. The shared password, when one is set.
 // 5. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
 //    runs after the password, so a visitor without it gets a 401 here, as before the move.
 import { NextResponse, type NextRequest } from "next/server";
-import { checkBasicAuth, isExcludedPath } from "@/lib/auth-gate";
+import { checkBasicAuth, isExcludedPath, isPublicSamplePath } from "@/lib/auth-gate";
 import { movedDemoPath } from "@/lib/demo-paths";
 import { checkLocalRequest, forbidFraming, hostedNotFound, isLocalMode, isProductApiPath } from "@/pull/local";
 
@@ -50,6 +52,8 @@ function hosted(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
   if (isExcludedPath(pathname)) return NextResponse.next();
   if (isProductApiPath(pathname)) return hostedNotFound();
+  // Opt in, set by whoever owns the deploy: the sample calls are public, every other path keeps the password.
+  if (process.env.OVERHEAR_PUBLIC_SAMPLES === "1" && isPublicSamplePath(pathname)) return NextResponse.next();
   return gate(request);
 }
 

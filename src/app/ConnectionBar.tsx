@@ -1,7 +1,6 @@
 "use client";
 
-// The top of the call list: the product name on the left, and on the right that Retell is connected, where the
-// key is saved, and Disconnect. Disconnect asks the server to delete the saved key (DELETE /api/connect), and
+// The right side of the shell on the call list: that Retell is connected, where the key is saved, and Disconnect. Disconnect asks the server to delete the saved key (DELETE /api/connect), and
 // only when that worked does it hand back, so the person never sees "disconnected" while the key is still there.
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -35,13 +34,15 @@ export function ConnectionBar({ location, beforeDisconnect, onDisconnected }: Pr
   }
 
   return (
-    <header className="mb-10 sm:mb-14">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <p className="text-sm font-semibold tracking-[-0.01em] text-report-ink-2">{CONNECT_WORDS.product}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <p className="text-[13px] text-report-muted">
-            {LIST_WORDS.connected} {LIST_WORDS.keySavedIn}{" "}
-            <span data-mono className="break-all font-mono tabular-nums">{location}</span>.
+            {LIST_WORDS.connected}
+            <span className="hidden sm:inline">
+              {" "}
+              {LIST_WORDS.keySavedIn} <span data-mono className="break-all font-mono tabular-nums">{location}</span>.
+            </span>
           </p>
           <button
             type="button"
@@ -67,6 +68,6 @@ export function ConnectionBar({ location, beforeDisconnect, onDisconnected }: Pr
           {phase === "failed" ? LIST_WORDS.disconnectFailed : CONNECT_WORDS.serverDown}
         </p>
       ) : null}
-    </header>
+    </div>
   );
 }

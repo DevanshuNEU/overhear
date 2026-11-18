@@ -10,6 +10,7 @@ import { PAGE_NAME, REPORT_TITLE } from "@/report/labels";
 import { echoableId } from "@/components/report/format";
 import type { CallReport } from "@/report/schema";
 import { SAMPLE_REPORTS } from "@/report/samples";
+import { sampleReport } from "@/demo-samples";
 import { getReport, readyDelay } from "@/report/store";
 
 type Props = { params: Promise<{ callId: string }> };
@@ -37,7 +38,7 @@ export default async function ReportPage({ params }: Props) {
   if (found.status === "not_found") notFound();
   if (found.status === "unreadable") return <UnreadableView callId={found.callId} problems={found.problems} />;
   // "Keep as a test" is for a real call on this computer: never the hosted demo, never one of the built-in samples.
-  const keep = isLocalMode() && !SAMPLE_REPORTS.some((r) => r.callId === found.report.callId);
+  const keep = isLocalMode() && !SAMPLE_REPORTS.some((r) => r.callId === found.report.callId) && sampleReport(found.report.callId) === undefined;
   return (
     <Suspense fallback={<LoadingView />}>
       <Ready report={found.report} wait={readyDelay(found.report.callId)} keep={keep} />

@@ -5,6 +5,8 @@ import { KeyStoreError } from "@/pull/key-store";
 import { CONNECT_WORDS } from "./ConnectScreen";
 import Home, { dynamic } from "./page";
 
+vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), ...(await import("@/test-utils/fakeNavigation")).navigationMock }));
+
 const hasKey = vi.fn<() => Promise<boolean>>();
 vi.mock("@/pull/key-store", async (importOriginal) => ({ ...(await importOriginal<object>()), hasKey: () => hasKey() }));
 
@@ -36,9 +38,12 @@ describe("/", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("redirects to /demo on a hosted copy (OVERHEAR_LOCAL unset)", async () => {
+  it("shows the sample calls on a hosted copy (OVERHEAR_LOCAL unset), without a redirect or a look at the key", async () => {
     delete process.env.OVERHEAR_LOCAL;
-    expect(await redirectTarget(() => Home())).toBe("/demo");
+    let page: React.ReactNode = null;
+    expect(await redirectTarget(async () => (page = await Home()))).toBeNull();
+    render(page);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^\d+ of 9 sample calls failed\./);
     expect(hasKey).not.toHaveBeenCalled();
   });
 

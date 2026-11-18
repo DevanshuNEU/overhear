@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PullRow } from "@/pull/pull";
-import { countRows, formatCallTime, secondsLeft, splitRows } from "./callListModel";
+import { countRows, filterRows, formatCallTime, parseFilter, secondsLeft, splitRows, type Filter } from "./callListModel";
 
 const row = (callId: string, patch: Partial<PullRow> = {}): PullRow => ({ callId, startedAt: 1, durationMs: 1000, state: "pending", ...patch });
 const report = (callId: string, verdict: "failed" | "needs_review" | "passed" | "nothing_done") => row(callId, { state: "report", verdict, headline: "h" });
@@ -42,6 +42,61 @@ describe("splitRows", () => {
     const { attention, rest } = splitRows(rows);
     expect(attention.map((r) => r.callId)).toEqual(["f1", "f2", "r1"]);
     expect(rest.map((r) => r.callId)).toEqual(["p1", "e1", "w1", "n1"]);
+  });
+});
+
+describe("parseFilter", () => {
+  it("reads the four verdicts from the address and treats everything else as All", () => {
+    expect(parseFilter("failed")).toBe("failed");
+    expect(parseFilter("needs_review")).toBe("needs_review");
+    expect(parseFilter("passed")).toBe("passed");
+    expect(parseFilter("nothing_done")).toBe("nothing_done");
+    expect(parseFilter(null)).toBe("all");
+    expect(parseFilter(undefined)).toBe("all");
+    expect(parseFilter("")).toBe("all");
+    expect(parseFilter("all")).toBe("all");
+    expect(parseFilter("<script>")).toBe("all");
+  });
+});
+
+describe("filterRows", () => {
+  const rows = [
+    report("p1", "passed"),
+    row("e1", { state: "error" }),
+    report("r1", "needs_review"),
+    row("w1"),
+    report("f1", "failed"),
+    report("n1", "nothing_done"),
+    report("f2", "failed"),
+    row("c1", { state: "no_content" }),
+    report("p2", "passed"),
+  ];
+  const ids = (filter: Filter) => filterRows(rows, filter).map((r) => r.callId);
+
+  it("All is the two groups one after the other, so the stepper walks the list top to bottom", () => {
+    const { attention, rest } = splitRows(rows);
+    expect(ids("all")).toEqual([...attention, ...rest].map((r) => r.callId));
+    expect(ids("all")).toEqual(["f1", "f2", "r1", "p1", "e1", "w1", "c1", "p2", "n1"]);
+  });
+
+  it("a verdict keeps only that verdict's calls, in the order the groups give", () => {
+    expect(ids("failed")).toEqual(["f1", "f2"]);
+    expect(ids("needs_review")).toEqual(["r1"]);
+    expect(ids("passed")).toEqual(["p1", "p2"]);
+    expect(ids("nothing_done")).toEqual(["n1"]);
+  });
+
+  it("leaves out calls that could not be checked, have no transcript or are still waiting, under every verdict", () => {
+    for (const f of ["failed", "needs_review", "passed", "nothing_done"] as const) {
+      expect(ids(f)).not.toContain("e1");
+      expect(ids(f)).not.toContain("w1");
+      expect(ids(f)).not.toContain("c1");
+    }
+  });
+
+  it("gives nothing for a verdict no call has", () => {
+    expect(filterRows([report("p1", "passed")], "failed")).toEqual([]);
+    expect(filterRows([], "all")).toEqual([]);
   });
 });
 

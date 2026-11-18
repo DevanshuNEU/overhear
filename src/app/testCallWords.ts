@@ -42,7 +42,6 @@ export const TEST_WORDS = {
   starting: "Starting",
   end: "End call",
   another: "Start another test call",
-  allCalls: "All calls",
 
   // The facts under the headline.
   factAgent: "Agent",

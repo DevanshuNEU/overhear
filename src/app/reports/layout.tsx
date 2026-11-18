@@ -1,13 +1,17 @@
 // The shell for the call report screens: a light surface of its own (tokens in globals.css under
-// .report), a skip link, and one landmark for the content.
-import { BackLink } from "@/components/report/BackLink";
+// .report), a skip link, and one landmark for the content. A local copy has the product navigation and the steps
+// along the call list. A hosted copy has the hosted navigation and the steps along the sample calls.
+import { ProductNav } from "@/app/ProductNav";
+import { CallSteps } from "@/components/report/CallSteps";
+import { sampleRows } from "@/demo-samples";
 import { isLocalMode } from "@/pull/local";
-import { PAGE_NAME, SKIP_TO_CONTENT_LABEL } from "@/report/labels";
+import { SKIP_TO_CONTENT_LABEL } from "@/report/labels";
 
-// The back link depends on local mode, which is read from the environment, so no build may bake it in.
+// The shell depends on local mode, which is read from the environment, so no build may bake it in.
 export const dynamic = "force-dynamic";
 
 export default function ReportsLayout({ children }: { children: React.ReactNode }) {
+  const local = isLocalMode();
   return (
     <div className="report min-h-screen bg-report-canvas font-sans text-report-ink">
       <a
@@ -17,11 +21,17 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
         {SKIP_TO_CONTENT_LABEL}
       </a>
       <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
-        {/* The row is 44 px tall for the link's touch target; the negative top margin keeps the name where it was. */}
-        <div className="-mt-3 mb-7 flex items-center gap-4 sm:mb-11">
-          <p className="text-sm font-semibold tracking-[-0.01em] text-report-ink-2">{PAGE_NAME}</p>
-          <BackLink local={isLocalMode()} />
-        </div>
+        {local ? (
+          <>
+            <ProductNav section="calls" className="mb-2 sm:mb-3" />
+            <CallSteps />
+          </>
+        ) : (
+          <>
+            <ProductNav section="calls" hosted className="mb-2 sm:mb-3" />
+            <CallSteps samples={sampleRows()} />
+          </>
+        )}
         <main id="call" tabIndex={-1} className="outline-none">
           {children}
         </main>

@@ -4,18 +4,24 @@
 // polls /api/pulls/{id} while the engine checks them, and fills the list in as verdicts land. Calls that failed
 // or need review go on top, so the answer never waits behind a long run of calls that passed. Every word that
 // is not a verdict comes from callListWords.ts, and the verdict words from src/report/labels.ts.
+// Which calls show is in the address (?show=failed), so a reload or a shared link keeps it; changing it replaces the
+// address in place and never touches the pull.
 // The key never reaches this file: the server holds it. A pull's id (not secret) is kept for the tab, so a reload
 // shows the same pull instead of starting another.
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, TriangleAlert } from "lucide-react";
 import type { PullProgress } from "@/pull/pull";
 import { PULL_ERROR_MESSAGE, type ConnectError } from "@/pull/labels";
 import { RESULT_LABEL, VERDICT_LABEL } from "@/report/labels";
+import type { Verdict } from "@/report/schema";
 import { CallRow } from "./CallRow";
 import { ConnectionBar } from "./ConnectionBar";
 import { CONNECT_WORDS } from "./ConnectScreen";
 import { LIST_WORDS } from "./callListWords";
-import { countRows, secondsLeft, splitRows, type Counts } from "./callListModel";
+import { countRows, filterRows, parseFilter, secondsLeft, splitRows, type Counts, type Filter } from "./callListModel";
+import { ProductNav } from "./ProductNav";
 
 export const CHOICES = [25, 50, 100] as const;
 const DEFAULT_COUNT = 25;
@@ -92,6 +98,30 @@ function Count({ label, n, tone }: { label: string; n: number; tone?: "critical"
   );
 }
 
+export const hrefFor = (filter: Filter) => (filter === "all" ? "/" : `/?show=${filter}`);
+
+/** One filter: its word and how many calls it holds. A count of 0 shows, muted, and still works. */
+export function FilterLink({ label, n, tone, filter, active, onSelect }: { label: string; n: number; tone?: "critical" | "warning"; filter: Filter; active: boolean; onSelect: (f: Filter) => void }) {
+  const color = n === 0 ? "text-report-muted" : tone === "critical" ? "text-report-critical" : tone === "warning" ? "text-report-warning" : "text-report-ink-2";
+  return (
+    <a
+      href={hrefFor(filter)}
+      aria-current={active ? "true" : undefined}
+      onClick={(e) => {
+        // A click that means "open somewhere else" (new tab, new window) keeps the plain link.
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onSelect(filter);
+      }}
+      className={`inline-flex min-h-11 items-center rounded-md ${color} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent`}
+    >
+      <span className={active ? "underline decoration-report-accent decoration-2 underline-offset-4" : undefined}>
+        {label} <span className="font-semibold tabular-nums">{n}</span>
+      </span>
+    </a>
+  );
+}
+
 const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
 
@@ -105,6 +135,8 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
   const [retrying, setRetrying] = useState<ReadonlySet<string>>(new Set());
   const [retried, setRetried] = useState<ReadonlySet<string>>(new Set());
   const [clock, setClock] = useState(() => clockFn());
+  const router = useRouter();
+  const filter = parseFilter(useSearchParams()?.get("show"));
 
   // The pull this screen is showing and the count it asked for, readable from inside async work that outlives a render.
   const current = useRef<string | null>(null);
@@ -295,6 +327,9 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
   const say = headlineFor(progress, counts, count, startFailed);
   const failedOutright = startFailed || progress?.phase === "failed";
   const { attention, rest } = splitRows(rows);
+  const matches = filter === "all" ? rows : filterRows(rows, filter);
+  const select = (next: Filter) => router.replace(hrefFor(next), { scroll: false });
+  const from: Verdict | undefined = filter === "all" ? undefined : filter;
   const settled = !active;
   const processed = counts.total - counts.pending;
   // Calls with no transcript, and (once the pull is over) calls it never reached: nothing was checked for any of them.
@@ -311,16 +346,16 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
         retrying={retrying.has(row.callId)}
         retryFailed={retried.has(row.callId) && row.state === "error"}
         onRetry={retry}
+        from={from}
       />
     ));
 
   return (
     <div className="report min-h-screen bg-report-canvas font-sans text-report-ink">
       <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
-        <ConnectionBar
-          location={location}
-          beforeDisconnect={beforeDisconnect}
-          onDisconnected={() => onDisconnected(undefined)}
+        <ProductNav
+          current="calls"
+          right={<ConnectionBar location={location} beforeDisconnect={beforeDisconnect} onDisconnected={() => onDisconnected(undefined)} />}
         />
         <main>
           <h1 className="max-w-[760px] font-display text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] sm:text-[32px] sm:tracking-[-0.02em]">
@@ -352,15 +387,19 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
 
           <div className="mt-8 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
             {counts.total > 0 ? (
-              <div role="group" aria-label={LIST_WORDS.summaryLabel} className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                <span className="text-report-ink-2">{LIST_WORDS.total(counts.total)}</span>
-                <Count label={VERDICT_LABEL.failed} n={counts.failed} tone="critical" />
-                <Count label={VERDICT_LABEL.needs_review} n={counts.needsReview} tone="warning" />
-                <Count label={VERDICT_LABEL.passed} n={counts.passed} />
-                {counts.nothingDone > 0 ? <Count label={VERDICT_LABEL.nothing_done} n={counts.nothingDone} /> : null}
-                {notChecked > 0 ? <Count label={RESULT_LABEL.not_run} n={notChecked} /> : null}
-                {counts.errored > 0 ? <Count label={LIST_WORDS.couldntLoad} n={counts.errored} tone="warning" /> : null}
-              </div>
+              <nav aria-label={LIST_WORDS.summaryLabel} className="flex flex-wrap gap-x-6 text-sm">
+                <FilterLink label={LIST_WORDS.all} n={counts.total} filter="all" active={filter === "all"} onSelect={select} />
+                <FilterLink label={VERDICT_LABEL.failed} n={counts.failed} tone="critical" filter="failed" active={filter === "failed"} onSelect={select} />
+                <FilterLink label={VERDICT_LABEL.needs_review} n={counts.needsReview} tone="warning" filter="needs_review" active={filter === "needs_review"} onSelect={select} />
+                <FilterLink label={VERDICT_LABEL.passed} n={counts.passed} filter="passed" active={filter === "passed"} onSelect={select} />
+                <FilterLink label={VERDICT_LABEL.nothing_done} n={counts.nothingDone} filter="nothing_done" active={filter === "nothing_done"} onSelect={select} />
+                {notChecked > 0 || counts.errored > 0 ? (
+                  <span className="inline-flex min-h-11 flex-wrap items-center gap-x-6">
+                    {notChecked > 0 ? <Count label={RESULT_LABEL.not_run} n={notChecked} /> : null}
+                    {counts.errored > 0 ? <Count label={LIST_WORDS.couldntLoad} n={counts.errored} tone="warning" /> : null}
+                  </span>
+                ) : null}
+              </nav>
             ) : (
               <span />
             )}
@@ -402,13 +441,10 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
                   {failedOutright ? LIST_WORDS.tryAgain : LIST_WORDS.checkAgain}
                 </button>
               )}
-              <a href="/test-call" className={BUTTON}>
-                {LIST_WORDS.testCall}
-              </a>
             </div>
           </div>
 
-          {rows.length > 0 ? (
+          {rows.length > 0 && filter === "all" ? (
             <div className="-mx-3 mt-6">
               {attention.length > 0 ? (
                 <>
@@ -428,6 +464,33 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
               ) : null}
             </div>
           ) : null}
+
+          {filter !== "all" && matches.length > 0 ? (
+            <div className="-mx-3 mt-6">
+              <ul aria-label={VERDICT_LABEL[filter]} className="border-y border-report-line bg-report-surface">
+                {renderRows(matches)}
+              </ul>
+            </div>
+          ) : null}
+
+          {filter !== "all" && matches.length === 0 && counts.total > 0 && settled ? (
+            <div className="mt-10 max-w-[760px]">
+              <h2 className="text-lg font-semibold">{LIST_WORDS.noMatches[filter](counts.total)}</h2>
+              <Link
+                href="/"
+                onClick={(e) => {
+                  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  select("all");
+                }}
+                className="mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-medium text-report-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent"
+              >
+                {LIST_WORDS.showAll}
+              </Link>
+            </div>
+          ) : null}
+
+          {matches.some((r) => r.notes?.includes("request_not_checked")) ? <p className="mt-4 text-[13px] text-report-muted">{LIST_WORDS.requestNotChecked}</p> : null}
 
           {progress && progress.skipped > 0 ? <p className="mt-4 text-[13px] text-report-muted">{LIST_WORDS.skipped(progress.skipped)}</p> : null}
         </main>

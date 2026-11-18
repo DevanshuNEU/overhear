@@ -128,6 +128,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("the shell", () => {
+  it("shows the product navigation with Test call as the current page, and a quiet note that Retell is connected", () => {
+    fakeServer();
+    render(<TestCallScreen />);
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Test call" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Calls" })).not.toHaveAttribute("aria-current");
+    expect(within(nav).getByRole("link", { name: "Calls" })).toHaveAttribute("href", "/");
+    expect(screen.getByText("Connected to Retell.")).toHaveClass("text-report-muted");
+    expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
+  });
+});
+
 describe("the agent picker", () => {
   it("lists the agents by name and id, says what a test call costs, and starts only once an agent is chosen", async () => {
     fakeServer();
@@ -616,7 +629,7 @@ describe("after the call", () => {
     await tick(3_000);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(TEST_WORDS.timeoutLead);
     expect(screen.getByText(TEST_CALL_TIMEOUT_MESSAGE)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: TEST_WORDS.allCalls })).toHaveAttribute("href", "/");
+    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Calls" })).toHaveAttribute("href", "/");
     await tick(20_000);
     expect(server.asked()).toBe(1);
   });

@@ -5,6 +5,7 @@
 // turn shows skeleton bars where the verdict and the line will land, with the real time and length already there.
 import { ChevronRight, Loader2 } from "lucide-react";
 import type { PullRow } from "@/pull/pull";
+import type { Verdict } from "@/report/schema";
 import { experienceLine, formatDuration } from "@/report/labels";
 import { Badge, ResultBadge, VerdictBadge } from "@/components/report/StatusBadge";
 import { formatCallTime } from "./callListModel";
@@ -20,11 +21,18 @@ type Props = {
   /** A retry of this call has come back and it is still an error. */
   retryFailed: boolean;
   onRetry: (callId: string) => void;
+  /** The filter the list is showing, carried to the report so it can step through the same calls. Unset for All. */
+  from?: Verdict;
+  /** Show when the call started. False on the sample list, whose calls share start times. */
+  showTime?: boolean;
 };
 
 // On a phone: time, length and verdict on one line, the sentence under them. From sm up: one aligned line.
 const GRID =
   "grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-3 py-3 sm:grid-cols-[9rem_6.5rem_9.5rem_minmax(0,1fr)_auto] sm:gap-y-0";
+// Without the time (the sample list): length and verdict, then the sentence.
+const GRID_NO_TIME =
+  "grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-3 py-3 sm:grid-cols-[6.5rem_9.5rem_minmax(0,1fr)_auto] sm:gap-y-0";
 
 function Skeleton({ className }: { className: string }) {
   return <span aria-hidden className={`block h-4 rounded bg-report-calm-mark ${className}`} />;
@@ -45,11 +53,19 @@ function Verdict({ row, settled }: { row: PullRow; settled: boolean }) {
 
 function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; retryFailed: boolean }) {
   if (row.state === "report") {
-    // The sentence the call screen leads with says what went wrong; a passed or Nothing done call has none and keeps
-    // its short line, in quiet type. Call experience problems sit under it in the same quiet type, whatever the verdict,
+    // The sentence the call screen leads with says what went wrong; a Nothing done call has none and keeps its short
+    // line, in quiet type. A Passed call says only what differs from the others: whether there were promises to check. Call experience problems sit under it in the same quiet type, whatever the verdict,
     // so a long sentence is never cut short to make room.
     const quiet = row.verdict === "passed" || row.verdict === "nothing_done";
-    const text = row.lead ?? row.headline;
+    // A Nothing done row already wears the badge, so its line drops the leading "Nothing done." (the report keeps it).
+    const text =
+      row.verdict === "passed"
+        ? row.notes?.includes("no_promises_made")
+          ? LIST_WORDS.noPromises
+          : LIST_WORDS.everyPromiseKept
+        : row.verdict === "nothing_done"
+          ? (row.lead ?? row.headline ?? "").replace(/^Nothing done\.\s*/, "")
+          : (row.lead ?? row.headline);
     return (
       <>
         <span title={text} className={`block truncate text-sm leading-snug ${quiet ? "text-report-muted" : "font-medium text-report-ink"}`}>
@@ -71,17 +87,19 @@ function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; r
   return settled ? null : <Skeleton className="w-3/5 max-w-72" />;
 }
 
-export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry }: Props) {
+export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry, from, showTime = true }: Props) {
   const started = formatCallTime(row.startedAt, timeZone);
+  const grid = showTime ? GRID : GRID_NO_TIME;
+  const span = showTime ? "col-span-3" : "col-span-2";
   const linked = row.state === "report";
   const cells = (
     <>
-      <span className="text-sm font-medium tabular-nums">{started ?? "Time unknown"}</span>
+      {showTime ? <span className="text-sm font-medium tabular-nums">{started ?? "Time unknown"}</span> : null}
       <span className="text-[13px] tabular-nums text-report-muted">{row.durationMs === null ? LIST_WORDS.unknownLength : formatDuration(row.durationMs)}</span>
       <span className="justify-self-end sm:justify-self-start">
         <Verdict row={row} settled={settled} />
       </span>
-      <span className="col-span-3 min-w-0 sm:col-span-1">
+      <span className={`${span} min-w-0 sm:col-span-1`}>
         <Line row={row} settled={settled} retryFailed={retryFailed} />
       </span>
       {linked ? (
@@ -91,7 +109,7 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
           type="button"
           onClick={() => onRetry(row.callId)}
           disabled={retrying}
-          className="col-span-3 inline-flex min-h-11 items-center justify-center gap-2 justify-self-start rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2 sm:col-span-1"
+          className={`${span} inline-flex min-h-11 items-center justify-center gap-2 justify-self-start rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2 sm:col-span-1`}
         >
           {retrying ? (
             <>
@@ -112,13 +130,13 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
     <li data-call-id={row.callId} data-state={row.state === "report" ? row.verdict : row.state} className="border-b border-report-line last:border-b-0">
       {linked ? (
         <a
-          href={`/reports/${encodeURIComponent(row.callId)}`}
-          className={`${GRID} -outline-offset-2 hover:bg-report-calm-mark/40 focus-visible:outline-2 focus-visible:outline-report-accent`}
+          href={`/reports/${encodeURIComponent(row.callId)}${from ? `?from=${from}` : ""}`}
+          className={`${grid} -outline-offset-2 hover:bg-report-calm-mark/40 focus-visible:outline-2 focus-visible:outline-report-accent`}
         >
           {cells}
         </a>
       ) : (
-        <div className={GRID}>{cells}</div>
+        <div className={grid}>{cells}</div>
       )}
     </li>
   );

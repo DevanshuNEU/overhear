@@ -1,8 +1,6 @@
 // Every word the call list says that is not a verdict or result label. Those come from src/report/labels.ts
 // (VERDICT_LABEL, RESULT_LABEL) and are never written again here. Real apostrophes, no dashes.
 
-const calls = (n: number) => `${n} ${n === 1 ? "call" : "calls"}`;
-
 export const LIST_WORDS = {
   // The headline, by what the pull is doing.
   finding: (n: number) => `Finding your last ${n} calls.`,
@@ -25,10 +23,23 @@ export const LIST_WORDS = {
   // The pause when Retell asks for fewer requests.
   slowDown: (seconds: number) => `Retell asked us to slow down. Continuing in ${seconds} s.`,
 
-  // The summary line: the total, then one count per verdict.
-  total: calls,
-  summaryLabel: "Verdict counts",
+  // The filter links: All, then one per verdict (the verdict words come from VERDICT_LABEL).
+  all: "All",
+  summaryLabel: "Show calls",
+  // Under a filter with no matches: the title (n is the number of calls the pull checked), then one way out.
+  noMatches: {
+    failed: (n: number) => `No failed calls in the last ${n}.`,
+    needs_review: (n: number) => `No calls that need review in the last ${n}.`,
+    passed: (n: number) => `No passed calls in the last ${n}.`,
+    nothing_done: (n: number) => `No calls with nothing done in the last ${n}.`,
+  },
+  showAll: "Show all calls",
   couldntLoad: "Couldn’t load",
+
+  // What a Passed row says: only what differs from the calls around it. Under the list, once, what no row repeats.
+  noPromises: "No promises to check.",
+  everyPromiseKept: "Every promise was kept.",
+  requestNotChecked: "Overhear doesn’t check the caller’s request yet.",
 
   // What a row says in place of a verdict.
   noTranscript: "Retell kept no transcript for this call.",
@@ -41,7 +52,6 @@ export const LIST_WORDS = {
   stop: "Stop checking",
   stopping: "Stopping",
   checkAgain: "Check again",
-  testCall: "Test call",
   tryAgain: "Try again",
   retry: "Retry",
   retrying: "Retrying",
