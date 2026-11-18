@@ -3,6 +3,7 @@
 // checked against the schema here, so a report that does not validate never reaches a screen.
 import { CallReportSchema, type CallReport } from "./schema";
 import { isLocalMode } from "@/pull/local";
+import { sampleReport } from "@/demo-samples";
 import { SAMPLE_REPORTS } from "./samples";
 
 export type ReportLookup =
@@ -13,7 +14,8 @@ export type ReportLookup =
 /** Returns the stored record for a call id, or undefined when there is none. The record is unchecked. */
 export type ReportSource = (callId: string) => Promise<unknown | undefined>;
 
-export const sampleSource: ReportSource = async (callId) => SAMPLE_REPORTS.find((r) => r.callId === callId);
+// The checked demo samples first (what the hosted list shows), then the three built-in ones.
+export const sampleSource: ReportSource = async (callId) => sampleReport(callId) ?? SAMPLE_REPORTS.find((r) => r.callId === callId);
 
 const DEMO_STATES_FLAG = "OVERHEAR_DEMO_STATES";
 

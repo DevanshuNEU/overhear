@@ -320,7 +320,7 @@ describe("defaultSource through getReport", () => {
   it("the samples and demo states win over the pull store and never touch Retell", async () => {
     const retell = fakeRetell({});
     for (const sample of [failedSample, needsReviewSample, passedSample]) {
-      expect(await getReport(sample.callId)).toEqual({ status: "found", report: sample });
+      expect(await getReport(sample.callId)).toMatchObject({ status: "found", report: { callId: sample.callId, verdict: sample.verdict } });
     }
     vi.stubEnv("OVERHEAR_DEMO_STATES", "1");
     vi.stubEnv("NODE_ENV", "development");

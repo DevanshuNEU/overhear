@@ -311,7 +311,7 @@ export const BACKEND_LOG_TAG = "Backend log";
 export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";
 /** The link above a hosted call screen: a hosted copy has no call list, so it goes to the demo. */
-export const BACK_LABEL = { hosted: "Back to the demo" } as const;
+export const BACK_LABEL = { hosted: "Back to sample calls" } as const;
 /** Under the shell on a local call report: the way back to the list the person came from, and the two steps along it. */
 export const STEP_LABEL = {
   back: {
@@ -320,6 +320,14 @@ export const STEP_LABEL = {
     needs_review: "Back to calls that need review",
     passed: "Back to passed calls",
     nothing_done: "Back to calls with nothing done",
+  },
+  /** The same links on a hosted copy, where the list is the sample calls. */
+  backSamples: {
+    all: "Back to sample calls",
+    failed: "Back to failed sample calls",
+    needs_review: "Back to sample calls that need review",
+    passed: "Back to passed sample calls",
+    nothing_done: "Back to sample calls with nothing done",
   },
   previous: "Previous call",
   next: "Next call",

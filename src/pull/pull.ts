@@ -89,7 +89,7 @@ function leadOf(report: CallReport): string | undefined {
   }
 }
 
-function rowFor(meta: CallMeta, outcome: Outcome | null): PullRow {
+export function rowFor(meta: CallMeta, outcome: Outcome | null): PullRow {
   const base = { callId: meta.callId, startedAt: meta.startedAt, durationMs: meta.durationMs };
   if (outcome === null) return { ...base, state: "pending" };
   if (outcome.kind === "report") {

@@ -98,10 +98,10 @@ function Count({ label, n, tone }: { label: string; n: number; tone?: "critical"
   );
 }
 
-const hrefFor = (filter: Filter) => (filter === "all" ? "/" : `/?show=${filter}`);
+export const hrefFor = (filter: Filter) => (filter === "all" ? "/" : `/?show=${filter}`);
 
 /** One filter: its word and how many calls it holds. A count of 0 shows, muted, and still works. */
-function FilterLink({ label, n, tone, filter, active, onSelect }: { label: string; n: number; tone?: "critical" | "warning"; filter: Filter; active: boolean; onSelect: (f: Filter) => void }) {
+export function FilterLink({ label, n, tone, filter, active, onSelect }: { label: string; n: number; tone?: "critical" | "warning"; filter: Filter; active: boolean; onSelect: (f: Filter) => void }) {
   const color = n === 0 ? "text-report-muted" : tone === "critical" ? "text-report-critical" : tone === "warning" ? "text-report-warning" : "text-report-ink-2";
   return (
     <a
