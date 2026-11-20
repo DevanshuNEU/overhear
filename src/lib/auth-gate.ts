@@ -28,7 +28,25 @@ export function isExcludedPath(pathname: string): boolean {
  * already excluded above.
  */
 export function isPublicSamplePath(pathname: string): boolean {
-  return pathname === "/" || pathname.startsWith("/reports/");
+  return pathname === "/" || pathname.startsWith("/reports/") || isDemoCallPath(pathname);
+}
+
+/** The routes of the live demo call: "/api/demo-calls" and "/api/demo-calls/{id}". They skip the password only with the same flag as the samples. */
+export function isDemoCallPath(pathname: string): boolean {
+  return pathname === "/api/demo-calls" || pathname.startsWith("/api/demo-calls/");
+}
+
+/**
+ * False when the request names an Origin that is not the host it was sent to. A request with no Origin (a plain
+ * navigation, a script) passes: a browser sends one on every cross-site POST, which is the case this stops.
+ */
+export function sameOriginRequest(origin: string | null, host: string | null): boolean {
+  if (origin === null) return true;
+  try {
+    return host !== null && new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
 
 // Decodes a `Basic base64(user:pass)` Authorization header and checks the

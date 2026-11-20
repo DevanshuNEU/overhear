@@ -1,6 +1,7 @@
 // What the two demo call routes share: how an answer leaves (no caching, fixed sentences), the hosted-only refusal, the
 // same-origin check and the cookie read.
 import { env } from "@/lib/env";
+import { sameOriginRequest } from "@/lib/auth-gate";
 import { hostedNotFound, isLocalMode } from "@/pull/local";
 import { cookieFromHeader, verifyDemoCookie } from "./cookie";
 import { DEMO_CALL_MESSAGE, DEMO_CALL_STATUS, type DemoCallErrorCode } from "./words";
@@ -22,16 +23,7 @@ export function refuseLocal(): Response | null {
 
 /** False when the request names an Origin that is not this host. A request with no Origin (a plain navigation, a script) passes. */
 export function sameOrigin(req: Request): boolean {
-  const origin = req.headers.get("origin");
-  if (origin === null) return true;
-  let host: string;
-  try {
-    host = new URL(origin).host;
-  } catch {
-    return false;
-  }
-  const mine = req.headers.get("host") ?? new URL(req.url).host;
-  return host === mine;
+  return sameOriginRequest(req.headers.get("origin"), req.headers.get("host") ?? new URL(req.url).host);
 }
 
 /** The call ids the request's cookie vouches for. None for a missing or bad cookie. */
