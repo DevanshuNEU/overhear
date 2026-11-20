@@ -135,6 +135,49 @@ describe("proxy", () => {
       expect((await proxy(reqOf("/"))).status).toBe(401);
     });
 
+    describe("the live demo call routes", () => {
+      const DEMO = ["/api/demo-calls", "/api/demo-calls/call_abc"];
+
+      it("stay behind the password when the flag is off", async () => {
+        vi.stubEnv("OVERHEAR_LOCAL", "");
+        vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "");
+        process.env.DASHBOARD_PASSWORD = "secret";
+        for (const path of DEMO) expect((await proxy(reqOf(path))).status, path).toBe(401);
+        expect((await proxy(reqOf("/api/demo-calls", GOOD_AUTH, "POST"))).status).toBe(200);
+      });
+
+      it("skip the password when the flag is 1, and nothing next to them does", async () => {
+        vi.stubEnv("OVERHEAR_LOCAL", "");
+        vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
+        process.env.DASHBOARD_PASSWORD = "secret";
+        for (const path of DEMO) expect((await proxy(reqOf(path))).status, path).toBe(200);
+        expect((await proxy(reqOf("/api/demo-callsx"))).status).toBe(401);
+        expect((await proxy(reqOf("/api/web-call", {}, "POST"))).status).toBe(401);
+      });
+
+      it.each(["", "1"])("refuse a POST whose Origin is another site, with the flag %j", async (flag) => {
+        vi.stubEnv("OVERHEAR_LOCAL", "");
+        vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", flag);
+        process.env.DASHBOARD_PASSWORD = "secret";
+        const res = await proxy(reqOf("/api/demo-calls", { ...GOOD_AUTH, origin: "https://evil.example", host: "demo.example" }, "POST"));
+        expect(res.status).toBe(403);
+      });
+
+      it("let a POST through whose Origin is this host, or that has none", async () => {
+        vi.stubEnv("OVERHEAR_LOCAL", "");
+        vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
+        delete process.env.DASHBOARD_PASSWORD;
+        expect((await proxy(reqOf("/api/demo-calls", { origin: "http://demo.example", host: "demo.example" }, "POST"))).status).toBe(200);
+        expect((await proxy(reqOf("/api/demo-calls", {}, "POST"))).status).toBe(200);
+        // Behind the TLS proxy the URL says http while the visitor used https.
+        const behind = { origin: "https://demo.example", host: "demo.example", "x-forwarded-proto": "https" };
+        expect((await proxy(reqOf("/api/demo-calls", behind, "POST"))).status).toBe(200);
+        expect((await proxy(reqOf("/api/demo-calls", { ...behind, origin: "http://demo.example" }, "POST"))).status).toBe(403);
+        expect((await proxy(reqOf("/api/demo-calls", { origin: "https://demo.example", host: "demo.example" }, "POST"))).status).toBe(403);
+        expect((await proxy(reqOf("/api/demo-calls/call_abc", { origin: "https://evil.example", host: "demo.example" }))).status).toBe(200);
+      });
+    });
+
     it("never opens the product API routes, which answer 404 on a hosted copy", async () => {
       vi.stubEnv("OVERHEAR_LOCAL", "");
       vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");

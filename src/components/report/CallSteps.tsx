@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { PullRow } from "@/pull/pull";
 import { filterRows, parseFilter, type Filter } from "@/app/callListModel";
-import { SHORTCUT_LABEL, STEP_LABEL } from "@/report/labels";
+import { SHORTCUT_LABEL, STEP_LABEL, YOUR_CALL_LABEL } from "@/report/labels";
 
 const REMEMBER = "overhear.pull";
 const SHORTCUTS_KEY = "overhear.shortcuts";
@@ -81,9 +81,11 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
 type Props = {
   /** A hosted copy: the order comes from the server (the sample calls), nothing is fetched, and the words say sample calls. */
   samples?: PullRow[];
+  /** The calls this visitor made on the demo. A report of one is not along the samples: no steps, and "Your call" in their place. */
+  yourCalls?: readonly string[];
 };
 
-export function CallSteps({ samples }: Props = {}) {
+export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
   const router = useRouter();
   const params = useParams<{ callId?: string }>();
   const from = parseFilter(useSearchParams()?.get("from"));
@@ -95,6 +97,7 @@ export function CallSteps({ samples }: Props = {}) {
   const before = useRef<HTMLElement | null>(null);
   const hosted = samples !== undefined;
   const rows = samples ?? pulled;
+  const yours = callId !== null && yourCalls.includes(callId);
 
   // One read of the pull, when the report opens. A failure leaves only the way back. A hosted copy has no pull.
   useEffect(() => {
@@ -115,13 +118,13 @@ export function CallSteps({ samples }: Props = {}) {
   }, [hosted]);
 
   const steps = useMemo(() => {
-    if (rows === null || callId === null) return null;
+    if (rows === null || callId === null || yours) return null;
     // Only calls with a report can be opened, so only they are steps.
     const list = filterRows(rows, from).filter((r) => r.state === "report");
     const at = list.findIndex((r) => r.callId === callId);
     if (at === -1) return null;
     return { previous: list[at - 1]?.callId ?? null, next: list[at + 1]?.callId ?? null };
-  }, [rows, callId, from]);
+  }, [rows, callId, from, yours]);
 
   const previousHref = steps?.previous ? reportHref(steps.previous, from) : null;
   const nextHref = steps?.next ? reportHref(steps.next, from) : null;
@@ -212,6 +215,7 @@ export function CallSteps({ samples }: Props = {}) {
         <Arrow dir="left" />
         {(hosted ? STEP_LABEL.backSamples : STEP_LABEL.back)[from]}
       </Link>
+      {yours ? <p className="text-sm font-semibold">{YOUR_CALL_LABEL}</p> : null}
       {steps ? (
         <div className="flex items-center gap-x-2">
           {step(previousHref, STEP_LABEL.previous, keys ? STEP_LABEL.previousTitle : STEP_LABEL.previousTitleOff, "left")}

@@ -1,32 +1,19 @@
 import { NextResponse } from "next/server";
 import Retell from "retell-sdk";
 import { env } from "@/lib/env";
-import { RateLimiter } from "@/lib/rate-limit";
+import { checkWebCallLimit } from "@/lib/web-call-limit";
 
-// One shared limiter for the lifetime of this server instance. Each web call
-// mints a Retell session that burns Retell minutes plus Anthropic scoring
-// credits, so this is a spend guard for the public demo: a per-visitor cap so
-// one person cannot loop it, and a global cap on total spend per hour.
-const limiter = new RateLimiter();
-const PER_IP = { limit: 3, windowMs: 10 * 60 * 1000 };
-const GLOBAL = { limit: 30, windowMs: 60 * 60 * 1000 };
-
-function clientIp(req: Request): string {
-  // Railway sits behind a proxy, so the real client address is the first entry
-  // of x-forwarded-for; fall back to a shared bucket if it is missing.
-  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-}
+// Each web call mints a Retell session that burns Retell minutes plus Anthropic
+// scoring credits, so the start is a spend guard for the public demo. The budget
+// is shared with /api/demo-calls (see src/lib/web-call-limit.ts).
 
 // Env access happens inside the handler, not at module top-level, so this
 // route can be imported (e.g. by Next's build) without a fully-populated
 // process.env, matching the lazy-Proxy contract of `@/lib/env`.
 export async function POST(req: Request) {
-  const rl = limiter.check([
-    { key: `web-call:ip:${clientIp(req)}`, rule: PER_IP },
-    { key: "web-call:global", rule: GLOBAL },
-  ]);
+  const rl = checkWebCallLimit(req);
   if (!rl.allowed) {
-    const retryAfter = Math.ceil(rl.retryAfterMs / 1000);
+    const { retryAfter } = rl;
     return NextResponse.json(
       { error: "rate_limited", retryAfter },
       { status: 429, headers: { "Retry-After": String(retryAfter) } },

@@ -21,7 +21,7 @@ const DEMO_STATES_FLAG = "OVERHEAR_DEMO_STATES";
 
 /**
  * The samples, then the demo states when OVERHEAR_DEMO_STATES=1 outside production, then, in local mode only, the
- * engine's reports from the pull. Read on every call, so a test can turn each on. The demo fixtures and the pull
+ * engine's reports from the pull, and, on a hosted copy only, the visitor's own demo calls. Read on every call, so a test can turn each on. The demo fixtures and the pull
  * load only then, so a fault in them cannot reach a run that does not use them, and a hosted copy never touches
  * Retell.
  */
@@ -33,7 +33,11 @@ const defaultSource: ReportSource = async (callId) => {
     const demo = await demoSource(callId);
     if (demo !== undefined) return demo;
   }
-  if (!isLocalMode()) return undefined;
+  if (!isLocalMode()) {
+    // A hosted copy: after the samples, a call this visitor made on the demo (its cookie and the server's memory both say so).
+    const { demoCallReport } = await import("@/demo-call/report-source");
+    return demoCallReport(callId);
+  }
   const { pullSource } = await import("@/pull/report-source");
   return pullSource(callId);
 };

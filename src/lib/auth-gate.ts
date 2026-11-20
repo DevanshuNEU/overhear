@@ -28,7 +28,36 @@ export function isExcludedPath(pathname: string): boolean {
  * already excluded above.
  */
 export function isPublicSamplePath(pathname: string): boolean {
-  return pathname === "/" || pathname.startsWith("/reports/");
+  return pathname === "/" || pathname.startsWith("/reports/") || isDemoCallPath(pathname);
+}
+
+/** The routes of the live demo call: "/api/demo-calls" and "/api/demo-calls/{id}". They skip the password only with the same flag as the samples. */
+export function isDemoCallPath(pathname: string): boolean {
+  return pathname === "/api/demo-calls" || pathname.startsWith("/api/demo-calls/");
+}
+
+/**
+ * False when the request names an Origin that is not the one it was sent to: scheme, host and port must all match, so
+ * `http://x` is not `https://x`. A request with no Origin (a plain navigation, a script) passes: a browser sends one on
+ * every cross-site POST, which is the case this stops.
+ */
+export function sameOriginRequest(origin: string | null, host: string | null, scheme: "http" | "https"): boolean {
+  if (origin === null) return true;
+  try {
+    return host !== null && new URL(origin).origin === new URL(`${scheme}://${host}`).origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The scheme a request was sent with. Railway terminates TLS, so the URL the server sees may say http while the visitor used
+ * https: x-forwarded-proto (the last entry, the one the edge proxy appends) wins when present, else the request URL's.
+ */
+export function requestScheme(forwardedProto: string | null, url: string): "http" | "https" {
+  const proto = (forwardedProto ?? "").split(",").pop()?.trim().toLowerCase();
+  if (proto === "http" || proto === "https") return proto;
+  return new URL(url).protocol === "https:" ? "https" : "http";
 }
 
 // Decodes a `Basic base64(user:pass)` Authorization header and checks the

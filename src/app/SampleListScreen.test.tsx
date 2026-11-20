@@ -39,6 +39,19 @@ describe("the sample list", () => {
     expect(screen.getAllByText(/^\d+ (min|s)/).length).toBeGreaterThanOrEqual(rows.length);
   });
 
+  it("puts the demo call band under the headline and above the filters, and makes Run it on your calls the secondary action", () => {
+    render(<SampleListScreen rows={rows} />);
+    const headline = screen.getByRole("heading", { level: 1 });
+    const band = screen.getByRole("region", { name: "Try it on a call of your own." });
+    const filters = screen.getByRole("navigation", { name: "Show calls" });
+    expect(headline.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(band.compareDocumentPosition(filters) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Call the demo agent" })).toHaveClass("bg-report-accent");
+    const runIt = screen.getByRole("link", { name: "Run it on your calls" });
+    expect(runIt).toHaveClass("border", "border-report-line-strong");
+    expect(runIt).not.toHaveClass("bg-report-accent");
+  });
+
   it("has the hosted shell and no pull controls", () => {
     render(<SampleListScreen rows={rows} />);
     expect(screen.getByText(SAMPLE_WORDS.navNote)).toBeInTheDocument();
