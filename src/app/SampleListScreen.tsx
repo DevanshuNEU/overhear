@@ -12,6 +12,7 @@ import { CallRow } from "./CallRow";
 import { FilterLink, hrefFor } from "./CallListScreen";
 import { countRows, filterRows, parseFilter, splitRows, type Filter } from "./callListModel";
 import { LIST_WORDS } from "./callListWords";
+import { DemoCallBand } from "./DemoCallBand";
 import { ProductNav } from "./ProductNav";
 import { SAMPLE_WORDS } from "./sampleListWords";
 
@@ -42,6 +43,8 @@ export function SampleListScreen({ rows }: Props) {
           <h1 className="max-w-[760px] font-display text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] sm:text-[32px] sm:tracking-[-0.02em]">
             {SAMPLE_WORDS.failedHeadline(counts.failed, counts.total)} <span className="text-report-muted">{SAMPLE_WORDS.headlineNext}</span>
           </h1>
+
+          <DemoCallBand />
 
           <nav aria-label={LIST_WORDS.summaryLabel} className="mt-8 flex flex-wrap gap-x-6 text-sm">
             <FilterLink label={LIST_WORDS.all} n={counts.total} filter="all" active={filter === "all"} onSelect={select} />

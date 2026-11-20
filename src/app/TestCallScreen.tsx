@@ -24,12 +24,10 @@ import { RetellWebClient } from "retell-client-js-sdk";
 import { CallReportView } from "@/components/report/CallReportView";
 import { NO_CONTENT_LINE, NO_CONTENT_REASONS, type NoContentReason } from "@/report/labels";
 import { CallReportSchema, type CallReport } from "@/report/schema";
+import { BUTTON, DEFAULT_POLL_MS, isRec, MIN_POLL_MS, PRIMARY, requestMicrophone } from "./callClient";
 import { ProductNav } from "./ProductNav";
 import { TEST_WORDS, type ConnectionState, type MicState } from "./testCallWords";
 
-/** The least time between two asks for a result. A caller's own setting can slow this down, never speed it up. */
-const MIN_POLL_MS = 2000;
-const DEFAULT_POLL_MS = 3000;
 /** How far from the bottom of the transcript still counts as being at it. */
 const NEAR_BOTTOM_PX = 40;
 /** The longest wait between asks while Retell is limiting or failing. */
@@ -60,8 +58,6 @@ type Props = {
   /** A scripted client may stand in for the SDK's (the preview states used for screenshots; see the page). */
   stubbable?: boolean;
 };
-
-const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** The agent's id, name and nothing else, from the list route. Anything else is left out. */
 function agentsOf(body: unknown): Agent[] | null {
@@ -128,11 +124,6 @@ function outcomeOf(body: Record<string, unknown>): Outcome | null {
 function releaseSlot(callId: string): void {
   fetch(`/api/test-calls/${encodeURIComponent(callId)}/release`, { method: "POST", keepalive: true, cache: "no-store" }).catch(() => {});
 }
-
-const BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
-const PRIMARY =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-report-accent px-4 text-sm font-semibold text-white enabled:hover:bg-report-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:opacity-70";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -394,21 +385,12 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
     setConnection("idle");
 
     // 1. The microphone, before anything that costs a minute.
-    const devices = typeof navigator === "undefined" ? undefined : navigator.mediaDevices;
-    if (!devices || typeof devices.getUserMedia !== "function") {
-      starting.current = false;
-      setMic("blocked");
-      setProblem(TEST_WORDS.micMissing);
-      return;
-    }
-    try {
-      const stream = await devices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-    } catch {
+    const microphone = await requestMicrophone();
+    if (microphone !== "allowed") {
       starting.current = false;
       if (!mounted.current) return;
       setMic("blocked");
-      setProblem(TEST_WORDS.micBlocked);
+      setProblem(microphone === "missing" ? TEST_WORDS.micMissing : TEST_WORDS.micBlocked);
       return;
     }
     if (!mounted.current) return;
