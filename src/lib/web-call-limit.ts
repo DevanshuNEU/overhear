@@ -8,9 +8,10 @@ export const PER_IP = { limit: 3, windowMs: 10 * 60 * 1000 };
 export const GLOBAL = { limit: 30, windowMs: 60 * 60 * 1000 };
 
 export function clientIp(req: Request): string {
-  // Railway sits behind a proxy, so the real client address is the first entry of x-forwarded-for; fall back to a shared
-  // bucket if it is missing.
-  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  // Railway's edge proxy appends the address it saw to x-forwarded-for. Anything before that last entry was sent by the
+  // client, who can put anything there, so only the last entry counts. Fall back to a shared bucket if it is missing.
+  const entries = (req.headers.get("x-forwarded-for") ?? "").split(",");
+  return entries[entries.length - 1].trim() || "unknown";
 }
 
 /** Takes one start from the visitor's budget and the global one, or says how many seconds until a start is allowed. */
