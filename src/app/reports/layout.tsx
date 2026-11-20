@@ -3,6 +3,7 @@
 // along the call list. A hosted copy has the hosted navigation and the steps along the sample calls.
 import { ProductNav } from "@/app/ProductNav";
 import { CallSteps } from "@/components/report/CallSteps";
+import { yourDemoCallIds } from "@/demo-call/report-source";
 import { sampleRows } from "@/demo-samples";
 import { isLocalMode } from "@/pull/local";
 import { SKIP_TO_CONTENT_LABEL } from "@/report/labels";
@@ -10,8 +11,9 @@ import { SKIP_TO_CONTENT_LABEL } from "@/report/labels";
 // The shell depends on local mode, which is read from the environment, so no build may bake it in.
 export const dynamic = "force-dynamic";
 
-export default function ReportsLayout({ children }: { children: React.ReactNode }) {
+export default async function ReportsLayout({ children }: { children: React.ReactNode }) {
   const local = isLocalMode();
+  const yourCalls = local ? [] : await yourDemoCallIds();
   return (
     <div className="report min-h-screen bg-report-canvas font-sans text-report-ink">
       <a
@@ -29,7 +31,7 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
         ) : (
           <>
             <ProductNav section="calls" hosted className="mb-2 sm:mb-3" />
-            <CallSteps samples={sampleRows()} />
+            <CallSteps samples={sampleRows()} yourCalls={yourCalls} />
           </>
         )}
         <main id="call" tabIndex={-1} className="outline-none">

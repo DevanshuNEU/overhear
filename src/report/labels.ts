@@ -312,6 +312,8 @@ export const SKIP_TO_CONTENT_LABEL = "Skip to the call";
 export const PAGE_NAME = "Overhear";
 /** The link above a hosted call screen: a hosted copy has no call list, so it goes to the demo. */
 export const BACK_LABEL = { hosted: "Back to sample calls" } as const;
+/** On a hosted report of a call the visitor made on the demo: it says whose call it is, where the steps along the samples would be. */
+export const YOUR_CALL_LABEL = "Your call";
 /** Under the shell on a local call report: the way back to the list the person came from, and the two steps along it. */
 export const STEP_LABEL = {
   back: {
