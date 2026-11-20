@@ -105,6 +105,8 @@ describe("buildAgentConfig", () => {
     expect(cfg.boosted_keywords).toEqual(expect.arrayContaining(["Devanshu", "Chicholikar", "Rahman"]));
     // Names are the thing that has to be heard right, so trade a little latency for accuracy.
     expect(cfg.stt_mode).toBe("accurate");
+    // The public demo must not run up Retell minutes: a call ends after 5 minutes.
+    expect(cfg.max_call_duration_ms).toBe(300000);
     // "Mm-hm" and "got it" while the caller talks is a large part of sounding human.
     expect(cfg.enable_backchannel).toBe(true);
 

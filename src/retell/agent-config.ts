@@ -45,6 +45,7 @@ export interface RetellAgentConfig {
   enable_backchannel: true;
   backchannel_frequency: number;
   enable_dynamic_responsiveness: true;
+  max_call_duration_ms: number;
 }
 
 // Placeholder ElevenLabs voice id - a warm, neutral default. Confirm a real,
@@ -192,5 +193,7 @@ export function buildAgentConfig(llmId: string): RetellAgentConfig {
     enable_backchannel: true,
     backchannel_frequency: 0.6,
     enable_dynamic_responsiveness: true,
+    // Caps spend on the public demo: no call runs past 5 minutes.
+    max_call_duration_ms: 300000,
   };
 }
