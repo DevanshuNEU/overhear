@@ -167,8 +167,13 @@ describe("proxy", () => {
         vi.stubEnv("OVERHEAR_LOCAL", "");
         vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
         delete process.env.DASHBOARD_PASSWORD;
-        expect((await proxy(reqOf("/api/demo-calls", { origin: "https://demo.example", host: "demo.example" }, "POST"))).status).toBe(200);
+        expect((await proxy(reqOf("/api/demo-calls", { origin: "http://demo.example", host: "demo.example" }, "POST"))).status).toBe(200);
         expect((await proxy(reqOf("/api/demo-calls", {}, "POST"))).status).toBe(200);
+        // Behind the TLS proxy the URL says http while the visitor used https.
+        const behind = { origin: "https://demo.example", host: "demo.example", "x-forwarded-proto": "https" };
+        expect((await proxy(reqOf("/api/demo-calls", behind, "POST"))).status).toBe(200);
+        expect((await proxy(reqOf("/api/demo-calls", { ...behind, origin: "http://demo.example" }, "POST"))).status).toBe(403);
+        expect((await proxy(reqOf("/api/demo-calls", { origin: "https://demo.example", host: "demo.example" }, "POST"))).status).toBe(403);
         expect((await proxy(reqOf("/api/demo-calls/call_abc", { origin: "https://evil.example", host: "demo.example" }))).status).toBe(200);
       });
     });

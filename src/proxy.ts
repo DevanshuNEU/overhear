@@ -36,7 +36,7 @@
 // 5. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
 //    runs after the password, so a visitor without it gets a 401 here, as before the move.
 import { NextResponse, type NextRequest } from "next/server";
-import { checkBasicAuth, isDemoCallPath, isExcludedPath, isPublicSamplePath, sameOriginRequest } from "@/lib/auth-gate";
+import { checkBasicAuth, isDemoCallPath, isExcludedPath, isPublicSamplePath, requestScheme, sameOriginRequest } from "@/lib/auth-gate";
 import { movedDemoPath } from "@/lib/demo-paths";
 import { checkLocalRequest, forbidFraming, hostedNotFound, isLocalMode, isProductApiPath } from "@/pull/local";
 
@@ -56,7 +56,7 @@ function hosted(request: NextRequest): Response {
   if (isProductApiPath(pathname)) return hostedNotFound();
   // A call started from another site would spend our Retell minutes: a POST to the demo call routes must be same-origin,
   // with or without the password. (The route repeats the check.)
-  if (isDemoCallPath(pathname) && request.method !== "GET" && request.method !== "HEAD" && !sameOriginRequest(request.headers.get("origin"), request.headers.get("host") ?? request.nextUrl.host)) {
+  if (isDemoCallPath(pathname) && request.method !== "GET" && request.method !== "HEAD" && !sameOriginRequest(request.headers.get("origin"), request.headers.get("host") ?? request.nextUrl.host, requestScheme(request.headers.get("x-forwarded-proto"), request.url))) {
     return new NextResponse("Forbidden", { status: 403, headers: { "cache-control": "no-store" } });
   }
   // Opt in, set by whoever owns the deploy: the sample calls are public, every other path keeps the password.

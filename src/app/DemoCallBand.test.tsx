@@ -276,14 +276,31 @@ describe("the demo call band", () => {
     expect(screen.getByText(WORDS.didNotConnect)).toBeInTheDocument();
   });
 
-  it("times out with a fixed sentence and Try again", async () => {
-    fakeServer({ results: [{ status: 200, body: { status: "timeout" } }] });
+  it("after a timeout, Check again asks about the same call, and Call again starts a new one", async () => {
+    const server = fakeServer({ results: [{ status: 200, body: { status: "timeout" } }, { status: 200, body: READY }] });
     render(<DemoCallBand />);
     await connect();
     press("Hang up");
     await advance(3000);
     expect(screen.getByText(WORDS.timeout)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Call again" })).toBeInTheDocument();
+    press("Check again");
+    expect(screen.getByText("Checking your call")).toBeInTheDocument();
+    await advance(3000);
+    expect(server.calls.filter((c) => c.method === "GET").map((c) => c.url)).toEqual(["/api/demo-calls/call_1", "/api/demo-calls/call_1"]);
+    expect(server.calls.filter((c) => c.method === "POST").length).toBe(1);
+    expect(screen.getByRole("heading", { name: "Your call" })).toBeInTheDocument();
+  });
+
+  it("after a timeout, Call again starts a new call", async () => {
+    const server = fakeServer({ results: [{ status: 200, body: { status: "timeout" } }] });
+    render(<DemoCallBand />);
+    await connect();
+    press("Hang up");
+    await advance(3000);
+    press("Call again");
+    await flush();
+    expect(server.calls.filter((c) => c.method === "POST").length).toBe(2);
   });
 
   it("rate limited: says how many minutes, with Try again", async () => {

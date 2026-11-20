@@ -3,7 +3,16 @@ import caseJson from "../../../../eval/engine/cases/mut-transfer-claim-caller-ke
 
 const { createWebCall, getCall } = vi.hoisted(() => ({ createWebCall: vi.fn(), getCall: vi.fn() }));
 vi.mock("@/pull/retell-source", async (original) => ({ ...(await original<object>()), createWebCall, getCall }));
-const envMock = vi.hoisted(() => ({ RETELL_API_KEY: "key_test_secret", RETELL_AGENT_ID: "agent_demo" as string | undefined }));
+// /api/web-call builds the Retell SDK itself: stand in for it so this file never reaches the network. The rest of the module
+// (APIError, which src/pull/retell-source.ts imports) stays as it is.
+const { sdkCreateWebCall } = vi.hoisted(() => ({ sdkCreateWebCall: vi.fn() }));
+vi.mock("retell-sdk", async (original) => ({
+  ...(await original<object>()),
+  default: class MockRetell {
+    call = { createWebCall: sdkCreateWebCall };
+  },
+}));
+const envMock =vi.hoisted(() => ({ RETELL_API_KEY: "key_test_secret", RETELL_AGENT_ID: "agent_demo" as string | undefined }));
 vi.mock("@/lib/env", () => ({ env: envMock }));
 
 import { POST } from "./route";
@@ -37,6 +46,7 @@ beforeEach(() => {
   vi.stubEnv("OVERHEAR_LOCAL", "");
   envMock.RETELL_AGENT_ID = "agent_demo";
   createWebCall.mockReset().mockResolvedValue(WEB_CALL);
+  sdkCreateWebCall.mockReset().mockResolvedValue({ access_token: "tok", call_id: "call_web" });
   getCall.mockReset();
   resetDemoCalls();
 });
@@ -89,8 +99,8 @@ describe("POST /api/demo-calls", () => {
   it("shares its budget with /api/web-call: calls started there count here", async () => {
     const who = ip();
     const web = () => webCallPOST(new Request("https://demo.example/api/web-call", { method: "POST", headers: { "x-forwarded-for": who } }));
-    // web-call goes to the Retell SDK, which is not mocked here: it fails with a 500 after it has taken its place in the budget.
-    for (let i = 0; i < 2; i++) await web();
+    for (let i = 0; i < 2; i++) expect((await web()).status).toBe(200);
+    expect(sdkCreateWebCall).toHaveBeenCalledTimes(2);
     expect((await POST(start({ ip: who }))).status).toBe(200);
     expect((await POST(start({ ip: who }))).status).toBe(429);
     expect((await web()).status).toBe(429);
@@ -117,6 +127,20 @@ describe("POST /api/demo-calls", () => {
 
   it("accepts a request from its own origin", async () => {
     expect((await POST(start({ origin: "https://demo.example", host: "demo.example" }))).status).toBe(200);
+  });
+
+  it("compares the scheme too: an http origin against an https destination is refused", async () => {
+    expect((await POST(start({ origin: "http://demo.example", host: "demo.example" }))).status).toBe(403);
+  });
+
+  it("behind the TLS proxy (x-forwarded-proto https, url http) a matching https origin passes and an http one does not", async () => {
+    const behind = (origin: string) => {
+      const req = start({ origin, host: "demo.example", url: "http://demo.example/api/demo-calls" });
+      req.headers.set("x-forwarded-proto", "https");
+      return req;
+    };
+    expect((await POST(behind("https://demo.example"))).status).toBe(200);
+    expect((await POST(behind("http://demo.example"))).status).toBe(403);
   });
 
   it("says a fixed sentence when Retell fails, never Retell's words or the key", async () => {

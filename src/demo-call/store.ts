@@ -46,7 +46,10 @@ export function resetDemoCalls(): void {
 
 export type Deps = { now?: () => number; getCall?: (key: string, id: string) => Promise<unknown> };
 
-const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+/** Where Retell may put a call's transcript, in the engine adapter's reading order (src/engine/adapters/retell.ts). */
+const TRANSCRIPT_SOURCES = ["transcript_with_tool_calls", "scrubbed_transcript_with_tool_calls", "transcript_object"] as const;
+
+const isRec =(v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const fail = (code: DemoCallErrorCode): DemoAnswer => ({ ok: false, code });
 
 function trim<V>(map: Map<string, V>, max: number): void {
@@ -131,8 +134,10 @@ async function ask(callId: string, deps: Deps, now: number): Promise<DemoAnswer>
     const endedAt = s.endedAt.get(callId) ?? now;
     s.endedAt.set(callId, endedAt);
     trim(s.endedAt, MAX_TRACKED);
-    const transcript = raw.transcript_with_tool_calls;
-    if (Array.isArray(transcript) && (transcript.length > 0 || now - endedAt >= EMPTY_TRANSCRIPT_GRACE_MS)) {
+    // The same sources, in the same order, as the engine's Retell adapter: the first one with turns is what it reads.
+    const sources = TRANSCRIPT_SOURCES.map((key) => raw[key]);
+    const hasTurns = sources.some((t) => Array.isArray(t) && t.length > 0);
+    if (hasTurns || (sources.some(Array.isArray) && now - endedAt >= EMPTY_TRANSCRIPT_GRACE_MS)) {
       const meta = toMeta(raw);
       if (meta === null) return fail("unreadable");
       let outcome = analyze(raw, agentId);

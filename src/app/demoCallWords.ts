@@ -21,7 +21,8 @@ export const DEMO_CALL_WORDS = {
   callAgain: "Call again",
 
   didNotConnect: "The call did not connect, so there is nothing to check.",
-  timeout: "Retell has not finished processing your call. Try again in a minute.",
+  timeout: "Retell has not finished processing your call. Check again in a minute.",
+  checkAgain: "Check again",
   busy: (minutes: number) => `The demo is busy. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
   error: "Something went wrong on our side. Try again.",
 } as const;

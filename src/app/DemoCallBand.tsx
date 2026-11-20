@@ -231,6 +231,14 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
     finish(id, "ended");
   }
 
+  /** After a timeout: ask about the same call again. The call is kept, so this starts nothing new. */
+  function checkAgain() {
+    const id = callIdRef.current;
+    if (id === null) return;
+    setStage({ kind: "checking" });
+    setPollFor(id);
+  }
+
   /** Try again and Call again start the next call at once: the band has already said everything the person needs to know. */
   function again() {
     starting.current = false;
@@ -309,9 +317,16 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
           <p id="demo-call-lead" role="status" className="max-w-[640px] text-sm font-semibold">
             {sentence}
           </p>
-          <button type="button" onClick={again} className={`${BUTTON} mt-3`}>
-            {WORDS.tryAgain}
-          </button>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {stage.kind === "problem" && stage.problem === "timeout" ? (
+              <button type="button" onClick={checkAgain} className={BUTTON}>
+                {WORDS.checkAgain}
+              </button>
+            ) : null}
+            <button type="button" onClick={again} className={BUTTON}>
+              {stage.kind === "problem" && stage.problem === "timeout" ? WORDS.callAgain : WORDS.tryAgain}
+            </button>
+          </div>
         </>
       )}
     </section>

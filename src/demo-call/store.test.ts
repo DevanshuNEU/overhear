@@ -58,6 +58,16 @@ describe("demoCallResult", () => {
     expect(await demoCallResult("call_d", deps(getCall))).toEqual({ ok: true, result: { status: "timeout" } });
   });
 
+  it("is ready, not timed out, for a record that has only the scrubbed transcript or only the transcript object", async () => {
+    const turns = caseJson.record.transcript_with_tool_calls;
+    const scrubbed = rec("call_s", { transcript_with_tool_calls: undefined, scrubbed_transcript_with_tool_calls: turns });
+    const objectOnly = rec("call_o", { transcript_with_tool_calls: undefined, transcript_object: turns.filter((t: { role: string }) => t.role === "agent" || t.role === "user") });
+    for (const record of [scrubbed, objectOnly]) {
+      const answer = await demoCallResult(record.call_id, deps(async () => record));
+      expect(answer).toMatchObject({ ok: true, result: { status: "ready" } });
+    }
+  });
+
   it("reads an empty transcript as it is once the grace has passed", async () => {
     const getCall = vi.fn(async () => rec("call_e", { transcript_with_tool_calls: [] }));
     expect(await demoCallResult("call_e", deps(getCall))).toEqual({ ok: true, result: { status: "processing" } });
