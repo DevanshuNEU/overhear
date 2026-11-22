@@ -14,7 +14,8 @@ import { RetellWebClient } from "retell-client-js-sdk";
 import type { PullRow } from "@/pull/pull";
 import { BUTTON, DEFAULT_POLL_MS, isRec, MIN_POLL_MS, PRIMARY, requestMicrophone } from "./callClient";
 import { CallRow } from "./CallRow";
-import { busyMinutes, DEMO_CALL_WORDS as WORDS, formatElapsed } from "./demoCallWords";
+import { DEMO_PERSONAS } from "@/demo/personas";
+import { bornInWords, busyMinutes, DEMO_CALL_WORDS as WORDS, formatElapsed } from "./demoCallWords";
 
 /** Asks in a row that fail before the band gives up and says so. */
 const MAX_TROUBLE = 3;
@@ -40,6 +41,10 @@ type Props = {
   /** Milliseconds between asks for the result once the call has ended. Never less than 2000. */
   pollMs?: number;
 };
+
+/** A real person's name that stays in the data and never shows on the page. */
+const HIDDEN_PERSONA = "Devanshu Chicholikar";
+const SHOWN_PERSONAS = DEMO_PERSONAS.filter((p) => p.name !== HIDDEN_PERSONA);
 
 /** Hang up is a critical outline: the same button, with the critical colour for its border and its words. */
 const HANG_UP = BUTTON.replace("border-report-line-strong", "border-report-critical text-report-critical");
@@ -269,6 +274,22 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
             {WORDS.lead}
           </h2>
           <p className="mt-1 max-w-[640px] text-sm text-report-muted">{WORDS.body}</p>
+          {SHOWN_PERSONAS.length > 0 ? (
+            <>
+              <p className="mt-2 max-w-[640px] text-sm text-report-muted">{WORDS.firstPatient(SHOWN_PERSONAS[0].name, bornInWords(SHOWN_PERSONAS[0].dob))}</p>
+              {SHOWN_PERSONAS.length > 1 ? (
+                <details className="mt-1 max-w-[640px] text-sm text-report-muted">
+                  <summary className="cursor-pointer">{WORDS.morePatients}</summary>
+                  <ul className="mt-1">
+                    {SHOWN_PERSONAS.slice(1).map((p) => (
+                      <li key={p.name}>{WORDS.patientLine(p.name, bornInWords(p.dob))}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[13px]">{WORDS.spellName}</p>
+                </details>
+              ) : null}
+            </>
+          ) : null}
           <button type="button" onClick={() => void start()} disabled={stage.kind === "asking"} className={`${PRIMARY} mt-4`}>
             {stage.kind === "asking" ? WORDS.asking : WORDS.call}
           </button>

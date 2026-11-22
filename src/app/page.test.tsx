@@ -3,7 +3,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { CONNECT_MESSAGE } from "@/pull/labels";
 import { KeyStoreError } from "@/pull/key-store";
 import { CONNECT_WORDS } from "./ConnectScreen";
+import { signOwnerCookie } from "@/demo-call/owner";
 import Home, { dynamic } from "./page";
+
+const cookieJar = vi.hoisted(() => ({ value: undefined as string | undefined }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => (name === "overhear_owner" && cookieJar.value ? { name, value: cookieJar.value } : undefined) }),
+}));
+vi.mock("@/lib/env", () => ({ env: { RETELL_API_KEY: "key_test_secret" } }));
 
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), ...(await import("@/test-utils/fakeNavigation")).navigationMock }));
 
@@ -14,6 +21,7 @@ const ORIGINAL = process.env.OVERHEAR_LOCAL;
 
 afterEach(() => {
   cleanup();
+  cookieJar.value = undefined;
   vi.unstubAllGlobals();
   window.sessionStorage.clear();
   hasKey.mockReset();
@@ -32,6 +40,34 @@ async function redirectTarget(fn: () => Promise<unknown>): Promise<string | null
   }
   return null;
 }
+
+const OWNER_LINE = "You’re signed in as the owner for 12 hours. Your calls skip the visitor limits.";
+
+describe("/ owner line", () => {
+  const show = async (search: Record<string, string>) => {
+    delete process.env.OVERHEAR_LOCAL;
+    render(await Home({ searchParams: Promise.resolve(search) }));
+  };
+  it("shows with a valid owner cookie and owner=1", async () => {
+    cookieJar.value = signOwnerCookie("key_test_secret");
+    await show({ owner: "1" });
+    expect(screen.getByText(OWNER_LINE)).toBeInTheDocument();
+  });
+  it("does not show with the query alone", async () => {
+    await show({ owner: "1" });
+    expect(screen.queryByText(OWNER_LINE)).toBeNull();
+  });
+  it("does not show with a forged cookie", async () => {
+    cookieJar.value = signOwnerCookie("some_other_key");
+    await show({ owner: "1" });
+    expect(screen.queryByText(OWNER_LINE)).toBeNull();
+  });
+  it("does not show with a valid cookie but no query", async () => {
+    cookieJar.value = signOwnerCookie("key_test_secret");
+    await show({});
+    expect(screen.queryByText(OWNER_LINE)).toBeNull();
+  });
+});
 
 describe("/", () => {
   it("is rendered per request, so the build cannot bake in one mode", () => {
