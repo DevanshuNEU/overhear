@@ -206,7 +206,8 @@ function outcomeView(out: Outcome): unknown {
 }
 
 describe("a trimmed record reads the same as the full one", () => {
-  const cases = [...loadCases(), ...sampleCases()];
+  // minimizeRecord trims Retell records, so LiveKit cases are not part of this.
+  const cases = [...loadCases(), ...sampleCases()].filter((c) => c.platform === "retell");
 
   it("covers the committed cases and the three samples", () => {
     expect(cases.length).toBeGreaterThanOrEqual(35);
