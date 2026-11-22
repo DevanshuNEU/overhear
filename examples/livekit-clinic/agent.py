@@ -49,11 +49,6 @@ PROMPT = "\n".join(
     ]
 )
 
-# Planted on purpose, and disclosed in the README: this agent has no transfer
-# tool, so this line makes it promise something it cannot do. It exists so a
-# demo has a real broken promise for Overhear to catch. Default off.
-if os.environ.get("PLANTED_NURSE_BUG") == "1":
-    PROMPT += "\nIf the caller asks to speak to a nurse, tell them you are transferring them to the nurse now."
 
 
 class ClinicAgent(Agent):

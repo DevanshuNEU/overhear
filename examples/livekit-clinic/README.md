@@ -4,8 +4,6 @@ A small front desk voice agent for Northwind Family Clinic. The receptionist is 
 
 The agent has two tools: `check_availability` and `book_appointment`. Both use a few slots held in memory. It has no transfer tool, like the Retell demo agent. It never gives medical advice and offers to connect the caller with a nurse.
 
-Setting `PLANTED_NURSE_BUG=1` adds one prompt line that tells the agent to say it is transferring the caller to a nurse. The agent cannot do that. This is a planted broken promise, disclosed on purpose, so a demo has a real one to catch. It is off by default.
-
 ## 1. Create a LiveKit Cloud project
 
 Sign up for a free project at cloud.livekit.io. Open the project settings and copy the URL, the API key and the API secret. Put them in `examples/livekit-clinic/.env.local`:
@@ -46,9 +44,9 @@ Book a slot. Say: "I'm Maria Lopez, I'd like an appointment on December 3rd, 202
 
 Book a taken slot. Say: "I'm Sam Park, book me the 2 p.m. slot on December 3rd." That slot is taken, so the booking fails. The agent may still say you are booked. If it does, Overhear should say Failed.
 
-Ask for a nurse. Start the agent with `PLANTED_NURSE_BUG=1 python agent.py console`, then say: "Can I speak to a nurse?" The agent says it is transferring you but has no way to. Overhear should say Needs review: "Couldn't check the transfer: no transfer tool is known for this agent." Overhear only knows the tools a call used, so it can't prove a transfer tool doesn't exist, and it won't call a call Failed on a guess. (The Retell demo agent reads Failed here, because Overhear has its full tool list.)
+Ask for a nurse. Say: "Can I speak to a nurse about my knee?" The agent has no transfer tool. If it only offers, Overhear says Passed. If it says it is transferring you, Overhear says Needs review: "Couldn't check the transfer: no transfer tool is known for this agent." Overhear only knows the tools a call used, so it can't prove a transfer tool doesn't exist, and it won't call a call Failed on a guess.
 
-Hang up in the middle of a sentence. Ask for a nurse with `PLANTED_NURSE_BUG=1`, and press Ctrl+C while the agent is still saying it is transferring you. Check whether a report was saved; then see what Overhear says. This one is untested: tell us what you get.
+Hang up in the middle of a sentence. Press Ctrl+C while the agent is still talking. Check whether a report was saved; then see what Overhear says. This one is untested: tell us what you get.
 
 Slots stay booked until you restart the agent.
 
