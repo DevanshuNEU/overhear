@@ -24,7 +24,7 @@ This is a complete policy for a clinic agent that can look up open slots, verify
 
 ```json
 {
-  "packs": ["scheduling"],
+  "packs": ["healthcare"],
   "timezone": "America/New_York",
   "success": "result.ok",
   "tools": {
@@ -64,7 +64,7 @@ This is a complete policy for a clinic agent that can look up open slots, verify
 
 ## What each field does
 
-`packs` says which groups of checks run. `scheduling` checks that what the agent promised was done, that the details it spoke match what was committed, and that a transfer it promised happened. `healthcare` is accepted and is meant to add a check that the patient was verified before any change, but today the scheduling checks are the ones that run, so use `scheduling`.
+`packs` names the groups of checks. Today every call gets the same checks, whatever the file says: that what the agent promised was done, that the details it spoke match what was committed, that a transfer it promised happened, that a notification it claimed was sent, and that the caller was verified before any booking, cancel or reschedule (when the agent has a verify tool). The report records them as `healthcare`, so use that.
 
 `timezone` is an IANA name such as `America/New_York`. It is the zone your tools store times in, and Overhear reads spoken times in it. Leave it out and Overhear uses the zone of the machine running the check, or the one you pass with `--tz`.
 
@@ -72,7 +72,7 @@ This is a complete policy for a clinic agent that can look up open slots, verify
 
 `tools` lists every tool the agent has, by its exact name. Each tool has these keys:
 
-- `role` is one of `verify`, `lookup`, `change` or `transfer`. It is the only required key. A verify tool proves who the caller is. A lookup tool lists options, such as open slots. A change tool books, cancels, reschedules or updates something. A transfer tool hands the caller to a person or another line.
+- `role` is one of `verify`, `lookup`, `change`, `transfer` or `notify`. It is the only required key. A verify tool proves who the caller is. A lookup tool lists options, such as open slots. A change tool books, cancels, reschedules or updates something. A transfer tool hands the caller to a person or another line. A notify tool texts, pages or messages someone, such as the on-call surgeon.
 - `kind` is for change tools only: `book`, `cancel`, `reschedule` or `update`.
 - `success` is a path to a true or false value in this tool's result.
 - `id` names which item a change acts on. For a lookup it is a path inside one item, such as `item.id`. For a change it is a path to the argument that holds the same id, such as `args.slotId`. This is how Overhear knows which slot a booking took, and so which date and time were committed.

@@ -30,7 +30,7 @@ describe("EngineOptions.policy", () => {
     const out = analyzeRetellCall(renamed, { ...opts, policy: userPolicy() });
     expect(verdict(out)).toBe("failed");
     if (out.kind !== "report") throw new Error("expected a report");
-    expect(out.report.policy).toEqual(userPolicy());
+    expect(out.report.policy).toEqual({ ...userPolicy(), packs: ["healthcare"] });
     expect(out.report.timezone).toBe("Asia/Kolkata");
     expect(out.report.results.find((r) => r.contract === "transfer_kept")?.result).toBe("violated");
   });
@@ -40,13 +40,13 @@ describe("EngineOptions.policy", () => {
     const mine = userPolicy();
     mine.timezone = "America/Chicago";
     const out = analyzeRetellCall(demo, { ...opts, demoAgentId: "agent_demo", policy: mine });
-    expect(out.kind === "report" && out.report.policy).toEqual(mine);
+    expect(out.kind === "report" && out.report.policy).toEqual({ ...mine, packs: ["healthcare"] });
   });
 
   it("applies through analyzeRecord too", () => {
     const mine = userPolicy();
     const out = analyzeRecord(renamed, { ...opts, policy: mine });
-    expect(out.kind === "report" && out.report.policy).toEqual(mine);
+    expect(out.kind === "report" && out.report.policy).toEqual({ ...mine, packs: ["healthcare"] });
   });
 
   it("an inferred policy with no transfer tool reads unverified, not violated", () => {
