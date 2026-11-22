@@ -41,7 +41,6 @@ type Props = {
   pollMs?: number;
 };
 
-const noop = () => {};
 /** Hang up is a critical outline: the same button, with the critical colour for its border and its words. */
 const HANG_UP = BUTTON.replace("border-report-line-strong", "border-report-critical text-report-critical");
 
@@ -305,7 +304,7 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
           </h2>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             <ul aria-label={WORDS.yourCall} className="-ml-3 min-w-0 flex-1 border-y border-report-line bg-report-surface">
-              <CallRow row={stage.row} timeZone="UTC" settled retrying={false} retryFailed={false} onRetry={noop} showTime={false} />
+              <CallRow row={stage.row} timeZone="UTC" settled retrying={false} retryFailed={false} showTime={false} />
             </ul>
             <button type="button" onClick={again} className={BUTTON}>
               {WORDS.callAgain}
