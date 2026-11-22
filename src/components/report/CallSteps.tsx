@@ -6,7 +6,7 @@
 // opened from the files list (`?src=files`) takes its rows from /api/files instead.
 // With no pull, a failed fetch, or a call that is not in the pull, only the way back shows. J and K step too, when
 // the person is not typing. The pull id is not secret and nothing here touches the key.
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { PullRow } from "@/pull/pull";
@@ -136,6 +136,13 @@ export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
   const previousHref = steps?.previous ? reportHref(steps.previous, from, files) : null;
   const nextHref = steps?.next ? reportHref(steps.next, from, files) : null;
 
+  // The links a key leads to, kept current during the commit (a layout effect runs before anyone can see the new links),
+  // so a key pressed the moment "Next call" appears goes to that call. The listener itself is attached once.
+  const targets = useRef<{ next: string | null; previous: string | null; keys: boolean }>({ next: null, previous: null, keys: true });
+  useLayoutEffect(() => {
+    targets.current = { next: nextHref, previous: previousHref, keys };
+  }, [nextHref, previousHref, keys]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
@@ -147,16 +154,17 @@ export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
         });
         return;
       }
-      if (e.shiftKey || !keys) return;
+      const { next, previous, keys: on } = targets.current;
+      if (e.shiftKey || !on) return;
       const key = e.key.toLowerCase();
-      const href = key === "j" ? nextHref : key === "k" ? previousHref : null;
+      const href = key === "j" ? next : key === "k" ? previous : null;
       if (href === null) return;
       e.preventDefault();
       router.push(href);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [keys, nextHref, previousHref, router]);
+  }, [router]);
 
   function close() {
     setOpen(false);

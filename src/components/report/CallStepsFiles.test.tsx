@@ -67,6 +67,19 @@ describe("a report opened from the list of files (src=files)", () => {
     expect(router.push).toHaveBeenCalledWith("/reports/AJ_b~copy?src=files");
   });
 
+  it("a key pressed the moment Next call appears goes to that call", async () => {
+    // Press J inside the same commit that shows the link, before any passive effect could run.
+    const watch = new MutationObserver(() => {
+      if (screen.queryByRole("link", { name: STEP_LABEL.next })) {
+        watch.disconnect();
+        fireEvent.keyDown(window, { key: "j" });
+      }
+    });
+    watch.observe(document.body, { childList: true, subtree: true });
+    open("AJ_a");
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/reports/AJ_b~copy?src=files"));
+  });
+
   it("leaves only the way back when the files cannot be read", async () => {
     serve({});
     open("AJ_a");
