@@ -14,8 +14,12 @@ export const GLOBAL = { limit: 30, windowMs: 60 * 60 * 1000 };
 export const OWNER_PER_IP = { limit: 10, windowMs: 10 * 60 * 1000 };
 
 export function clientIp(req: Request): string {
-  // Railway's edge proxy appends the address it saw to x-forwarded-for. Anything before that last entry was sent by the
-  // client, who can put anything there, so only the last entry counts. Fall back to a shared bucket if it is missing.
+  // Railway's edge sets X-Real-IP to the client's remote address (docs.railway.com, Specs & Limits, Request Headers). It
+  // does not protect X-Forwarded-For: a live test on 2026-11-22 showed four starts with a different X-Forwarded-For each
+  // all counted as different visitors. So X-Real-IP decides. Without it (another host), the last X-Forwarded-For entry,
+  // then one shared bucket.
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
   const entries = (req.headers.get("x-forwarded-for") ?? "").split(",");
   return entries[entries.length - 1].trim() || "unknown";
 }
