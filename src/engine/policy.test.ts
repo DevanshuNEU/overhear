@@ -91,6 +91,29 @@ describe("roleFor", () => {
     expect(roleFor("availability")).toEqual({ role: "lookup" });
   });
 
+  describe("notification names", () => {
+    it.each(["send_text", "text_surgeon", "send_sms", "page_on_call", "paging", "notify_on_call_surgeon", "notifyTeam", "send_message", "messaging_service", "alert_nurse", "send_email", "email_front_desk", "sendNotification", "texting"])(
+      "%s is a notify tool",
+      (name) => {
+        expect(roleFor(name)).toEqual({ role: "notify" });
+      },
+    );
+
+    it.each(["get_messages", "check_alerts", "end_call", "contact_card", "context", "pageant", "realert", "textbook"])("%s is not a notify tool", (name) => {
+      expect(roleFor(name)?.role).not.toBe("notify");
+    });
+
+    it("never turns a booking tool into a notification, and a side tool that texts is a notification", () => {
+      expect(roleFor("book_appointment_with_email")).toEqual({ role: "change", kind: "book" });
+      expect(roleFor("send_reminder_text")).toEqual({ role: "notify" });
+    });
+
+    it("is inferred from the tools a call used", () => {
+      const inferred = inferPolicy(ev([...tool("tc_1", "page_surgeon", {}, { sent: true }), ...tool("tc_2", "end_call", {}, "OK")]));
+      expect(inferred.tools).toEqual({ page_surgeon: { role: "notify" } });
+    });
+  });
+
   describe("booking and appointment names", () => {
     const BOOK = ["make_booking", "submit_booking", "confirm_appointment", "make_appointment", "set_appointment", "add_appointment", "create_booking", "create_appointment", "schedule_appointment", "book_slot", "reserve_appointment"];
     const CANCEL = ["cancel_booking", "delete_appointment", "remove_appointment"];
@@ -112,7 +135,7 @@ describe("roleFor", () => {
 
     it("needs the noun to end the name, so a booking's side tools stay undescribed", () => {
       expect(roleFor("add_booking_note")).toBeNull();
-      expect(roleFor("confirm_booking_by_email")).toBeNull();
+      expect(roleFor("confirm_booking_by_email")).toEqual({ role: "notify" }); // it sends an email, and is no change
       expect(roleFor("delete_booking_reminder")).toBeNull();
     });
 
@@ -135,7 +158,7 @@ describe("roleFor", () => {
     it("leaves verbs without a booking noun alone", () => {
       expect(roleFor("set_timezone")).toBeNull();
       expect(roleFor("add_note")).toBeNull();
-      expect(roleFor("confirm_email")).toBeNull();
+      expect(roleFor("confirm_email")).toEqual({ role: "notify" }); // no booking noun, so not a change; the email word makes it a notify
       expect(roleFor("delete_item")).toBeNull();
       expect(roleFor("change_address")).toEqual({ role: "change", kind: "update" });
     });

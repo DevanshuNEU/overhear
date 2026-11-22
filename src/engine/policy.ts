@@ -156,6 +156,8 @@ const ROLE_RULES: RoleRule[] = [
   { words: ["book", "schedule", "create", "reserve"], withNoun:["make", "submit", "confirm", "set", "add"], role: { role: "change", kind: "book" } },
   { words: ["update", "modify", "change", "exchange", "return"], role: { role: "change", kind: "update" } },
   { words: ["check", "get", "find", "list", "search", "lookup", "availability"], role: { role: "lookup" } },
+  // Sends something to a person or team: after the lookup words, so "get_messages" and "check_pager" read as lookups.
+  { words: ["text", "texting", "sms", "page", "paging", "notify", "notifying", "notification", "notifications", "message", "messaging", "alert", "alerting", "email", "emailing"], role: { role: "notify" } },
 ];
 
 /** The words of a tool name in order: split at underscores, dashes, spaces and camelCase humps, lower-cased. */

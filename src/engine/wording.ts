@@ -2,7 +2,7 @@
 // these and nothing else writes them. Contract titles are not here: they come from CONTRACT_TITLE (and CONTRACT_NOUN for "Couldn't check") in
 // @/report/labels, so a renamed title flows into every stored finding.
 import { CONTRACT_NOUN } from "@/report/labels";
-import type { ChangeKind, ContractId, Evidence, Gap, GapCode } from "@/report/schema";
+import type { ChangeKind, ContractId, DetectionKind, Evidence, Gap, GapCode } from "@/report/schema";
 import { isPlaceholder } from "./placeholder";
 import type { ZoneDoubt } from "./spoken";
 
@@ -78,6 +78,11 @@ export const REASONS = {
     missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the transfer",
     fix: "Add {tool} to the policy.",
   },
+  no_notify_tool: { missing: "no notification tool is known for this agent", fix: "Add the agent's notification tool to the policy." },
+  notify_not_in_record: {
+    missing: "the record shows no notification before that, and the policy may not list every tool this agent has",
+    fix: "Export the call with its tool calls, or add the agent's notification tool to a full policy.",
+  },
   no_transfer_tool: { missing: "no transfer tool is known for this agent", fix: "Add the agent's transfer tool to the policy." },
   transfer_no_result: {
     missing: "the {tool} call has no result and nothing else in the record shows the caller was connected",
@@ -131,7 +136,7 @@ const ZONE_WHAT: Record<"date" | "time" | "datetime", string> = { date: "date", 
  * The unverified cause for a spoken date or time that fits the committed value only in a plausible zone other than
  * the one the check ran in: it says what was said, what the value is in each zone, and why that is not enough.
  */
-export function zoneUnsureCause(slots: { said: string; kind?: ChangeKind; type: "date" | "time" | "datetime"; doubt: ZoneDoubt }): GapText {
+export function zoneUnsureCause(slots: { said: string; kind?: DetectionKind; type: "date" | "time" | "datetime"; doubt: ZoneDoubt }): GapText {
   const { doubt } = slots;
   const values: Record<string, string> = {
     said: slots.said,
@@ -156,7 +161,7 @@ function nameList(names: string[]): string {
  * The unverified cause for a claim that no described change backs while the call used tools the policy does not
  * describe: any of them could have been the change, so the record does not prove nothing was attempted.
  */
-export function unknownToolCause(tools: string[], kind?: ChangeKind): GapText {
+export function unknownToolCause(tools: string[], kind?: DetectionKind): GapText {
   const text = tools.length === 1 ? REASONS.unknown_tool : REASONS.unknown_tools;
   const slots = { tool: nameList(tools), kind };
   return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
@@ -170,15 +175,16 @@ export function unknownTransferToolCause(tools: string[]): GapText {
 }
 
 /** Words for the kinds of change, in the sentences. */
-export const KIND_WORDS: Record<ChangeKind, string> = {
+export const KIND_WORDS: Record<DetectionKind, string> = {
   book: "booking",
   cancel: "cancellation",
   reschedule: "reschedule",
   update: "update",
+  notify: "notification",
 };
 
 /** The word for a kind of change, or "change" when there is no kind. */
-export function kindWord(kind?: ChangeKind): string {
+export function kindWord(kind?: DetectionKind): string {
   return kind ? KIND_WORDS[kind] : "change";
 }
 
@@ -186,7 +192,7 @@ export function kindWord(kind?: ChangeKind): string {
 export interface TextSlots {
   tool?: string;
   field?: string;
-  kind?: ChangeKind;
+  kind?: DetectionKind;
 }
 
 /** A string with its slots filled. A slot with no value reads "tool", "detail" or "change". */
@@ -291,10 +297,10 @@ export function computerFormatText(turns: SaidAt[], ev: Evidence): string {
 
 /** Why a promise is broken: the reason slot of the promise_backed template. */
 export type PromiseReason =
-  | { why: "not_attempted"; kind?: ChangeKind }
-  | { why: "attempted_later"; kind?: ChangeKind }
-  | { why: "failed"; kind?: ChangeKind; error: string }
-  | { why: "unfinished"; kind?: ChangeKind };
+  | { why: "not_attempted"; kind?: DetectionKind }
+  | { why: "attempted_later"; kind?: DetectionKind }
+  | { why: "failed"; kind?: DetectionKind; error: string }
+  | { why: "unfinished"; kind?: DetectionKind };
 
 /**
  * The error a failed result gives: its error field when that is readable text, else "no reason given". A redaction
@@ -329,7 +335,7 @@ export function promiseViolatedText(time: string, quote: string, reason: Promise
 }
 
 /** promise_backed, passed. Not in 6.8: the three sample calls are the contract for it. */
-export function promisePassedText(time: string, quote: string, kind?: ChangeKind): string {
+export function promisePassedText(time: string, quote: string, kind?: DetectionKind): string {
   return `${said(time, quote)} The ${kindWord(kind)} succeeded before that.`;
 }
 

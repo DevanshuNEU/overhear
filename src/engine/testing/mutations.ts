@@ -87,6 +87,12 @@ function appendTurn(record: Rec, role: "agent" | "user", content: string): Rec {
   return record;
 }
 
+/** Adds a tool call and its result at the end of the call. */
+function appendTool(record: Rec, call: Rec, result: Rec): Rec {
+  utterances(record).push(call, result);
+  return record;
+}
+
 /** Removes a tool call and its result. */
 function dropTool(record: Rec, id: string): Rec {
   const before = utterances(record);
@@ -244,6 +250,7 @@ function dropWordTimes(record: Rec): Rec {
 // The claim turns the edits look for.
 const BOOKED = "You’re booked for";
 const GOT_TRANSFER = "Transferring you to a nurse now";
+const NOTIFIED = "I’ve texted the on-call surgeon.";
 const DEFERRAL = "I’m sorry, the calendar is down right now. I can help once it’s back online.";
 
 // ---------- The mutations ----------
@@ -445,6 +452,28 @@ export const MUTATIONS: readonly Mutation[] = [
     edit: (r) => say(dropSlotField(fromOtherAgent(r), "startsAt"), BOOKED, "Friday, November 6, 2026", "Saturday, November 7, 2026"),
     expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
     gaps: ["unresolved_committed_detail"],
+  },
+
+  // promise_backed, notification claims: "I've texted the on-call surgeon" needs a notify tool that worked.
+  {
+    id: "mut-notify-claimed-no-tool-other-agent",
+    parent: PASSED,
+    note: "The finished booking as another agent's call, then the agent says it texted the on-call surgeon. No tool that notifies anyone was ever called, and an inferred policy knows only the tools the call used, so the practice may have sent the text from its own backend: unverified, not violated.",
+    edit: (r) => appendTurn(fromOtherAgent(r), "agent", NOTIFIED),
+    expect: { verdict: "needs_review", promise_backed: "unverified", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+  },
+  {
+    id: "mut-notify-claimed-after-failed-page",
+    parent: PASSED,
+    note: "The finished booking as another agent's call. The agent pages the on-call surgeon through a tool, the tool fails (the platform says the call failed), and the agent says it paged the surgeon anyway. The one thing it said it did, it did not do: violated.",
+    edit: (r) =>
+      appendTurn(
+        appendTool(fromOtherAgent(r), toolCall("tc_page", "page_on_call_surgeon", { patientId: "00000000-0000-4000-8000-000000000024" }), toolResult("tc_page", "SMS gateway timeout", false)),
+        "agent",
+        "I\u2019ve paged the on-call surgeon.",
+      ),
+    expect: { verdict: "failed", promise_backed: "violated", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+    cites: [{ contract: "promise_backed", turn: "paged the on-call surgeon" }],
   },
 
   // transfer_kept: "I'm transferring you" needs a transfer that was attempted and worked.

@@ -9,8 +9,8 @@
 // when every earlier tool call is one the policy describes; a tool it doesn't describe might have been the change.
 // Nothing is violated on shaky evidence: a gap that touches the claim, the call or its result, or ordering none,
 // makes the finding unverified.
-import type { ChangeKind, Detection, Evidence, Finding, GapCode } from "@/report/schema";
-import type { ToolUse } from "../committed";
+import type { Detection, DetectionKind, Evidence, Finding, GapCode } from "@/report/schema";
+import { toolCalls, type ToolUse } from "../committed";
 import { toolPolicy } from "../policy";
 import {
   REASONS,
@@ -54,12 +54,15 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   const { ev } = ctx;
   // With ordering none the seqs say nothing about what came first, so no change is "before" or "after" anything.
   const unordered = ev.ordering === "none" && hasToolCalls(ev);
-  const earlier = unordered ? ctx.changes : ctx.changes.filter((c) => c.callSeq < seq);
+  // A notification claim ("I've texted the surgeon") is backed by a notify-role call, every other claim by a change.
+  const notify = claim.kind === "notify";
+  const pool = notify ? toolCalls(ev, ctx.policy, "notify") : ctx.changes;
+  const earlier = unordered ? pool : pool.filter((c) => c.callSeq < seq);
   const backing = claim.kind ? backingFor(claim.kind, earlier) : latest(earlier);
   if (!claim.kind && !backing) return null;
 
   const did = seqsOf(backing);
-  const kind: ChangeKind | undefined = claim.kind ?? backing?.at(-1)?.kind;
+  const kind: DetectionKind | undefined = claim.kind ?? backing?.at(-1)?.kind;
   const time = formatTime(seq, ev);
   const base = { said: [seq], did, asked: [], fields: [] };
   const violated = (reason: PromiseReason): Finding => ({
@@ -83,7 +86,13 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
     if (unknown.tools.length > 0) {
       return { ...base, did: unknown.seqs, result: "unverified", text: unverifiedText("promise_backed", [unknownToolCause(unknown.tools, kind)]), gaps: [] };
     }
-    const later = claim.kind ? backingFor(claim.kind, ctx.changes.filter((c) => c.callSeq > seq)) : undefined;
+    if (notify && (ctx.policySource !== "preset" || !hasNotifyTool(ctx))) {
+      // Only a preset lists every tool its agent has, so only a preset can show that no notification was sent. With no
+      // notification tool known the practice may send it from its own backend.
+      const cause = hasNotifyTool(ctx) ? REASONS.notify_not_in_record : REASONS.no_notify_tool;
+      return { ...base, result: "unverified", text: unverifiedText("promise_backed", [cause]), gaps: [] };
+    }
+    const later = claim.kind ? backingFor(claim.kind, pool.filter((c) => c.callSeq > seq)) : undefined;
     return softenForMissingTools(ev, violated({ why: later ? "attempted_later" : "not_attempted", kind }), "promise_backed");
   }
 
@@ -129,6 +138,11 @@ function undescribedBefore(ctx: ContractContext, seq: number, after = -Infinity)
   return { tools: [...new Set(unknown.map((u) => u.name))], seqs: unknown.map((u) => u.seq) };
 }
 
+/** Whether the policy names a tool that sends a notification. */
+function hasNotifyTool(ctx: ContractContext): boolean {
+  return Object.values(ctx.policy.tools).some((t) => t.role === "notify");
+}
+
 /** Whether the record has any tool call, which is what makes "nothing was attempted" something it can prove. */
 function hasToolCalls(ev: Evidence): boolean {
   return ev.items.some((it) => it.kind === "tool_call");
@@ -150,7 +164,7 @@ function latest(changes: ToolUse[]): Backing | undefined {
  * The most recent backing for a claim of this kind: a change of the kind (or of no kind), and for a reschedule also a
  * book that follows a cancel. How recent a backing is comes from its last call.
  */
-function backingFor(kind: ChangeKind, changes: ToolUse[]): Backing | undefined {
+function backingFor(kind: DetectionKind, changes: ToolUse[]): Backing | undefined {
   const options: Backing[] = changes.filter((c) => c.kind === kind || c.kind === undefined).map((c) => [c]);
   if (kind === "reschedule") {
     for (const book of changes.filter((c) => c.kind === "book")) {

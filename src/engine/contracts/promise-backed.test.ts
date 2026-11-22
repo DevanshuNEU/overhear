@@ -95,12 +95,12 @@ interface Run {
 }
 
 /** Runs promise_backed the way the pipeline will, then checks the output against the report schema. */
-function run(input: Evidence, policy: Policy = PRESET): Run {
+function run(input: Evidence, policy: Policy = PRESET, policySource: "preset" | "inferred" = "preset"): Run {
   const evidence = resolveOk(input, policy);
   const ctx: ContractContext = {
     ev: evidence,
     policy,
-    policySource: "preset",
+    policySource,
     tz: "UTC",
     policyTz: true,
     detections: detectAll(evidence, Object.keys(policy.tools)),
@@ -632,6 +632,73 @@ describe("promise_backed", () => {
       expect(SAMPLE_REPORTS).toHaveLength(3);
     });
   });
+  describe("a notification claim", () => {
+    const CLAIM = "I've texted the on-call surgeon.";
+    const NOTIFY = PolicySchema.parse({ ...preset, tools: { ...preset.tools, page_surgeon: { role: "notify" } } });
+    const page = (payload: unknown, platformOk: boolean | null = true): ItemSpec[] => tool("tc_page", "page_surgeon", payload, platformOk);
+
+    it("is backed by a notify call that worked before it", () => {
+      const r = run(ev([...lookup(), ...page({ sent: true }), agent(CLAIM, 30)]), NOTIFY);
+      expect(r.out.result).toBe("passed");
+      expect(r.finding.text).toBe('At 0:30 the agent said "I\'ve texted the on-call surgeon". The notification succeeded before that.');
+    });
+
+    it("is not backed by a booking: a change is not a notification", () => {
+      const r = run(ev([...lookup(), ...tool("tc_1", "book_appointment", { ok: true }), agent(CLAIM, 30)]), NOTIFY);
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toBe('At 0:30 the agent said "I\'ve texted the on-call surgeon". No notification was attempted.');
+    });
+
+    it("is violated when the notify call failed", () => {
+      const r = run(ev([...lookup(), ...page("SMS gateway timeout", false), agent(CLAIM, 30)]), NOTIFY, "inferred");
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toBe('At 0:30 the agent said "I\'ve texted the on-call surgeon". The notification failed: no reason given.');
+    });
+
+    it("is violated with no notify call when the preset lists a notify tool", () => {
+      const r = run(ev([...lookup(), agent(CLAIM, 30)]), NOTIFY);
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toBe('At 0:30 the agent said "I\'ve texted the on-call surgeon". No notification was attempted.');
+    });
+
+    it("is unverified with no notify call when the policy was inferred, though it names a notify tool", () => {
+      const r = run(ev([...lookup(), agent(CLAIM, 30)]), NOTIFY, "inferred");
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toMatch(/^Couldn't check the promise: the record shows no notification before that/);
+    });
+
+    it("is unverified when no notification tool is known, preset or not: the practice may send it from its own backend", () => {
+      for (const source of ["preset", "inferred"] as const) {
+        const r = run(ev([...lookup(), agent(CLAIM, 30)]), PRESET, source);
+        expect(r.out.result).toBe("unverified");
+        expect(r.finding.text).toBe("Couldn't check the promise: no notification tool is known for this agent.");
+        expect(r.finding.gaps).toEqual([]);
+      }
+    });
+
+    it("is unverified when a tool the policy doesn't describe ran first: it might have sent the text", () => {
+      const r = run(ev([...lookup(), ...tool("tc_x", "dispatch_alert_v2", { ok: true }), agent(CLAIM, 30)]), NOTIFY);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toContain("dispatch_alert_v2, which the policy doesn't describe, so we couldn't tell whether it was the notification");
+    });
+
+    it("a notify call made after the claim does not back it", () => {
+      const r = run(ev([...lookup(), agent(CLAIM, 30), ...page({ sent: true })]), NOTIFY);
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toContain("No notification was attempted before that.");
+    });
+
+    it("a notify result that doesn't say whether it worked is unverified", () => {
+      const r = run(ev([...lookup(), ...page({ queued: 1 }, null), agent(CLAIM, 30)]), NOTIFY);
+      expect(r.out.result).toBe("unverified");
+    });
+
+    it("an offer or a future intention is no claim", () => {
+      const r = run(ev([...lookup(), agent("I can text the on-call surgeon. I'll page them now.", 30)]), NOTIFY);
+      expect(r.out).toEqual({ contract: "promise_backed", result: "not_applicable", findings: [] });
+    });
+  });
+
   describe("the caller hung up", () => {
     const hangup = (items: ItemSpec[]): Evidence => ev(items, { callFields: { disconnection_reason: "user_hangup", duration_ms: 45000 } });
 

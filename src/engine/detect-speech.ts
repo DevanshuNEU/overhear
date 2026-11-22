@@ -5,11 +5,11 @@
 // tested on top of it, so "You're booked, would you like a reminder?" is a completion and an offer and
 // "Booking you now, then I'll connect you" is an intention and a transfer. Classes come out in the order
 // their words appear.
-import type { ChangeKind, Detection, Evidence, SpeechClass } from "@/report/schema";
+import type { ChangeKind, Detection, DetectionKind, Evidence, SpeechClass } from "@/report/schema";
 
 export interface SentenceClass {
   cls: SpeechClass;
-  kind?: ChangeKind;
+  kind?: DetectionKind;
   quote: string;
 }
 
@@ -168,7 +168,7 @@ function kindOf(s: string): ChangeKind | undefined {
 
 interface Hit {
   cls: SpeechClass;
-  kind?: ChangeKind;
+  kind?: DetectionKind;
   at: number;
   /** "You're good to go" takes its kind from the turn: book when the rest of the turn is about a booking. */
   fromTurn?: boolean;
@@ -231,6 +231,26 @@ function completions(s: string): Hit[] {
   // "You're all set, 8am on the 19th" carries its details after the comma, which is the booking itself.
   const kind = kindOf(clauseAt(s, at)) ?? otherClauseKind(s, at) ?? (/\ball set\b[,\s]+(?:for|on|at|with|\d)/i.test(s.slice(at)) ? "book" : undefined);
   return [{ cls: "completion", ...(kind ? { kind } : {}), at, ...(!kind && GOOD_TO_GO.test(s) ? { fromTurn: true } : {}) }];
+}
+
+// A notification the agent says it sent, to a person or team: "I've texted the on-call surgeon", "I sent a text to the
+// nurse", "I've let Dr. Kim know". First person, past or present perfect, with a person or team as the object. An offer
+// ("I can text"), a future ("I'll page") and a negation ("I haven't texted") are not in these words.
+const NOTIFY_OBJECT =
+  "(?:(?:the|our|your|a|an|that|this|my)\\s+)?(?:(?:on[- ]?call|covering|duty|attending|triage)\\s+)?(?:surgeons?|doctors?|physicians?|nurses?|providers?|team|office|front desk|clinic|staff|practice|dr\\.?\\s+[a-z][a-z'-]+)";
+const NOTIFY_LEAD = "\\b(?:i|we)(?:'ve| have)?\\s+(?:(?:now|just|already|also|gone ahead and|went ahead and)\\s+)*";
+const NOTIFY_THING = "(?:(?:an?|the)\\s+)?(?:urgent\\s+)?(?:text(?: message)?|sms|message|page|email|alert|notification)";
+const NOTIFY = [
+  `${NOTIFY_LEAD}(?:texted|paged|notified|messaged|alerted|emailed|pinged)\\s+${NOTIFY_OBJECT}\\b`,
+  `${NOTIFY_LEAD}sent\\s+${NOTIFY_THING}\\s+to\\s+${NOTIFY_OBJECT}\\b`,
+  `${NOTIFY_LEAD}sent\\s+${NOTIFY_OBJECT}\\s+${NOTIFY_THING}\\b`,
+  `${NOTIFY_LEAD}let\\s+${NOTIFY_OBJECT}\\s+know\\b`,
+].map((src) => new RegExp(src, "gi"));
+
+/** Every notification the sentence says was sent, as a completion of the kind notify (at most one per sentence). */
+function notifications(s: string): Hit[] {
+  const at = NOTIFY.flatMap((re) => [...s.matchAll(re)].filter((m) => !notAClaim(s, m.index)).map((m) => m.index));
+  return at.length > 0 ? [{ cls: "completion", kind: "notify", at: Math.min(...at) }] : [];
 }
 
 const at = (re: RegExp, s: string): number => {
@@ -362,7 +382,7 @@ function primary(s: string): Hit[] {
 function classesOf(sentence: string): Hit[] {
   const s = sentence.trim().replace(/[‘’]/g, "'");
   if (s === "") return [];
-  const hits = [...completions(s), ...primary(s)];
+  const hits = [...completions(s), ...notifications(s), ...primary(s)];
   return hits.sort((x, y) => x.at - y.at);
 }
 

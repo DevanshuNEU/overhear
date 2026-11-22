@@ -1853,5 +1853,173 @@
       "transfer"
     ],
     "source": "review:ove-46"
+  },
+  {
+    "text": "I've texted the on-call surgeon.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "Thank you. I've sent a text to the on-call surgeon with your details.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've paged the on-call doctor.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've notified the nurse team.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've messaged the front desk.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've let Dr. Kim know.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've alerted the covering surgeon.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I texted the on-call surgeon a minute ago.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I sent the nurse a text.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've let the on-call surgeon know, and they'll reach out shortly.",
+    "classes": [
+      "completion"
+    ],
+    "kinds": [
+      "notify"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've texted the on-call surgeon and they'll call you back within 15 minutes.",
+    "classes": [
+      "completion",
+      "deferral"
+    ],
+    "kinds": [
+      "notify",
+      null
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I can text the on-call surgeon.",
+    "classes": [],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I'll page the on-call surgeon now.",
+    "classes": [],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I'm going to notify the nurse.",
+    "classes": [],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "Would you like me to text the surgeon?",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "If you'd like, I can page the on-call surgeon.",
+    "classes": [
+      "offer"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I haven't texted the surgeon yet.",
+    "classes": [],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "I've texted you a confirmation.",
+    "classes": [],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "Once I've texted the surgeon, they'll call you back.",
+    "classes": [
+      "deferral"
+    ],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "Have you texted the on-call surgeon?",
+    "classes": [],
+    "source": "review:notify-claims"
+  },
+  {
+    "text": "The nurse texted the surgeon.",
+    "classes": [],
+    "source": "review:notify-claims"
   }
 ]

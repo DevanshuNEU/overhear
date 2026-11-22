@@ -91,6 +91,48 @@ describe("classifyTurn", () => {
   });
 });
 
+describe("notification claims", () => {
+  const kinds = (text: string) => classifyTurn(text).map((c) => [c.cls, c.kind ?? null]);
+
+  it.each([
+    "I've texted the on-call surgeon.",
+    "I sent a text to the on-call surgeon.",
+    "I've paged the nurse.",
+    "We've notified the team.",
+    "I've messaged the front desk.",
+    "I've let Dr. Kim know.",
+    "I've alerted the covering doctor.",
+  ])("%s is a completion of the kind notify", (text) => {
+    expect(kinds(text)).toEqual([["completion", "notify"]]);
+  });
+
+  it.each([
+    "I can text the on-call surgeon.",
+    "I'll page the nurse.",
+    "I'm going to notify the team.",
+    "I haven't texted the surgeon.",
+    "I've texted you the details.",
+    "If I've texted the surgeon, they'll know.",
+  ])("%s is not a claim", (text) => {
+    expect(kinds(text).filter(([cls]) => cls === "completion")).toEqual([]);
+  });
+
+  it("a booking and a notification in one turn are two claims of their own kinds", () => {
+    expect(kinds("You're booked for Friday, and I've texted the nurse.")).toEqual([
+      ["completion", "book"],
+      ["completion", "notify"],
+    ]);
+  });
+
+  it("detectAll carries the kind into the detection", () => {
+    const out = detectAll(
+      { callId: "c", platform: "retell", agentVersion: null, tier: 1, ordering: "sequence", callFields: {}, callStartMs: null, gaps: [], items: [{ kind: "turn", seq: 1, role: "agent", text: "I've texted the on-call surgeon.", startSec: null, interrupted: null }] },
+      [],
+    );
+    expect(out).toEqual([{ seq: 1, cls: "completion", kind: "notify", quote: "I've texted the on-call surgeon", source: "code" }]);
+  });
+});
+
 describe("splitSentences and St.", () => {
   it("ends a sentence at a street St. before a new clause", () => {
     expect(splitSentences("Our office is on Elm St. You're booked for Monday.")).toEqual([
