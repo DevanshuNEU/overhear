@@ -52,7 +52,7 @@ export const spokenMatchesCommitted: Contract = (ctx) => {
         // Nothing to say or check, so a confirmation needs no finding. No confirmation at all is still unverified,
         // except a cancellation that a booking follows at once: that booking's confirmation covers the reschedule.
         // A confirmation that speaks a date, time or provider the record can't be compared with is not "didn't apply".
-        if (window.length > 0 && uncoveredSpoken(ctx, details, sentencesOf(window)).length === 0) return [];
+        if (window.length > 0 && uncoveredSpoken(ctx, details, sentencesOf(window), true).length === 0) return [];
         if (window.length === 0 && change.kind === "cancel" && next?.kind === "book" && next.ok === true) return [];
       }
       return [judge(ctx, change, details, window, unordered)];
@@ -178,8 +178,9 @@ function sentencesOf(window: Detection[]): string[] {
  * no field of that type, so no committed value can be resolved for it. A date needs a date or datetime field, a time
  * a time or datetime field, a provider a name field. A field the policy does define is judged by the rows instead.
  */
-function uncoveredSpoken(ctx: ContractContext, details: Details, sentences: string[]): string[] {
-  const types = new Set(Object.values(details.types));
+function uncoveredSpoken(ctx: ContractContext, details: Details, sentences: string[], resolvedOnly = false): string[] {
+  // With resolvedOnly a field the policy has but the record gave no value for covers nothing: there is still nothing to compare.
+  const types = new Set(resolvedOnly ? Object.keys(details.fields).map((f) => details.types[f]) : Object.values(details.types));
   const match: MatchContext = { callStartMs: ctx.ev.callStartMs, tz: ctx.tz, policyTz: ctx.policyTz, otherNames: ctx.providerNames };
   const said = (type: FieldType) => sentences.some((s) => spokenValues(type, s, match).length > 0);
   const out: string[] = [];

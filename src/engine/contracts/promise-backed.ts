@@ -60,7 +60,9 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   const before = unordered ? pool : pool.filter((c) => c.callSeq < seq);
   // A notification claim is backed by the latest notify call that worked: another notify call (a text to the patient)
   // failing after the page went through does not undo the page. It reads as failed only when every earlier one failed.
-  const worked = before.filter((c) => c.ok === true);
+  // Only a call whose result arrived before the claim can back it: one still running at the claim does not, and must not
+  // push aside a page that had already gone through. With none, the usual rules apply (unfinished, or failed).
+  const worked = before.filter((c) => c.ok === true && c.resultSeq !== null && (unordered || c.resultSeq < seq));
   const earlier = notify && worked.length > 0 ? worked : before;
   const backing = claim.kind ? backingFor(claim.kind, earlier) : latest(earlier);
   if (!claim.kind && !backing) return null;

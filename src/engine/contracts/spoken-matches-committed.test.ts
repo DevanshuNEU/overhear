@@ -521,6 +521,26 @@ describe("spoken_matches_committed", () => {
     });
   });
 
+  // CodeRabbit on #106: a field the policy has, with no value in the record, is still a detail with nothing to compare.
+  describe("a configured field the booking result leaves out", () => {
+    const optionalDate = PolicySchema.parse({
+      packs: ["scheduling"],
+      tools: { book_appointment: { role: "change", kind: "book" } },
+      fields: { date: { path: "result.date", type: "date" } },
+    });
+
+    it("a date said when the result has none is unverified, not dropped as not applicable", () => {
+      const r = run(ev([...book("tc_1", "s1", { ok: true }), agent("Your appointment is booked for Tuesday.", 20)]), optionalDate);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the date of the booking isn't in the call.");
+    });
+
+    it("a confirmation with no date in it stays not applicable", () => {
+      const r = run(ev([...book("tc_1", "s1", { ok: true }), agent("Your appointment is booked.", 20)]), optionalDate);
+      expect(r.out).toEqual({ contract: "spoken_matches_committed", result: "not_applicable", findings: [] });
+    });
+  });
+
   describe("unresolved gaps in the evidence", () => {
     it("a finding never cites a gap code the evidence does not hold", () => {
       const r = run(ev([...lookup([slot("other")]), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]), PRESET, false);

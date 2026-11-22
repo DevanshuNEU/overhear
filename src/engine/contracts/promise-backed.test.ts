@@ -732,6 +732,31 @@ describe("promise_backed", () => {
       expect(r.out.result).toBe("violated");
     });
 
+    // CodeRabbit on #106: a call still running at the claim must not push aside a page that had already gone through.
+    it("a notify call that starts before the claim but answers after it does not displace an earlier page that worked", () => {
+      const BOTH = PolicySchema.parse({ packs: ["scheduling"], tools: { page_on_call: { role: "notify" }, send_sms: { role: "notify" } }, fields: {} });
+      const r = run(
+        ev([
+          ...lookup(),
+          ...tool("tc_p", "page_on_call", { paged: true }),
+          call("tc_s", "send_sms"),
+          agent("I've paged the on-call surgeon.", 40),
+          result("tc_s", { sent: true }),
+        ]),
+        BOTH,
+        "inferred",
+      );
+      expect(r.out.result).toBe("passed");
+      expect(r.finding.did).toEqual([3, 4]);
+    });
+
+    it("with no earlier notify call answered before the claim, one still running at it is unfinished", () => {
+      const BOTH = PolicySchema.parse({ packs: ["scheduling"], tools: { send_sms: { role: "notify" } }, fields: {} });
+      const r = run(ev([...lookup(), call("tc_s", "send_sms"), agent("I've paged the on-call surgeon.", 40), result("tc_s", { sent: true })]), BOTH, "inferred");
+      expect(r.out.result).toBe("violated");
+      expect(r.finding.text).toContain("hadn't finished yet");
+    });
+
     it("an offer or a future intention is no claim", () => {
       const r = run(ev([...lookup(), agent("I can text the on-call surgeon. I'll page them now.", 30)]), NOTIFY);
       expect(r.out).toEqual({ contract: "promise_backed", result: "not_applicable", findings: [] });
