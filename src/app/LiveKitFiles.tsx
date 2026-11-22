@@ -115,11 +115,11 @@ export function LiveKitFiles({ onOpened }: Props) {
         </summary>
         <div className="max-w-[640px] pb-2 text-[13px] text-report-ink-2">
           <p>{FILES_WORDS.howToLead}</p>
-          <pre className="mt-2 overflow-x-auto rounded-md border border-report-line bg-report-surface p-3 font-mono text-[13px] leading-5">
+          <pre className="mt-2 overflow-x-auto max-w-full whitespace-pre rounded-md border border-report-line bg-report-surface p-3 font-mono text-[13px] leading-5">
             <code>{FILES_WORDS.howToCode}</code>
           </pre>
           <p className="mt-3">{FILES_WORDS.howToRegister}</p>
-          <pre className="mt-2 overflow-x-auto rounded-md border border-report-line bg-report-surface p-3 font-mono text-[13px] leading-5">
+          <pre className="mt-2 overflow-x-auto max-w-full whitespace-pre rounded-md border border-report-line bg-report-surface p-3 font-mono text-[13px] leading-5">
             <code>{FILES_WORDS.howToRegisterCode}</code>
           </pre>
         </div>

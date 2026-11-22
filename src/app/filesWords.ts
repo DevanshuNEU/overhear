@@ -14,10 +14,14 @@ export const FILES_WORDS = {
   howTo: "How to save them",
   howToLead: "In your agent, save the report when each session ends:",
   howToRegister: "Pass the function as on_session_end when you register the session:",
-  howToCode: `async def on_session_end(ctx):
+  howToCode: `import json
+from pathlib import Path
+
+async def on_session_end(ctx):
     report = ctx.make_session_report()
     Path("reports").mkdir(exist_ok=True)
-    Path(f"reports/{report.job_id}.json").write_text(json.dumps(report.to_dict()))`,
+    path = Path("reports") / f"{report.job_id}.json"
+    path.write_text(json.dumps(report.to_dict()))`,
   howToRegisterCode: "@server.rtc_session(on_session_end=on_session_end)",
   noneRead: "Overhear couldn’t use any of those files.",
   serverDown: "Couldn’t reach Overhear on this computer. Check that it is still running, then try again.",

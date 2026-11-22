@@ -76,7 +76,11 @@ describe("the connect screen's LiveKit section", () => {
     const code = details.querySelector("pre")!.textContent!;
     expect(code).toContain("async def on_session_end(ctx):");
     expect(code).toContain("ctx.make_session_report()");
-    expect(code).toContain('Path(f"reports/{report.job_id}.json").write_text(json.dumps(report.to_dict()))');
+    expect(code).toContain('import json');
+    expect(code).toContain('from pathlib import Path');
+    expect(code).toContain('path = Path("reports") / f"{report.job_id}.json"');
+    expect(code).toContain('path.write_text(json.dumps(report.to_dict()))');
+    expect(details.querySelector("pre")).toHaveClass("overflow-x-auto", "whitespace-pre");
     expect(details.textContent).toContain("@server.rtc_session(on_session_end=on_session_end)");
   });
 
