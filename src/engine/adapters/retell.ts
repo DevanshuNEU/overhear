@@ -13,7 +13,9 @@ import type { Evidence, Item } from "@/report/schema";
 import { InputError, type Outcome } from "../types";
 import { GAP_DETAIL } from "../wording";
 
-export type TranscriptSource = "transcript_with_tool_calls" | "scrubbed_transcript_with_tool_calls" | "transcript_object";
+export type TranscriptSource = RetellSource | "chat_history";
+
+type RetellSource = "transcript_with_tool_calls" | "scrubbed_transcript_with_tool_calls" | "transcript_object";
 
 /** Evidence and the transcript it was read from, or no_content with the reason. */
 export type Adapted =
@@ -24,7 +26,7 @@ export type Adapted =
 type Rec = Record<string, unknown>;
 type CallFields = Evidence["callFields"];
 
-const SOURCES: TranscriptSource[] = ["transcript_with_tool_calls", "scrubbed_transcript_with_tool_calls", "transcript_object"];
+const SOURCES: RetellSource[] = ["transcript_with_tool_calls", "scrubbed_transcript_with_tool_calls", "transcript_object"];
 
 /** Disconnection reasons that mean nobody was ever on the line: a dial that failed or a web caller who never joined. */
 const NEVER_CONNECTED = new Set<unknown>([

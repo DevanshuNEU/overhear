@@ -16,16 +16,16 @@ A case is one raw call record plus what the engine should say about it. It is on
 |---|---|
 | `schemaVersion` | `1`. |
 | `id` | Stable, lowercase words and digits joined by hyphens. The file name is the id. |
-| `source` | `real` (a call that happened, scrubbed), `mutation` (a programmatic edit of another case) or `external` (converted from data someone else built, such as a public benchmark). |
-| `independent` | `true` only for data we did not build. A mutation is never independent. |
-| `platform` | `retell`. |
+| `source` | `real` (a call that happened, scrubbed), `mutation` (a programmatic edit of another case) `external` (converted from data someone else built, such as a public benchmark) or `generated` (the output of a platform's own library, run from a script we wrote: not a real call, not a mutation, not someone else's data). |
+| `independent` | `true` only for data we did not build. A mutation and a generated case are never independent. |
+| `platform` | `retell` or `livekit`. |
 | `locked` | When `true`, CI fails if the engine's verdict differs from `expect.verdict`. |
 | `label` | `by` (who decided the truth), `at` (a date, or a date and time) and an optional `note` saying why. |
 | `derivedFrom` | For a mutation, and only a mutation: the id of its parent case. |
 | `tz` | Optional. The IANA time zone spoken times are read in when the agent's policy names none. Default `UTC`. |
 | `pin` | Optional. Only on a pinned call (see "Pinned calls"). |
 | `expect` | `verdict` (`failed`, `needs_review`, `passed` or `nothing_done`); optional `contracts`, the result a person checked for each contract; optional `experience`, the call experience checks a person kept, each `problem` or `clean`; optional `mustCite`, turns and tool items (by evidence `seq`) a contract's findings must cite. |
-| `record` | The raw record exactly as the platform's API returns it (Retell: `GET /v2/get-call`), scrubbed. |
+| `record` | The raw record exactly as the platform's API returns it (Retell: `GET /v2/get-call`; LiveKit: the JSON of `SessionReport.to_dict()`), scrubbed. |
 
 The schema also refuses an expectation that contradicts itself: a violated contract with a verdict other than `failed`, an unverified contract with `passed`, or `mustCite` on a contract expected not to apply.
 
@@ -110,4 +110,4 @@ Data we built (our demo calls, mutations, scripted test calls) tells us whether 
 
 ## The engine the harness runs
 
-The harness runs `analyzeRetellCall`, exported as `engine` from `src/engine/eval/engine.ts`. Before the engine existed it ran a stand-in that answered every record with `engine not built yet`. A test fails if the stand-in is ever the engine again, because every number in the report would then be about it.
+The harness runs `analyzeRecord` (Retell and LiveKit records), exported as `engine` from `src/engine/eval/engine.ts`. Before the engine existed it ran a stand-in that answered every record with `engine not built yet`. A test fails if the stand-in is ever the engine again, because every number in the report would then be about it.

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { failedSample } from "@/report/samples";
-import { analyzeRetellCall } from "../analyze";
+import { analyzeRecord } from "../analyze";
 import { toRetell } from "../testing/retell";
 import { engine, engineLabel, engineNotBuiltYet, isStandIn } from "./engine";
 
@@ -18,14 +18,14 @@ describe("the engine the eval runs", () => {
 
   it("labels the engine for the report", () => {
     expect(engineLabel(engineNotBuiltYet)).toBe("stand-in (engine not built yet)");
-    expect(engineLabel(() => ({ kind: "no_content", callId: "x", reason: "no_transcript" }))).toBe("analyzeRetellCall");
+    expect(engineLabel(() => ({ kind: "no_content", callId: "x", reason: "no_transcript" }))).toBe("analyzeRecord");
   });
 
   // The stand-in must never be the engine the eval runs, or every eval number is about it.
-  it("is the real engine, analyzeRetellCall, not the stand-in", () => {
-    expect(engine).toBe(analyzeRetellCall);
+  it("is the real engine, analyzeRecord, not the stand-in", () => {
+    expect(engine).toBe(analyzeRecord);
     expect(isStandIn(engine)).toBe(false);
-    expect(engineLabel(engine)).toBe("analyzeRetellCall");
+    expect(engineLabel(engine)).toBe("analyzeRecord");
   });
 
   it("the real engine answers a call record with a report", () => {

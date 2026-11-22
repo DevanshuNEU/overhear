@@ -2,7 +2,7 @@
 
 Written by `npm run eval:engine` from the cases in `eval/engine/cases/`. Do not edit it by hand. What each number means: `docs/evals.md`.
 
-Engine: analyzeRetellCall.
+Engine: analyzeRecord.
 
 Independent and constructed data are measured separately and never pooled. A rate with n = 0 is no data.
 
@@ -12,37 +12,43 @@ No cases yet.
 
 ## Constructed data
 
-42 cases (real 3, mutation 39, external 0). Engine outcomes: 42 reports, 0 with no content, 0 errors.
+48 cases (real 3, mutation 39, external 0, generated 6). Engine outcomes: 48 reports, 0 with no content, 0 errors.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 100% (42 of 42) | 42 | 92% to 100% |
-| Verdict accuracy | 100% (42 of 42) | 42 | 92% to 100% |
-| Precision of failed | 100% (17 of 17) | 17 | 82% to 100% |
-| Recall of failed | 100% (17 of 17) | 17 | 82% to 100% |
-| False failed on normal calls | 0% (0 of 7) | 7 | 0% to 35% |
+| Cases passing every check | 100% (48 of 48) | 48 | 93% to 100% |
+| Verdict accuracy | 100% (48 of 48) | 48 | 93% to 100% |
+| Precision of failed | 100% (19 of 19) | 19 | 83% to 100% |
+| Recall of failed | 100% (19 of 19) | 19 | 83% to 100% |
+| False failed on normal calls | 0% (0 of 8) | 8 | 0% to 32% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 42 | 100% (42 of 42) | 100% (6 of 6) | 100% (6 of 6) | 0% (0 of 7) | 16% (6 of 38) |
-| verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 7) | no data (n = 0) |
-| spoken_matches_committed | 42 | 100% (42 of 42) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 7) | 17% (5 of 29) |
-| transfer_kept | 42 | 100% (42 of 42) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 7) | 40% (6 of 15) |
-| committed_matches_request | 42 | 100% (42 of 42) | no data (n = 0) | no data (n = 0) | 0% (0 of 7) | no data (n = 0) |
+| promise_backed | 45 | 100% (45 of 45) | 100% (8 of 8) | 100% (8 of 8) | 0% (0 of 8) | 15% (6 of 41) |
+| verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 8) | no data (n = 0) |
+| spoken_matches_committed | 42 | 100% (42 of 42) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 8) | 17% (5 of 30) |
+| transfer_kept | 45 | 100% (45 of 45) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 8) | 47% (8 of 17) |
+| committed_matches_request | 42 | 100% (42 of 42) | no data (n = 0) | no data (n = 0) | 0% (0 of 8) | no data (n = 0) |
 
 Verdicts, expected (rows) by what the engine said (columns):
 
 | Expected | failed | needs_review | passed | nothing_done | no_content | error |
 | --- | --- | --- | --- | --- | --- | --- |
-| failed | 17 | 0 | 0 | 0 | 0 | 0 |
-| needs_review | 0 | 17 | 0 | 0 | 0 | 0 |
-| passed | 0 | 0 | 7 | 0 | 0 | 0 |
-| nothing_done | 0 | 0 | 0 | 1 | 0 | 0 |
+| failed | 19 | 0 | 0 | 0 | 0 | 0 |
+| needs_review | 0 | 19 | 0 | 0 | 0 | 0 |
+| passed | 0 | 0 | 8 | 0 | 0 | 0 |
+| nothing_done | 0 | 0 | 0 | 2 | 0 | 0 |
 
 ## Cases
 
 | Case | Data | Source | Locked | Expected | Engine said | Passes |
 | --- | --- | --- | --- | --- | --- | --- |
+| livekit-booked-no-tool | constructed | generated | yes | failed | failed | yes |
+| livekit-booking-error-said-booked | constructed | generated | yes | failed | failed | yes |
+| livekit-booking-success | constructed | generated | yes | passed | passed | yes |
+| livekit-caller-hung-up-mid-announcement | constructed | generated | yes | needs_review | needs_review | yes |
+| livekit-interrupted-turn | constructed | generated | yes | nothing_done | nothing_done | yes |
+| livekit-transfer-no-tool | constructed | generated | yes | needs_review | needs_review | yes |
 | mut-agent-reads-tool-call-aloud | constructed | mutation | yes | failed | failed | yes |
 | mut-booking-after-claim | constructed | mutation | yes | failed | failed | yes |
 | mut-booking-call-deleted | constructed | mutation | yes | failed | failed | yes |

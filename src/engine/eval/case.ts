@@ -13,12 +13,14 @@ export const CASE_SCHEMA_VERSION = 1;
 
 /**
  * Where a case came from. real: a call that happened, scrubbed. mutation: a programmatic edit of another case,
- * named in derivedFrom. external: converted from data someone else built, such as a public benchmark.
+ * named in derivedFrom. external: converted from data someone else built, such as a public benchmark. generated:
+ * the output of a platform's own library, run from a script we wrote: not a real call, not a mutation, not someone
+ * else's data, so never independent.
  */
-export const CASE_SOURCES = ["real", "mutation", "external"] as const;
+export const CASE_SOURCES = ["real", "mutation", "external", "generated"] as const;
 
-/** Platforms whose raw records the engine reads. LiveKit joins in M2. */
-export const CASE_PLATFORMS = ["retell"] as const;
+/** Platforms whose raw records the engine reads. */
+export const CASE_PLATFORMS = ["retell", "livekit"] as const;
 
 /** Lowercase words and digits joined by hyphens, such as "sample-failed" or "mut-drop-success-001". */
 const CASE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -124,7 +126,7 @@ export const EvalCaseSchema = z
     // Present only on a call a person pinned as a regression test (see docs/evals.md).
     pin: PinSchema.optional(),
     expect: ExpectSchema,
-    // The raw platform record, scrubbed, exactly as the platform's API returns it (Retell: GET /v2/get-call).
+    // The raw platform record, scrubbed, exactly as the platform's API returns it (Retell: GET /v2/get-call; LiveKit: SessionReport.to_dict()).
     record: z.record(z.string(), z.unknown()),
   })
   .superRefine((c, ctx) => {
@@ -136,6 +138,9 @@ export const EvalCaseSchema = z
     }
     if (c.source === "mutation" && c.independent) {
       ctx.addIssue({ code: "custom", path: ["independent"], message: "a mutation is data we built, so it is never independent" });
+    }
+    if (c.source === "generated" && c.independent) {
+      ctx.addIssue({ code: "custom", path: ["independent"], message: "a generated case comes from a script we wrote, so it is never independent" });
     }
     if (c.pin !== undefined) {
       const need = (ok: boolean, path: string, message: string): void => {

@@ -481,15 +481,33 @@ export type NoContentReason = (typeof NO_CONTENT_REASONS)[number];
 
 /** The sentence a call shows in place of a verdict when it has no report. */
 export const NO_CONTENT_LINE: Record<NoContentReason, string> = {
-  storage_stripped: "Retell didn't keep this call's transcript, because the agent stores only basic call details.",
+  storage_stripped: "The platform didn't keep this call's transcript, because the agent stores only basic call details.",
   never_connected: "The call never connected, so there's no conversation to check.",
-  no_transcript: "Retell returned no transcript for this call.",
+  no_transcript: "The call record has no transcript.",
 };
 
 /** What the engine says about a record it cannot read as a Retell call, and what to pass instead. */
 export const NOT_A_RETELL_CALL = {
   message: "This isn't a Retell call record: it has no call_id.",
   fix: "Pass the body of Retell's get-call response, or a webhook body that holds it under call.",
+};
+
+/** What the engine says about a record it cannot read as a LiveKit session report, and what to pass instead. */
+export const NOT_A_LIVEKIT_REPORT = {
+  message: "This isn't a LiveKit session report: it has no chat_history.items list, or none of job_id, room_id and sdk_version.",
+  fix: "Pass the JSON of SessionReport.to_dict() (Python) or sessionReportToJSON (Node), written with the chat history included.",
+};
+
+/** A LiveKit report with no call id: job_id, room_id and room are all missing or empty. */
+export const LIVEKIT_NO_CALL_ID = {
+  message: "This LiveKit session report has no job_id, room_id or room, so it has no id to name the call by.",
+  fix: "Pass the report as SessionReport.to_dict() writes it, which always includes job_id.",
+};
+
+/** What the engine says about a record that is neither a Retell call nor a LiveKit session report. */
+export const NOT_A_CALL_RECORD = {
+  message: "Couldn't read this as a call. Overhear reads two formats: a Retell call (an object with a call_id) and a LiveKit session report (an object with chat_history.items and a job_id, room_id or sdk_version).",
+  fix: "Pass the body of Retell's get-call response, or the JSON of LiveKit's SessionReport.to_dict().",
 };
 
 // ---------- Keep as a test (local mode) ----------

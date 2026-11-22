@@ -81,7 +81,7 @@ describe("renderReportMarkdown", () => {
   it("shows a real engine's verdicts and passes", () => {
     const real: Analyze = () => ({ kind: "report", report: m1View(failedSample) });
     const out = md(real);
-    expect(out).toContain("Engine: analyzeRetellCall");
+    expect(out).toContain("Engine: analyzeRecord");
     expect(out).toContain("| a-failed | constructed | real | yes | failed | failed | yes |");
     expect(out).toContain("| Verdict accuracy | 50% (1 of 2) | 2 |");
   });

@@ -88,7 +88,7 @@ describe("groupMetrics: the verdict", () => {
   it("counts n, outcomes and sources", () => {
     expect(m.n).toBe(7);
     expect(m.outcomes).toEqual({ report: 5, no_content: 0, error: 2 });
-    expect(m.sources).toEqual({ real: 7, mutation: 0, external: 0 });
+    expect(m.sources).toEqual({ real: 7, mutation: 0, external: 0, generated: 0 });
   });
 
   it("fills the confusion table, expected by actual, with every row and column present", () => {

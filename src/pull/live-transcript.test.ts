@@ -243,6 +243,8 @@ describe("when the upstream socket closes", () => {
     await begin();
     const stream = await open({ ...FAST, now: () => Date.now() + 16 * 60 * 1000 });
     expect(await stream.all()).toEqual([{ name: "end", data: {} }]);
+    // Nothing to stream, so no socket to Retell is opened at all.
+    expect(monitor!.connections).toHaveLength(0);
   });
 
   it("ends when Retell closes normally", async () => {
