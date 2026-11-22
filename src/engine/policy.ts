@@ -6,6 +6,9 @@
 import { CONTRACT_IDS, PolicySchema, type ContractId, type Evidence, type Policy } from "@/report/schema";
 import northwind from "./presets/northwind-clinic.json";
 
+/** Where a call's policy came from: the demo's preset, the team's own file, or a guess from tool names. */
+export type PolicySource = "preset" | "user" | "inferred";
+
 export type Pack = Policy["packs"][number];
 export type ToolPolicy = Policy["tools"][string];
 type FieldPolicy = Policy["fields"][string];
@@ -55,7 +58,7 @@ export type AgentRef = {
  * the scrubbed samples, falls back to the shape rule: it must look like the demo agent by more than its tool names,
  * which are common (see isDemoShaped).
  */
-export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: "preset" | "inferred" } {
+export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: PolicySource } {
   const { agentId, demoAgentId } = agent;
   const isDemo = agentId ? demoAgentId !== undefined && demoAgentId !== "" && agentId === demoAgentId : isDemoShaped(ev);
   if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset" };

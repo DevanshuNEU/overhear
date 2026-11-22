@@ -1,7 +1,8 @@
 // One batch of opened files in, the store updated, one list of what was set aside out. Each file is parsed, run through
-// the engine's analyzeRecord (a Retell call or a LiveKit session report) with this machine's zone, and kept by its call
+// the engine's analyzeRecord (a Retell call or a LiveKit session report) with this machine's zone (and the policy in the Overhear folder, when there is one), and kept by its call
 // id. Nothing a file contains is put in a problem: only its name and a fixed reason.
 import { analyzeRecord } from "@/engine/analyze";
+import { loadLocalPolicy } from "@/local-store/policy-file";
 import { machineZone } from "@/pull/analyzer";
 import { MAX_FILE_BYTES, type FileProblem, type ProblemReason } from "./labels";
 import { addProblem, addReport } from "./store";
@@ -38,7 +39,7 @@ export function ingestFiles(files: OpenedFile[]): FileProblem[] {
       skip(file, "not_json");
       continue;
     }
-    const outcome = analyzeRecord(raw, { tz: machineZone() });
+    const outcome = analyzeRecord(raw, { tz: machineZone(), policy: loadLocalPolicy() });
     if (outcome.kind === "report") {
       if (addReport(file, outcome.report) === "full") skip(file, "list_full");
     } else if (outcome.kind === "no_content") {

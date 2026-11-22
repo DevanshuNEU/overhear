@@ -5,11 +5,11 @@
 // engine cannot read, a bug that throws, or a report the schema rejects is an error with a plain message: a wrong
 // report is worse than none, so an invalid one is never returned.
 import { NOT_A_CALL_RECORD } from "@/report/labels";
-import { CallReportSchema } from "@/report/schema";
+import { CallReportSchema, PolicySchema, type Policy } from "@/report/schema";
 import { fromLiveKit, isLiveKitReport } from "./adapters/livekit";
 import { fromRetell, type Adapted } from "./adapters/retell";
 import { checkCall } from "./check";
-import { policyFor } from "./policy";
+import { policyFor, type PolicySource } from "./policy";
 import { InputError, type Analyze, type EngineOptions, type Outcome } from "./types";
 
 /** One Retell call in, one Outcome out. Kept for the callers that only ever hold Retell records. */
@@ -30,7 +30,7 @@ function run(read: (raw: unknown) => Adapted, raw: unknown, opts: EngineOptions)
   try {
     const adapted = read(raw);
     if (adapted.kind === "no_content") return adapted;
-    const { policy, source } = policyFor(adapted.evidence, { agentId: adapted.agentId, demoAgentId: opts.demoAgentId });
+    const { policy, source } = chosenPolicy(adapted, opts);
     const report = checkCall(adapted.evidence, policy, { tz: opts.tz, policySource: source });
     const valid = CallReportSchema.safeParse(report);
     if (!valid.success) {
@@ -43,6 +43,18 @@ function run(read: (raw: unknown) => Adapted, raw: unknown, opts: EngineOptions)
     const why = err instanceof InputError ? `${err.message} ${err.fix}` : `Couldn't check this call: ${err instanceof Error ? err.message : String(err)}`;
     return { kind: "error", callId: callIdOf(raw) ?? liveKitIdOf(raw), message: why };
   }
+}
+
+/** The team's policy when the caller gave one, else the preset or inferred policy for this call. */
+function chosenPolicy(adapted: Extract<Adapted, { kind: "evidence" }>, opts: EngineOptions): { policy: Policy; source: PolicySource } {
+  if (opts.policy === undefined) return policyFor(adapted.evidence, { agentId: adapted.agentId, demoAgentId: opts.demoAgentId });
+  const valid = PolicySchema.safeParse(opts.policy);
+  if (!valid.success) {
+    const first = valid.error.issues[0];
+    const where = first.path.length > 0 ? ` at ${first.path.join(".")}` : "";
+    throw new InputError(`The policy is not valid (${first.message}${where}).`, "Fix the policy against docs/policy.md.");
+  }
+  return { policy: valid.data, source: "user" };
 }
 
 /** The record's call id, when it has a readable one: the record's own or the one a webhook body holds under call. */

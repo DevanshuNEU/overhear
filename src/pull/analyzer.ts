@@ -1,9 +1,10 @@
 // The analyzer the pull routes pass in: the engine's analyzeRetellCall with this machine's time zone and the demo
 // agent's id (OVERHEAR_DEMO_AGENT_ID, else RETELL_AGENT_ID). The engine reads no machine settings, so both are read
 // here and handed over. A local user's own agents never get the demo's preset: with neither variable set, no call that
-// carries an agent id does.
+// carries an agent id does. A valid policy.json in the Overhear folder (docs/policy.md) is the policy for every call.
 import { analyzeRetellCall } from "@/engine/analyze";
 import type { Outcome } from "@/engine/types";
+import { loadLocalPolicy } from "@/local-store/policy-file";
 
 export function machineZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -23,5 +24,5 @@ function demoAgentId(): string | undefined {
 }
 
 export function analyzeCall(raw: unknown): Outcome {
-  return analyzeRetellCall(raw, { tz: machineZone(), demoAgentId: demoAgentId() });
+  return analyzeRetellCall(raw, { tz: machineZone(), demoAgentId: demoAgentId(), policy: loadLocalPolicy() });
 }

@@ -18,7 +18,7 @@ import {
 } from "@/report/schema";
 import { changes, providerNames } from "../committed";
 import { detectAll } from "../detect-speech";
-import { policyFor } from "../policy";
+import { policyFor, type PolicySource } from "../policy";
 import preset from "../presets/northwind-clinic.json";
 import { resolveOk } from "../resolve-ok";
 import { assertValidReport, ev, type ItemSpec } from "../testing/build";
@@ -92,7 +92,7 @@ interface Run {
 }
 
 /** Runs transfer_kept the way the pipeline will, then checks the output against the report schema. */
-function runWith(input: Evidence, policy: Policy, policySource: "preset" | "inferred"): Run {
+function runWith(input: Evidence, policy: Policy, policySource: PolicySource): Run {
   const evidence = resolveOk(input, policy);
   const ctx: ContractContext = {
     ev: evidence,
