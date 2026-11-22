@@ -38,7 +38,7 @@ export const SPEECH_CLASSES = ["completion", "transfer", "intention", "offer", "
 // The call experience checks: how the call sounded to the caller, apart from the contracts. A check that ran and
 // found nothing is listed in experience.ran with no problem.
 export const EXPERIENCE_CHECKS = ["agent_ends_call", "error_handled", "spoken_format"] as const;
-export const REVIEW_REASON_KINDS = ["unverified_result", "deferral", "unanswered_request"] as const;
+export const REVIEW_REASON_KINDS = ["unverified_result", "deferral", "tool_failed", "unanswered_request"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 export type ChangeKind = (typeof CHANGE_KINDS)[number];

@@ -3,7 +3,7 @@
 // checked or the agent deferred, passed otherwise, with the notes and the headline that go with it.
 import { describe, expect, it } from "vitest";
 import { REASON_LINE, headlineFor } from "@/report/labels";
-import type { ContractId, ContractResult, Detection, Finding, Gap, Result } from "@/report/schema";
+import { PolicySchema, type ContractId, type ContractResult, type Detection, type Finding, type Gap, type Result } from "@/report/schema";
 import { ev, type ItemSpec } from "./testing/build";
 import { NOTHING_DONE_MAX_CALLER_WORDS, verdictFor } from "./verdict";
 
@@ -252,5 +252,93 @@ describe("verdictFor: Nothing done", () => {
   it("a short call where a contract ran and passed is passed, not nothing_done", () => {
     const kept = withResult("promise_backed", contract("promise_backed", "passed", [finding("passed")]));
     expect(verdictFor(kept, [], short()).verdict).toBe("passed");
+  });
+});
+
+describe("verdictFor: a tool failed and nothing was done after it (OVE-74)", () => {
+  const POLICY = PolicySchema.parse({
+    packs: ["scheduling"],
+    tools: { check_availability: { role: "lookup" }, book_appointment: { role: "change", kind: "book" }, cancel_appointment: { role: "change", kind: "cancel" } },
+    fields: {},
+  });
+  const outcome = (id: string, ok: boolean | null): ItemSpec => ({ kind: "tool_result", id, ok, platformOk: ok, payload: {} });
+  const claim = (seq: number): Detection => ({ seq, cls: "completion", kind: "book", quote: "You're booked", source: "code" });
+  const verdict = (items: ItemSpec[], detections: Detection[] = [], over: Partial<Parameters<typeof ev>[1]> = {}) =>
+    verdictFor(NOT_APPLICABLE, detections, ev(items, over), POLICY);
+
+  it("a failed lookup with nothing after it is needs_review with a tool_failed reason naming the tool and the time", () => {
+    const v = verdict([agent("One moment.", 20), call("l1", "check_availability"), outcome("l1", false), agent("Please try calling back shortly.", 32)]);
+    expect(v.verdict).toBe("needs_review");
+    expect(v.reasons).toEqual([{ kind: "tool_failed", text: "A tool failed at 0:20 and the caller's request wasn't done (check_availability).", seqs: [2, 3] }]);
+    expect(v.headline).toBe(REASON_LINE.tool_failed);
+    expect(v.notes).toEqual([]);
+  });
+
+  it("a failed change with nothing after it is the same", () => {
+    const v = verdict([agent("Booking.", 5), call("b1", "book_appointment"), outcome("b1", false), agent("It didn't go through.", 15)]);
+    expect(v.reasons.map((r) => r.kind)).toEqual(["tool_failed"]);
+    expect(v.reasons[0].text).toContain("(book_appointment)");
+  });
+
+  it("a failed lookup followed by a successful retry of the same tool is passed", () => {
+    const v = verdict([call("l1", "check_availability"), outcome("l1", false), call("l2", "check_availability"), outcome("l2", true), agent("Here is what I have.", 40)]);
+    expect(v.verdict).toBe("passed");
+    expect(v.reasons).toEqual([]);
+  });
+
+  it("a later success of the same role counts even when it is another tool", () => {
+    const v = verdict([call("b1", "book_appointment"), outcome("b1", false), call("c1", "cancel_appointment"), outcome("c1", true), agent("Done.", 40)]);
+    expect(v.verdict).toBe("passed");
+  });
+
+  it("a failure after the success is not recovered by it", () => {
+    const v = verdict([call("l1", "check_availability"), outcome("l1", true), call("l2", "check_availability"), outcome("l2", false), agent("Sorry.", 40)]);
+    expect(v.reasons.map((r) => r.kind)).toEqual(["tool_failed"]);
+  });
+
+  it("a failed lookup whose request was later done by a change the agent claimed is passed", () => {
+    const v = verdict(
+      [call("l1", "check_availability"), outcome("l1", false), call("b1", "book_appointment"), outcome("b1", true), agent("You're booked for Friday.", 40)],
+      [claim(5)],
+    );
+    expect(v.verdict).toBe("passed");
+  });
+
+  it("a later change with no claim after it does not settle the failure", () => {
+    const v = verdict([call("l1", "check_availability"), outcome("l1", false), call("b1", "book_appointment"), outcome("b1", true), agent("Anything else?", 40)]);
+    expect(v.reasons.map((r) => r.kind)).toEqual(["tool_failed"]);
+  });
+
+  it("a result that doesn't say whether the tool worked is not a failure", () => {
+    const v = verdict([call("b1", "book_appointment"), outcome("b1", null), agent("Anything else?", 40)]);
+    expect(v.verdict).toBe("passed");
+  });
+
+  it("a violated contract stays failed, never needs_review", () => {
+    const results = withResult("promise_backed", contract("promise_backed", "violated", [finding("violated")]));
+    const v = verdictFor(results, [], ev([call("l1", "check_availability"), outcome("l1", false), agent("Booked.", 9)]), POLICY);
+    expect(v.verdict).toBe("failed");
+    expect(v.reasons).toEqual([]);
+  });
+
+  it("another reason already says the call needs review, so no second reason is added", () => {
+    const v = verdictFor(NOT_APPLICABLE, [deferral(4)], ev([call("l1", "check_availability"), outcome("l1", false), agent("I can help once it's back online", 9)]), POLICY);
+    expect(v.reasons.map((r) => r.kind)).toEqual(["deferral"]);
+  });
+
+  it("with ordering none nothing is later, so it says nothing", () => {
+    const v = verdict([call("l1", "check_availability"), outcome("l1", false), agent("Sorry.", 9)], [], { ordering: "none" });
+    expect(v.verdict).toBe("passed");
+  });
+
+  it("without a policy there are no roles to read, so it says nothing", () => {
+    const v = verdictFor(NOT_APPLICABLE, [], ev([call("l1", "check_availability"), outcome("l1", false), agent("Sorry.", 9)]));
+    expect(v.verdict).toBe("passed");
+  });
+
+  it("names every tool still failed, once, at the time of the first", () => {
+    const v = verdict([agent("Trying.", 4), call("l1", "check_availability"), outcome("l1", false), agent("Again.", 9), call("b1", "book_appointment"), outcome("b1", false)]);
+    expect(v.reasons[0].text).toBe("A tool failed at 0:04 and the caller's request wasn't done (check_availability and book_appointment).");
+    expect(v.reasons[0].seqs).toEqual([2, 3, 5, 6]);
   });
 });

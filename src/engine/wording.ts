@@ -270,6 +270,11 @@ export function noWayForwardText(failedSeq: number, ev: Evidence): string {
   return `A tool failed at ${formatTime(failedSeq, ev)}, and the agent offered no way forward: no callback, no person to talk to, no time to try again.`;
 }
 
+/** The review reason for a tool that failed with nothing done after it: when it failed, and which tools. */
+export function toolFailedText(time: string, tools: string[]): string {
+  return `A tool failed at ${time} and the caller's request wasn't done (${nameList(tools)}).`;
+}
+
 /** A turn where the agent said something, with each thing it said quoted as it was said. */
 export interface SaidAt {
   seq: number;

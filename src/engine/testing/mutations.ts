@@ -87,6 +87,14 @@ function appendTurn(record: Rec, role: "agent" | "user", content: string): Rec {
   return record;
 }
 
+/** Ends the call right after the result of a tool call: everything later is cut, the caller hangs up. */
+function endAfterTool(record: Rec, id: string, durationMs: number): Rec {
+  record[TRANSCRIPT] = utterances(record).slice(0, toolIndex(record, id, "tool_call_result") + 1);
+  record.duration_ms = durationMs;
+  record.disconnection_reason = "user_hangup";
+  return record;
+}
+
 /** Adds a tool call and its result at the end of the call. */
 function appendTool(record: Rec, call: Rec, result: Rec): Rec {
   utterances(record).push(call, result);
@@ -474,6 +482,29 @@ export const MUTATIONS: readonly Mutation[] = [
       ),
     expect: { verdict: "failed", promise_backed: "violated", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
     cites: [{ contract: "promise_backed", turn: "paged the on-call surgeon" }],
+  },
+
+  // verdict: a tool failed and nothing was done after it (OVE-74).
+  {
+    id: "mut-lookup-failed-nothing-done-after",
+    parent: PASSED,
+    note: "The shape of a real call: the agent looks up availability, the lookup fails (HTTP 404, the platform says it did not succeed), the agent says to call back shortly and the caller hangs up. No booking was promised, so no rule is broken, but the caller's request was not done and no later lookup worked: needs review with a tool_failed reason, never Passed and never Failed.",
+    edit: (r) =>
+      appendTurn(
+        setResult(endAfterTool(r, "tc_01", 62000), "tc_01", { error: "404 Not Found" }, false),
+        "agent",
+        "Sorry, the calendar isn\u2019t responding. Please try calling back shortly.",
+      ),
+    expect: { verdict: "needs_review", promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
+    reasons: ["tool_failed"],
+  },
+  {
+    id: "mut-lookup-failed-then-retry-worked",
+    parent: PASSED,
+    note: "The first availability lookup fails, and the agent looks up again later in the call and the retry works; the booking then goes through as before. The failure was recovered, so it adds no reason and the call keeps the parent's verdict.",
+    edit: (r) => setResult(r, "tc_01", { error: "404 Not Found" }, false),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+    reasons: [],
   },
 
   // transfer_kept: "I'm transferring you" needs a transfer that was attempted and worked.

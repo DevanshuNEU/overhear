@@ -64,7 +64,7 @@ export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): 
     schemaVersion: SCHEMA_VERSION,
     callId: evidence.callId,
     platform: evidence.platform,
-    ...verdictFor(results, detections, evidence),
+    ...verdictFor(results, detections, evidence, policy),
     experience: runExperience(evidence, { detections, tz: ctx.tz }),
     results,
     detections,

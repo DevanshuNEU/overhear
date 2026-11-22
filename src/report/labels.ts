@@ -62,10 +62,11 @@ export const NOTE_LINE: Record<Note, string> = {
 export const REASON_LINE: Record<ReviewReasonKind, string> = {
   unverified_result: "Something couldn't be checked. See what's missing.",
   deferral: "The agent deferred the caller's request instead of completing it.",
+  tool_failed: "A tool failed, and the caller's request wasn't done.",
   unanswered_request: "The caller asked for something the agent neither did nor refused.",
 };
 
-const REASON_ORDER: ReviewReasonKind[] = ["unverified_result", "deferral", "unanswered_request"];
+const REASON_ORDER: ReviewReasonKind[] = ["unverified_result", "deferral", "tool_failed", "unanswered_request"];
 
 /** The one line a call shows for its verdict, notes and reasons, word for word from spec 6.8. */
 export function headlineFor(verdict: Verdict, notes: Note[], reasons: { kind: ReviewReasonKind }[]): string {
@@ -125,6 +126,7 @@ export const GAP_LABEL: Record<GapCode, string> = {
 export const REASON_TAG: Record<ReviewReasonKind, string> = {
   unverified_result: "Couldn't check",
   deferral: "Deferral",
+  tool_failed: "Tool failed",
   unanswered_request: "Unanswered request",
 };
 
@@ -463,6 +465,12 @@ export const GAP_NEXT_STEPS: Partial<Record<GapCode, NextStep[]>> = {};
  * that could not be checked is covered by its gap. A deferral has none yet.
  */
 export const REASON_NEXT_STEPS: Partial<Record<Exclude<ReviewReasonKind, "unverified_result">, NextStep[]>> = {
+  tool_failed: [
+    {
+      lead: "Check why the tool failed.",
+      text: "Open that tool's own logs for this call's time. The call record shows only that it returned an error. Then check what the agent told the caller.",
+    },
+  ],
   unanswered_request: [
     {
       lead: "Check what happened after the request.",

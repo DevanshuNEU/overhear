@@ -132,7 +132,7 @@ describe("the step words", () => {
   });
 
   it("holds reason steps only for reasons that name something, never for an unchecked rule", () => {
-    for (const kind of Object.keys(REASON_NEXT_STEPS)) expect(["deferral", "unanswered_request"]).toContain(kind);
+    for (const kind of Object.keys(REASON_NEXT_STEPS)) expect(["deferral", "tool_failed", "unanswered_request"]).toContain(kind);
   });
 
   it("holds gap steps only for real gap codes, and none yet", () => {
