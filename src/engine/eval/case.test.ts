@@ -89,6 +89,15 @@ describe("parseCase", () => {
     expect(problems(valid({ source: "mutation", derivedFrom: "sample-failed", independent: true }))).toContain("independent");
   });
 
+  it("takes a generated LiveKit case, which is never independent", () => {
+    expect(problems(valid({ source: "generated", platform: "livekit", record: { job_id: "AJ_x" } }))).toBe("");
+    expect(problems(valid({ source: "generated", platform: "livekit", independent: true }))).toContain("independent");
+  });
+
+  it("allows a pinned call only from Retell", () => {
+    expect(problems(valid({ platform: "livekit", pin: { callId: "call_x", agentId: "agent_x", agentVersion: null, pinnedWith: "0.1.0" }, tz: "UTC" }))).toContain("platform");
+  });
+
   it.each([
     ["a passed verdict with a violated contract", { verdict: "passed", contracts: { transfer_kept: "violated" } }],
     ["a needs_review verdict with a violated contract", { verdict: "needs_review", contracts: { transfer_kept: "violated" } }],
