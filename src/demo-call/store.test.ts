@@ -4,7 +4,7 @@ import caseJson from "../../eval/engine/cases/mut-transfer-claim-caller-kept-ask
 vi.mock("@/lib/env", () => ({ env: { RETELL_API_KEY: "key_test_secret", RETELL_AGENT_ID: "agent_demo" } }));
 
 import { EMPTY_TRANSCRIPT_GRACE_MS, RESULT_TIMEOUT_MS } from "@/pull/test-call";
-import { cachedDemoReport, demoCallResult, MAX_READY, MIN_ASK_MS, READY_TTL_MS, resetDemoCalls } from "./store";
+import { cachedDemoReport, demoCallResult, MAX_READY, MIN_ASK_MS, READY_TTL_MS, resetDemoCalls, TOOL_TRANSCRIPT_GRACE_MS } from "./store";
 
 const base = { ...caseJson.record, agent_id: "agent_demo" };
 const rec = (id: string, extra: Record<string, unknown> = {}) => ({ ...base, call_id: id, ...extra });
@@ -58,14 +58,41 @@ describe("demoCallResult", () => {
     expect(await demoCallResult("call_d", deps(getCall))).toEqual({ ok: true, result: { status: "timeout" } });
   });
 
-  it("is ready, not timed out, for a record that has only the scrubbed transcript or only the transcript object", async () => {
+  it("is ready at once for a record that has only the scrubbed transcript with tool calls", async () => {
     const turns = caseJson.record.transcript_with_tool_calls;
     const scrubbed = rec("call_s", { transcript_with_tool_calls: undefined, scrubbed_transcript_with_tool_calls: turns });
-    const objectOnly = rec("call_o", { transcript_with_tool_calls: undefined, transcript_object: turns.filter((t: { role: string }) => t.role === "agent" || t.role === "user") });
-    for (const record of [scrubbed, objectOnly]) {
-      const answer = await demoCallResult(record.call_id, deps(async () => record));
-      expect(answer).toMatchObject({ ok: true, result: { status: "ready" } });
-    }
+    expect(await demoCallResult("call_s", deps(async () => scrubbed))).toMatchObject({ ok: true, result: { status: "ready" } });
+  });
+
+  // Seen on a real demo call (2026-11-22): seconds after the call ends, Retell has transcript_object but not yet
+  // transcript_with_tool_calls. Reading then gives a turns-only report ("couldn't check") and keeps it for an hour.
+  it("waits for the transcript with tool calls while only the transcript object is there, then reads it after the grace", async () => {
+    const turns = caseJson.record.transcript_with_tool_calls.filter((t: { role: string }) => t.role === "agent" || t.role === "user");
+    const early = rec("call_o", { transcript_with_tool_calls: undefined, transcript_object: turns });
+    const full = rec("call_o");
+    const getCall = vi.fn(async () => early);
+    expect(await demoCallResult("call_o", deps(getCall))).toEqual({ ok: true, result: { status: "processing" } });
+    clock += TOOL_TRANSCRIPT_GRACE_MS - 1;
+    expect(await demoCallResult("call_o", deps(getCall))).toEqual({ ok: true, result: { status: "processing" } });
+    getCall.mockImplementation(async () => full);
+    clock += MIN_ASK_MS;
+    const answer = await demoCallResult("call_o", deps(getCall));
+    expect(answer).toMatchObject({ ok: true, result: { status: "ready", row: { verdict: "failed" } } });
+  });
+
+  it("reads a turns-only record as it is once the grace has passed, for accounts that never keep tool calls", async () => {
+    const turns = caseJson.record.transcript_with_tool_calls.filter((t: { role: string }) => t.role === "agent" || t.role === "user");
+    const getCall = vi.fn(async () => rec("call_p", { transcript_with_tool_calls: undefined, transcript_object: turns }));
+    expect(await demoCallResult("call_p", deps(getCall))).toEqual({ ok: true, result: { status: "processing" } });
+    clock += TOOL_TRANSCRIPT_GRACE_MS;
+    expect(await demoCallResult("call_p", deps(getCall))).toMatchObject({ ok: true, result: { status: "ready" } });
+  });
+
+  it("checks a call Retell ended with status error after the visitor talked, and says did not connect only without a conversation", async () => {
+    const talked = vi.fn(async () => rec("call_t", { call_status: "error" }));
+    expect(await demoCallResult("call_t", deps(talked))).toMatchObject({ ok: true, result: { status: "ready", row: { verdict: "failed" } } });
+    const silent = vi.fn(async () => rec("call_u", { call_status: "error", transcript_with_tool_calls: [], transcript_object: [] }));
+    expect(await demoCallResult("call_u", deps(silent))).toEqual({ ok: true, result: { status: "did_not_connect" } });
   });
 
   it("reads an empty transcript as it is once the grace has passed", async () => {

@@ -12,9 +12,10 @@ export const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // The proxy buffers a request body so a route can read it too, and cuts it at 10 MB. Opened session report files
-  // (POST /api/files) may add up to 50 MB, so the buffer is a little larger than that.
-  experimental: { proxyClientMaxBodySize: "64mb" },
+  // The proxy buffers a request body so a route can read it too. Opened session report files (POST /api/files, local mode
+  // only) may add up to 50 MB, so a local copy buffers a little more than that. A hosted copy takes no large body at all,
+  // and buffering 64 MB per request there would let a few uploads exhaust its memory, so it stays at 1 MB.
+  experimental: { proxyClientMaxBodySize: process.env.OVERHEAR_LOCAL === "1" ? "64mb" : "1mb" },
   // Nothing in the app uses next/image, so the optimizer is off and no remote host is allowed.
   images: { remotePatterns: [], unoptimized: true },
   async headers() {

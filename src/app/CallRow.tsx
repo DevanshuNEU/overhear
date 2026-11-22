@@ -20,7 +20,8 @@ type Props = {
   retrying: boolean;
   /** A retry of this call has come back and it is still an error. */
   retryFailed: boolean;
-  onRetry: (callId: string) => void;
+  /** Shown as a Retry button on a call that couldn't be loaded. Leave it out where retrying makes no sense. */
+  onRetry?: (callId: string) => void;
   /** The filter the list is showing, carried to the report so it can step through the same calls. Unset for All. */
   from?: Verdict;
   /** Show when the call started. False on the sample list, whose calls share start times. */
@@ -114,7 +115,7 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
       </span>
       {linked ? (
         <ChevronRight aria-hidden className="hidden size-4 text-report-muted sm:block" />
-      ) : row.state === "error" ? (
+      ) : row.state === "error" && onRetry ? (
         <button
           type="button"
           onClick={() => onRetry(row.callId)}

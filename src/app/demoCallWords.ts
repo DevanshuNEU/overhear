@@ -3,7 +3,7 @@
 
 export const DEMO_CALL_WORDS = {
   lead: "Try it on a call of your own.",
-  body: "Call our demo clinic agent from your browser. Book an appointment, or ask to speak to a nurse: it says it’s transferring you, and it can’t.",
+  body: "Call our demo clinic agent from your browser. Book an appointment or ask for a nurse, hang up, and see what Overhear finds in your call.",
   call: "Call the demo agent",
   finePrint: "Uses your microphone. Retell records calls on our demo account. Overhear keeps yours in memory for an hour and shows it only to you.",
 

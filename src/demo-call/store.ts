@@ -19,6 +19,8 @@ import { getCall, RETELL_ID, toMeta } from "@/pull/retell-source";
 import { CallReportSchema, type CallReport } from "@/report/schema";
 import type { DemoCallErrorCode } from "./words";
 
+/** How long an ended call with turns but no tool calls yet waits for Retell to add them, before it is read as it is. */
+export const TOOL_TRANSCRIPT_GRACE_MS = 45 * 1000;
 /** The least time between two Retell requests for one call. */
 export const MIN_ASK_MS = 2000;
 /** How many outcomes are kept, and for how long. */
@@ -130,16 +132,26 @@ async function ask(callId: string, deps: Deps, now: number): Promise<DemoAnswer>
     if (raw.agent_id !== agentId) return fail("not_found");
 
     const status = raw.call_status;
-    if (status === "error" || status === "not_connected") return { ok: true, result: { status: "did_not_connect" } };
-    if (status !== "ended") return { ok: true, result: { status: "processing" } };
+    // Retell can end a call the visitor really talked on with status "error" (a failure mid-call). That call has turns and is
+    // checked like any other; only an error with no conversation at all means it never connected.
+    const talked = TRANSCRIPT_SOURCES.some((k) => Array.isArray(raw[k]) && (raw[k] as unknown[]).length > 0);
+    if (status === "not_connected" || (status === "error" && !talked)) return { ok: true, result: { status: "did_not_connect" } };
+    if (status !== "ended" && status !== "error") return { ok: true, result: { status: "processing" } };
 
     const endedAt = s.endedAt.get(callId) ?? now;
     s.endedAt.set(callId, endedAt);
     trim(s.endedAt, MAX_TRACKED);
     // The same sources, in the same order, as the engine's Retell adapter: the first one with turns is what it reads.
+    // Retell fills transcript_object first and the transcripts with tool calls a few seconds later (seen on a real demo
+    // call, 2026-11-22). Reading the turns alone would check the call without its tool calls and keep that for an hour,
+    // so a turns-only record waits TOOL_TRANSCRIPT_GRACE_MS for them; after that it is read as it is (an account that
+    // never keeps tool calls).
     const sources = TRANSCRIPT_SOURCES.map((key) => raw[key]);
-    const hasTurns = sources.some((t) => Array.isArray(t) && t.length > 0);
-    if (hasTurns || (sources.some(Array.isArray) && now - endedAt >= EMPTY_TRANSCRIPT_GRACE_MS)) {
+    const has = (t: unknown) => Array.isArray(t) && t.length > 0;
+    const withTools = has(raw.transcript_with_tool_calls) || has(raw.scrubbed_transcript_with_tool_calls);
+    const turnsOnly = !withTools && has(raw.transcript_object);
+    const waited = now - endedAt;
+    if (withTools || (turnsOnly && waited >= TOOL_TRANSCRIPT_GRACE_MS) || (!turnsOnly && sources.some(Array.isArray) && waited >= EMPTY_TRANSCRIPT_GRACE_MS)) {
       const meta = toMeta(raw);
       if (meta === null) return fail("unreadable");
       let outcome = analyze(raw, agentId);
