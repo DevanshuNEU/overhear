@@ -16,16 +16,11 @@ function reqOf(path: string, headers: Record<string, string> = {}, method = "GET
 
 const GOOD_AUTH = { authorization: `Basic ${btoa("user:secret")}` };
 
-// Every page and API route a visitor can reach, before and after the move to /demo.
+// Every page a visitor can reach behind the password.
 const GATED_PATHS = [
   "/",
-  "/demo",
-  "/demo/calls/call_abc",
-  "/calls/call_abc",
   "/reports/call_sample_failed",
-  "/how-it-works",
-  "/eval",
-  "/api/web-call",
+  "/test-call",
 ];
 
 // Retell's server-to-server callbacks and the health check: never behind the password.
@@ -40,7 +35,8 @@ const EXCLUDED_PATHS = [
 ];
 
 describe("proxy", () => {
-  it("allows every request when no password is configured", async () => {
+  it("allows every request when no password is configured, under next dev", async () => {
+    vi.stubEnv("NODE_ENV", "development");
     delete process.env.DASHBOARD_PASSWORD;
     const res = await proxy(reqOf("/"));
     expect(res?.status).not.toBe(401);
@@ -62,11 +58,11 @@ describe("proxy", () => {
 
   it("allows a gated path with the right password", async () => {
     process.env.DASHBOARD_PASSWORD = "secret";
-    const res = await proxy(reqOf("/demo/calls/123", GOOD_AUTH));
+    const res = await proxy(reqOf("/reports/call_sample_failed", GOOD_AUTH));
     expect(res?.status).not.toBe(401);
   });
 
-  it("gates every page and API route, including the moved demo and the report screen", async () => {
+  it("gates every page, the report screen included", async () => {
     process.env.DASHBOARD_PASSWORD = "secret";
     for (const path of GATED_PATHS) {
       const res = await proxy(reqOf(path));
@@ -81,12 +77,6 @@ describe("proxy", () => {
       expect(res?.status, path).not.toBe(401);
       expect(res?.headers.get("location"), path).toBeNull();
     }
-  });
-
-  it("still gates /api/web-call", async () => {
-    process.env.DASHBOARD_PASSWORD = "secret";
-    const res = await proxy(reqOf("/api/web-call"));
-    expect(res?.status).toBe(401);
   });
 
   it("runs on every path, the excluded ones and Next's own files included, so local mode can check them", async () => {
@@ -110,7 +100,7 @@ describe("proxy", () => {
 
   describe("public sample calls (OVERHEAR_PUBLIC_SAMPLES)", () => {
     const PUBLIC = ["/", "/reports/call_sample_failed", "/reports/call_nope"];
-    const STILL_GATED = ["/demo", "/demo/calls/call_abc", "/calls/call_abc", "/how-it-works", "/eval", "/api/web-call", "/reportsx", "/test-call"];
+    const STILL_GATED = ["/test-call", "/reportsx", "/anything-else"];
 
     it("is off by default: every page stays behind the password", async () => {
       vi.stubEnv("OVERHEAR_LOCAL", "");
@@ -152,7 +142,7 @@ describe("proxy", () => {
         process.env.DASHBOARD_PASSWORD = "secret";
         for (const path of DEMO) expect((await proxy(reqOf(path))).status, path).toBe(200);
         expect((await proxy(reqOf("/api/demo-callsx"))).status).toBe(401);
-        expect((await proxy(reqOf("/api/web-call", {}, "POST"))).status).toBe(401);
+        expect((await proxy(reqOf("/api/other", {}, "POST"))).status).toBe(401);
       });
 
       it.each(["", "1"])("refuse a POST whose Origin is another site, with the flag %j", async (flag) => {
@@ -186,29 +176,87 @@ describe("proxy", () => {
     });
   });
 
-  describe("old demo links", () => {
-    it("redirects /calls/{id} to /demo/calls/{id}, keeping the query", async () => {
+  describe("a hosted copy with no password fails closed (M2)", () => {
+    const NOT_PUBLIC = ["/", "/reports/call_sample_failed", "/test-call", "/owner", "/api/demo-calls", "/eval", "/anything"];
+    const hostedNoPassword = (flag: string, nodeEnv = "production") => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", flag);
+      vi.stubEnv("NODE_ENV", nodeEnv);
       delete process.env.DASHBOARD_PASSWORD;
-      const res = await proxy(reqOf("/calls/abc?from=email"));
-      expect(res?.status).toBe(307);
-      expect(new URL(res!.headers.get("location")!).pathname).toBe("/demo/calls/abc");
-      expect(new URL(res!.headers.get("location")!).search).toBe("?from=email");
+    };
+
+    it("answers 503 with a plain sentence on every gated path, in production", async () => {
+      hostedNoPassword("");
+      for (const path of NOT_PUBLIC) {
+        const res = await proxy(reqOf(path));
+        expect(res.status, path).toBe(503);
+        expect(await res.text(), path).toBe("This copy has no password set.");
+      }
     });
 
-    it("asks for the password before redirecting when one is set", async () => {
+    it("also answers 503 when the password is set but blank", async () => {
+      hostedNoPassword("");
+      process.env.DASHBOARD_PASSWORD = "";
+      expect((await proxy(reqOf("/"))).status).toBe(503);
+    });
+
+    it("still serves the public sample paths with the flag on, and 503s the rest, /owner included", async () => {
+      hostedNoPassword("1");
+      for (const path of ["/", "/reports/call_sample_failed", "/api/demo-calls"]) expect((await proxy(reqOf(path))).status, path).toBe(200);
+      for (const path of ["/test-call", "/owner", "/eval"]) expect((await proxy(reqOf(path))).status, path).toBe(503);
+    });
+
+    it("still serves the machine paths and Next assets", async () => {
+      hostedNoPassword("");
+      for (const path of [...EXCLUDED_PATHS, "/_next/static/chunks/app.js", "/favicon.ico"]) expect((await proxy(reqOf(path))).status, path).toBe(200);
+    });
+
+    it("keeps today's open behaviour under next dev", async () => {
+      hostedNoPassword("", "development");
+      for (const path of NOT_PUBLIC) expect((await proxy(reqOf(path))).status, path).toBe(200);
+    });
+  });
+
+  describe("/owner stays behind the password", () => {
+    it.each(["", "1"])("401s without the password and passes with it, with OVERHEAR_PUBLIC_SAMPLES=%j", async (flag) => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", flag);
       process.env.DASHBOARD_PASSWORD = "secret";
-      const denied = await proxy(reqOf("/calls/abc"));
-      expect(denied?.status).toBe(401);
-      expect(denied?.headers.get("location")).toBeNull();
+      expect((await proxy(reqOf("/owner"))).status).toBe(401);
+      expect((await proxy(reqOf("/owner", { authorization: `Basic ${btoa("u:wrong")}` }))).status).toBe(401);
+      expect((await proxy(reqOf("/owner", GOOD_AUTH))).status).toBe(200);
+    });
+  });
 
-      const allowed = await proxy(reqOf("/calls/abc", GOOD_AUTH));
-      expect(allowed?.status).toBe(307);
-      expect(new URL(allowed!.headers.get("location")!).pathname).toBe("/demo/calls/abc");
+  describe("old demo links", () => {
+    const OLD = ["/demo", "/demo/", "/demo/calls/abc", "/calls/abc"];
+
+    it("redirects /demo, /demo/calls/{id} and /calls/{id} to / permanently, dropping the query", async () => {
+      delete process.env.DASHBOARD_PASSWORD;
+      for (const path of OLD) {
+        const res = await proxy(reqOf(`${path}?from=email`));
+        expect(res?.status, path).toBe(308);
+        const to = new URL(res!.headers.get("location")!);
+        expect(to.pathname, path).toBe("/");
+        expect(to.search, path).toBe("");
+      }
     });
 
-    it("does not redirect the new demo paths or the report screen", async () => {
+    it("redirects before the password, so an old link never meets a 401 on its way to /", async () => {
+      process.env.DASHBOARD_PASSWORD = "secret";
+      for (const path of OLD) expect((await proxy(reqOf(path)))?.status, path).toBe(308);
+    });
+
+    it("does the same on a hosted copy with the public samples on", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
+      process.env.DASHBOARD_PASSWORD = "secret";
+      for (const path of OLD) expect((await proxy(reqOf(path)))?.status, path).toBe(308);
+    });
+
+    it("does not redirect the home page, the report screen or the API", async () => {
       delete process.env.DASHBOARD_PASSWORD;
-      for (const path of ["/", "/demo", "/demo/calls/abc", "/reports/call_sample_failed"]) {
+      for (const path of ["/", "/reports/call_sample_failed", "/api/calls/abc", "/api/demo-calls"]) {
         const res = await proxy(reqOf(path));
         expect(res?.headers.get("location"), path).toBeNull();
       }
@@ -224,7 +272,7 @@ function localMode() {
 
 describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
   const LOOPBACK = { host: "localhost:3000" };
-  const PAGES = ["/", "/reports/call_sample_failed", "/demo", "/how-it-works"];
+  const PAGES = ["/", "/reports/call_sample_failed", "/test-call"];
 
   it("refuses a server-rendered page or a product route with a foreign Host", async () => {
     localMode();
@@ -303,7 +351,7 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
     expect((await proxy(reqOf("/reports/x", { ...LOOPBACK, "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty", "sec-purpose": "prefetch" })))?.status).toBe(200);
     expect(fetched).not.toHaveBeenCalled();
     // Other paths are not this rule's business.
-    expect((await proxy(reqOf("/demo", { ...LOOPBACK, "sec-fetch-site": "cross-site", "sec-fetch-dest": "image" })))?.status).toBe(200);
+    expect((await proxy(reqOf("/test-call", { ...LOOPBACK, "sec-fetch-site": "cross-site", "sec-fetch-dest": "image" })))?.status).toBe(200);
   });
 
   it("refuses every request when the server is not bound to 127.0.0.1", async () => {
@@ -351,7 +399,7 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
     ];
     process.env.DASHBOARD_PASSWORD = "secret";
     responses.push(await proxy(reqOf("/", LOOPBACK)));
-    expect(responses.map((r) => r.status)).toEqual([200, 200, 200, 200, 307, 403, 403, 401]);
+    expect(responses.map((r) => r.status)).toEqual([200, 200, 200, 200, 308, 403, 403, 401]);
     for (const res of responses) {
       expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
       expect(res.headers.get("x-frame-options")).toBe("DENY");
@@ -392,10 +440,11 @@ describe("proxy on a hosted copy (OVERHEAR_LOCAL unset)", () => {
     expect((await proxy(reqOf("/api/connect")))?.status).toBe(404);
   });
 
-  it("keeps serving the report screen, the demo and the other pages, with any Host", async () => {
+  it("keeps serving the report screen and the other pages, with any Host (next dev, no password)", async () => {
     vi.stubEnv("OVERHEAR_LOCAL", "");
+    vi.stubEnv("NODE_ENV", "development");
     delete process.env.DASHBOARD_PASSWORD;
-    for (const path of ["/reports/call_sample_failed", "/demo", "/", "/how-it-works", "/api/web-call"]) {
+    for (const path of ["/reports/call_sample_failed", "/", "/test-call"]) {
       const res = await proxy(reqOf(path, { host: "overhear.up.railway.app" }));
       expect(res?.status, path).toBe(200);
     }

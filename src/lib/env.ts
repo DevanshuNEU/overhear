@@ -3,9 +3,6 @@ import { z } from "zod";
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   RETELL_API_KEY: z.string().min(1),
-  ANTHROPIC_API_KEY: z.string().min(1),
-  JEV_API_KEY: z.string().min(1).optional(),
-  JUDGE_PROVIDER: z.enum(["jev", "claude"]).default("jev"),
   APP_URL: z.string().url(),
   RETELL_AGENT_ID: z.string().min(1).optional(),
   // No `.min(1)`: an operator may blank this var rather than delete it, and an

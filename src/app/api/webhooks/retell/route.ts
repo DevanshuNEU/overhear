@@ -1,7 +1,9 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { verifyRetellSignature } from "@/retell/verify";
-import { recordPendingCall, scoreCall } from "@/qa/pipeline";
 
+// The demo agent's config points at this route, so it stays. It stores nothing and scores nothing: it checks the
+// signature, logs the event type and call id, and answers 200.
+//
 // `verifyRetellSignature` is async (WebCrypto's `subtle.verify` under the
 // hood) - it must be awaited here. A non-awaited Promise is always truthy
 // and would bypass signature verification entirely.
@@ -20,47 +22,15 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
-  const body = JSON.parse(raw) as { event: string; call: { call_id: string } & Record<string, unknown> };
-
-  // Log every event we accept, so a call that never gets scored is diagnosable
-  // straight from the deploy logs: call_ended but no call_analyzed means the
-  // agent's analysis is not firing; neither event means the webhook is not
-  // wired to this agent at all.
-  console.log(`retell webhook: ${body.event} for call ${body.call?.call_id}`);
-
-  // Retell waits 10 seconds for a 2xx and then retries, up to 3 times
-  // (docs.retellai.com/features/webhook-overview). Scoring calls the judge and
-  // the narrator and can take longer than that, so the work runs after the
-  // response is sent. Both writes are upserts, so a retry that still lands is
-  // harmless.
-  if (body.event === "call_ended") {
-    // Show the call on the dashboard as "processing" the instant the caller
-    // hangs up, well before the slower call_analyzed event and scoring arrive.
-    after(async () => {
-      try {
-        await recordPendingCall(body.call);
-      } catch (err) {
-        console.error(`recordPendingCall failed for call ${body.call.call_id}`, err);
-      }
-    });
+  let event: unknown;
+  let callId: unknown;
+  try {
+    const body = JSON.parse(raw) as { event?: unknown; call?: { call_id?: unknown } };
+    event = body.event;
+    callId = body.call?.call_id;
+  } catch {
+    // A signed body that is not JSON is still acknowledged: Retell would only retry it.
   }
-
-  if (body.event === "call_analyzed") {
-    // Record the call before answering, so a score lost to a restart can be
-    // rebuilt later by `npm run rescore`. This write is one fast upsert.
-    try {
-      await recordPendingCall(body.call);
-    } catch (err) {
-      console.error(`recordPendingCall failed for call ${body.call.call_id}`, err);
-    }
-    after(async () => {
-      try {
-        await scoreCall(body.call);
-      } catch (err) {
-        // Log with the call id so a failed score is diagnosable.
-        console.error(`scoreCall failed for call ${body.call.call_id}`, err);
-      }
-    });
-  }
+  console.log(`retell webhook: ${String(event)} for call ${String(callId)}`);
   return NextResponse.json({ ok: true });
 }

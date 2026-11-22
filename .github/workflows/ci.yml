@@ -27,9 +27,7 @@ jobs:
         env:
           DATABASE_URL: postgres://build:build@localhost:5432/build
           RETELL_API_KEY: build-dummy
-          ANTHROPIC_API_KEY: build-dummy
           APP_URL: http://localhost:3000
-          JUDGE_PROVIDER: claude
   # The pasted Retell key, followed through a real `next dev` (scripts/canary-live.ts). A separate job, so it runs
   # beside the checks above. About 25 seconds a run.
   canary-live:

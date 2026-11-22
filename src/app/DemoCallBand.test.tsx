@@ -113,7 +113,7 @@ describe("the demo call band", () => {
     const button = screen.getByRole("button", { name: "Call the demo agent" });
     expect(button).toHaveClass("bg-report-accent");
     expect(button).toBeEnabled();
-    const fine = screen.getByText("Uses your microphone. Calls are recorded on our demo account and shown only to you here.");
+    const fine = screen.getByText("Uses your microphone. Retell records calls on our demo account. Overhear keeps yours in memory for an hour and shows it only to you.");
     expect(fine).toHaveClass("text-report-muted");
     expect(button.compareDocumentPosition(fine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

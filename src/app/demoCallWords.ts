@@ -5,7 +5,7 @@ export const DEMO_CALL_WORDS = {
   lead: "Try it on a call of your own.",
   body: "Call our demo clinic agent from your browser. Book an appointment, or ask to speak to a nurse: it says it’s transferring you, and it can’t.",
   call: "Call the demo agent",
-  finePrint: "Uses your microphone. Calls are recorded on our demo account and shown only to you here.",
+  finePrint: "Uses your microphone. Retell records calls on our demo account. Overhear keeps yours in memory for an hour and shows it only to you.",
 
   asking: "Allow the microphone to start",
   micBlocked: "Your browser blocked the microphone. Allow it for this site, then try again.",

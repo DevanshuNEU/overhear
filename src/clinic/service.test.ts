@@ -116,14 +116,14 @@ describe("ClinicService", () => {
   it("verifies a misheard name when the date of birth matches exactly", async () => {
     ctx = await createTestDb();
     await ctx.db.insert(patients).values([
-      { name: "Devanshu Chicholikar", dob: "2000-02-09" },
+      { name: "Devanshu Chicholikar", dob: "1994-07-14" },
       { name: "Aisha Rahman", dob: "1991-08-17" },
     ]);
     const svc = makeClinicService(ctx.db);
     for (const [name, dob] of [
-      ["Divan Chuych Cholikar", "2000-02-09"],
-      ["Divanshu Chulikar", "2000-02-09"],
-      ["divanshu chicholikar ", "2000-02-09"],
+      ["Divan Chuych Cholikar", "1994-07-14"],
+      ["Divanshu Chulikar", "1994-07-14"],
+      ["divanshu chicholikar ", "1994-07-14"],
       ["Ayushar Rahman", "1991-08-17"],
     ]) {
       const v = await svc.verifyPatient("call_1", { name, dob });
@@ -133,9 +133,9 @@ describe("ClinicService", () => {
 
   it("returns the name on file so the agent can use the right one", async () => {
     ctx = await createTestDb();
-    const [pat] = await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "2000-02-09" }).returning();
+    const [pat] = await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "1994-07-14" }).returning();
     const svc = makeClinicService(ctx.db);
-    const v = await svc.verifyPatient("call_1", { name: "Divanshu Chulikar", dob: "2000-02-09" });
+    const v = await svc.verifyPatient("call_1", { name: "Divanshu Chulikar", dob: "1994-07-14" });
     expect(v.result).toEqual({ verified: true, patientId: pat.id, patientName: "Devanshu Chicholikar" });
   });
 
@@ -149,7 +149,7 @@ describe("ClinicService", () => {
 
   it("does not verify the right name with the wrong date of birth", async () => {
     ctx = await createTestDb();
-    await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "2000-02-09" });
+    await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "1994-07-14" });
     const svc = makeClinicService(ctx.db);
     const v = await svc.verifyPatient("call_1", { name: "Devanshu Chicholikar", dob: "2000-09-02" });
     expect(v.result.verified).toBe(false);

@@ -3,7 +3,7 @@
 // functions, no network). Keep `env` access lazy (inside functions) so this
 // module can be imported without a fully-populated process.env.
 import { env } from "@/lib/env";
-import type { ToolName } from "@/domain/types";
+import type { ToolName } from "@/clinic/types";
 import { DEMO_PERSONAS } from "@/demo/personas";
 
 interface JsonSchemaObject {

@@ -3,22 +3,17 @@ import caseJson from "../../../../eval/engine/cases/mut-transfer-claim-caller-ke
 
 const { createWebCall, getCall } = vi.hoisted(() => ({ createWebCall: vi.fn(), getCall: vi.fn() }));
 vi.mock("@/pull/retell-source", async (original) => ({ ...(await original<object>()), createWebCall, getCall }));
-// /api/web-call builds the Retell SDK itself: stand in for it so this file never reaches the network. The rest of the module
-// (APIError, which src/pull/retell-source.ts imports) stays as it is.
-const { sdkCreateWebCall } = vi.hoisted(() => ({ sdkCreateWebCall: vi.fn() }));
-vi.mock("retell-sdk", async (original) => ({
-  ...(await original<object>()),
-  default: class MockRetell {
-    call = { createWebCall: sdkCreateWebCall };
-  },
-}));
+const { ensureDemoData } = vi.hoisted(() => ({ ensureDemoData: vi.fn() }));
+vi.mock("@/demo/ensure", () => ({ ensureDemoData }));
+vi.mock("@/db/client", () => ({ db: {} }));
 const envMock =vi.hoisted(() => ({ RETELL_API_KEY: "key_test_secret", RETELL_AGENT_ID: "agent_demo" as string | undefined }));
 vi.mock("@/lib/env", () => ({ env: envMock }));
 
 import { POST } from "./route";
 import { GET } from "./[callId]/route";
-import { POST as webCallPOST } from "../web-call/route";
 import { cookieFromHeader, DEMO_COOKIE, signDemoCookie, verifyDemoCookie } from "@/demo-call/cookie";
+import { resetWebCallLimit } from "@/lib/web-call-limit";
+import { OWNER_COOKIE, signOwnerCookie } from "@/demo-call/owner";
 import { resetDemoCalls } from "@/demo-call/store";
 import { DEMO_CALL_MESSAGE } from "@/demo-call/words";
 
@@ -46,9 +41,10 @@ beforeEach(() => {
   vi.stubEnv("OVERHEAR_LOCAL", "");
   envMock.RETELL_AGENT_ID = "agent_demo";
   createWebCall.mockReset().mockResolvedValue(WEB_CALL);
-  sdkCreateWebCall.mockReset().mockResolvedValue({ access_token: "tok", call_id: "call_web" });
   getCall.mockReset();
+  ensureDemoData.mockReset().mockResolvedValue(undefined);
   resetDemoCalls();
+  resetWebCallLimit();
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -96,14 +92,71 @@ describe("POST /api/demo-calls", () => {
     expect(createWebCall).toHaveBeenCalledTimes(3);
   });
 
-  it("shares its budget with /api/web-call: calls started there count here", async () => {
+  it("counts a start only once Retell accepted it: failed creates use no budget", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const who = ip();
-    const web = () => webCallPOST(new Request("https://demo.example/api/web-call", { method: "POST", headers: { "x-forwarded-for": who } }));
-    for (let i = 0; i < 2; i++) expect((await web()).status).toBe(200);
-    expect(sdkCreateWebCall).toHaveBeenCalledTimes(2);
-    expect((await POST(start({ ip: who }))).status).toBe(200);
+    createWebCall.mockRejectedValue(new Error("retell down"));
+    for (let i = 0; i < 31; i++) expect((await POST(start({ ip: who }))).status).toBe(500);
+    createWebCall.mockResolvedValue(WEB_CALL);
+    for (let i = 0; i < 3; i++) expect((await POST(start({ ip: who }))).status).toBe(200);
     expect((await POST(start({ ip: who }))).status).toBe(429);
-    expect((await web()).status).toBe(429);
+  });
+
+  it("refunds a start that never reached Retell because no agent is configured", async () => {
+    const who = ip();
+    envMock.RETELL_AGENT_ID = undefined;
+    for (let i = 0; i < 5; i++) expect((await POST(start({ ip: who }))).status).toBe(503);
+    envMock.RETELL_AGENT_ID = "agent_demo";
+    for (let i = 0; i < 3; i++) expect((await POST(start({ ip: who }))).status).toBe(200);
+  });
+
+  describe("the owner", () => {
+    const ownerCookie = () => `${OWNER_COOKIE}=${signOwnerCookie("key_test_secret")}`;
+    beforeEach(() => vi.stubEnv("DASHBOARD_PASSWORD", "secret"));
+
+    it("skips the per-visitor public budget and has 10 starts per address", async () => {
+      const who = ip();
+      for (let i = 0; i < 10; i++) expect((await POST(start({ ip: who, cookie: ownerCookie() }))).status).toBe(200);
+      const res = await POST(start({ ip: who, cookie: ownerCookie() }));
+      expect(res.status).toBe(429);
+    });
+
+    it("is not stopped by a used-up public budget, and does not use it up", async () => {
+      const who = ip();
+      for (let i = 0; i < 3; i++) await POST(start({ ip: who }));
+      expect((await POST(start({ ip: who }))).status).toBe(429);
+      expect((await POST(start({ ip: who, cookie: ownerCookie() }))).status).toBe(200);
+    });
+
+    it("ignores a forged owner cookie", async () => {
+      const who = ip();
+      const forged = `${OWNER_COOKIE}=${Date.now()}.${"0".repeat(64)}`;
+      for (let i = 0; i < 3; i++) await POST(start({ ip: who, cookie: forged }));
+      expect((await POST(start({ ip: who, cookie: forged }))).status).toBe(429);
+    });
+
+    it("ignores the demo call cookie as an owner cookie", async () => {
+      const who = ip();
+      const wrong = `${OWNER_COOKIE}=${signDemoCookie(["call_a"], "key_test_secret")}`;
+      for (let i = 0; i < 3; i++) await POST(start({ ip: who, cookie: wrong }));
+      expect((await POST(start({ ip: who, cookie: wrong }))).status).toBe(429);
+    });
+
+    it("is no owner when no password is configured", async () => {
+      vi.stubEnv("DASHBOARD_PASSWORD", "");
+      const who = ip();
+      for (let i = 0; i < 3; i++) await POST(start({ ip: who, cookie: ownerCookie() }));
+      expect((await POST(start({ ip: who, cookie: ownerCookie() }))).status).toBe(429);
+    });
+  });
+
+  it("tops up the demo clinic data before it starts a call, and starts the call even when that fails", async () => {
+    expect((await POST(start())).status).toBe(200);
+    expect(ensureDemoData).toHaveBeenCalledTimes(1);
+    ensureDemoData.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await POST(start())).status).toBe(200);
+    expect(createWebCall).toHaveBeenCalledTimes(2);
   });
 
   it("is 503 when no demo agent is configured, and never calls Retell", async () => {

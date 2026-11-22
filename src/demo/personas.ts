@@ -8,7 +8,7 @@ export interface Persona {
 }
 
 export const DEMO_PERSONAS: Persona[] = [
-  { name: "Devanshu Chicholikar", dob: "2000-02-09" },
+  { name: "Devanshu Chicholikar", dob: "1994-07-14" },
   { name: "Aisha Rahman", dob: "1991-08-17" },
   { name: "Marcus Bennett", dob: "1983-04-05" },
   { name: "Sofia Alvarez", dob: "1996-11-23" },

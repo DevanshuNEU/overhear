@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import { requestScheme, sameOriginRequest } from "@/lib/auth-gate";
 import { hostedNotFound, isLocalMode } from "@/pull/local";
 import { cookieFromHeader, verifyDemoCookie } from "./cookie";
+import { OWNER_COOKIE, verifyOwnerCookie } from "./owner";
 import { DEMO_CALL_MESSAGE, DEMO_CALL_STATUS, type DemoCallErrorCode } from "./words";
 
 export const NO_STORE = { "cache-control": "no-store" } as const;
@@ -24,6 +25,17 @@ export function refuseLocal(): Response | null {
 /** False when the request names an Origin that is not this host. A request with no Origin (a plain navigation, a script) passes. */
 export function sameOrigin(req: Request): boolean {
   return sameOriginRequest(req.headers.get("origin"), req.headers.get("host") ?? new URL(req.url).host, requestScheme(req.headers.get("x-forwarded-proto"), req.url));
+}
+
+/** True when the visitor used https: the request URL says so, or the edge proxy that ended TLS did. */
+export function isHttps(req: Request): boolean {
+  return new URL(req.url).protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+}
+
+/** True when the request carries a valid owner cookie on a copy that has a password. With no password there is no owner. */
+export function isOwner(req: Request): boolean {
+  if (!process.env.DASHBOARD_PASSWORD) return false;
+  return verifyOwnerCookie(cookieFromHeader(req.headers.get("cookie"), OWNER_COOKIE), env.RETELL_API_KEY);
 }
 
 /** The call ids the request's cookie vouches for. None for a missing or bad cookie. */
