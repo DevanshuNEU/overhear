@@ -56,3 +56,11 @@ CLAUDE.md
 
 # Conductor machine-local settings
 .conductor/settings.local.toml
+
+# LiveKit example: saved reports, secrets and virtualenv
+examples/livekit-clinic/reports/
+examples/livekit-clinic/.env.local
+examples/livekit-clinic/.venv/
+.env.local
+.venv/
+__pycache__/
