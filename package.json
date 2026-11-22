@@ -21,6 +21,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "provision:agent": "tsx scripts/provision-agent.ts",
     "eval:engine": "tsx scripts/run-engine-evals.ts",
+    "check": "tsx scripts/check-calls.ts",
     "check:pinned": "tsx scripts/check-pinned.ts"
   },
   "dependencies": {
