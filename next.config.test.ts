@@ -29,5 +29,6 @@ describe("next.config", () => {
 
   it("lets the image optimizer fetch no remote URL", () => {
     expect(nextConfig.images?.remotePatterns).toEqual([]);
+    expect(nextConfig.images?.unoptimized).toBe(true);
   });
 });

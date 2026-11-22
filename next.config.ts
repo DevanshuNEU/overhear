@@ -12,8 +12,8 @@ export const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Nothing in the app uses next/image, so the optimizer has no reason to fetch anything: no remote host is allowed.
-  images: { remotePatterns: [] },
+  // Nothing in the app uses next/image, so the optimizer is off and no remote host is allowed.
+  images: { remotePatterns: [], unoptimized: true },
   async headers() {
     return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
   },
