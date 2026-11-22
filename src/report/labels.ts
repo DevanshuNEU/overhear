@@ -492,6 +492,24 @@ export const NOT_A_RETELL_CALL = {
   fix: "Pass the body of Retell's get-call response, or a webhook body that holds it under call.",
 };
 
+/** What the engine says about a record it cannot read as a LiveKit session report, and what to pass instead. */
+export const NOT_A_LIVEKIT_REPORT = {
+  message: "This isn't a LiveKit session report: it has no chat_history.items list, or none of job_id, room_id and sdk_version.",
+  fix: "Pass the JSON of SessionReport.to_dict() (Python) or sessionReportToJSON (Node), written with the chat history included.",
+};
+
+/** A LiveKit report with no call id: job_id, room_id and room are all missing or empty. */
+export const LIVEKIT_NO_CALL_ID = {
+  message: "This LiveKit session report has no job_id, room_id or room, so it has no id to name the call by.",
+  fix: "Pass the report as SessionReport.to_dict() writes it, which always includes job_id.",
+};
+
+/** What the engine says about a record that is neither a Retell call nor a LiveKit session report. */
+export const NOT_A_CALL_RECORD = {
+  message: "Couldn't read this as a call. Overhear reads two formats: a Retell call (an object with a call_id) and a LiveKit session report (an object with chat_history.items and a job_id, room_id or sdk_version).",
+  fix: "Pass the body of Retell's get-call response, or the JSON of LiveKit's SessionReport.to_dict().",
+};
+
 // ---------- Keep as a test (local mode) ----------
 // The words of the control on a call report. The messages for a refusal come from the server (PIN_MESSAGE in src/pull/labels.ts)
 // and are shown as they arrive.
