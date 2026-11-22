@@ -117,6 +117,32 @@ describe("notification claims", () => {
     expect(kinds(text).filter(([cls]) => cls === "completion")).toEqual([]);
   });
 
+  // Review S1: the agent owns up in the same sentence.
+  it.each([
+    "I paged the on-call surgeon, but the page didn't go through.",
+    "I've texted the on-call surgeon, but the text failed.",
+    "I messaged the front desk, however it did not send.",
+  ])("%s is not a claim", (text) => {
+    expect(kinds(text).filter(([cls]) => cls === "completion")).toEqual([]);
+  });
+
+  it("an agent that owns up to a failed booking is not claiming one either", () => {
+    expect(classes("I booked your appointment but it didn't go through.")).not.toContain("completion");
+    expect(classes("I booked 3 PM, but 2 PM isn't available.")).toContain("completion");
+  });
+
+  // Review S2: past or reported sends.
+  it.each([
+    "We notified the clinic when your results came in last week.",
+    "Last time we emailed the office, they replied within a day.",
+    "We texted the office about this last week.",
+    "Your doctor said, I've messaged the nurse.",
+    "The nurse told me I've texted the surgeon.",
+    "I texted the surgeon yesterday.",
+  ])("%s is not a claim", (text) => {
+    expect(kinds(text).filter(([cls]) => cls === "completion")).toEqual([]);
+  });
+
   it("a booking and a notification in one turn are two claims of their own kinds", () => {
     expect(kinds("You're booked for Friday, and I've texted the nurse.")).toEqual([
       ["completion", "book"],

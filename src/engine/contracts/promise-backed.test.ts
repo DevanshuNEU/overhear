@@ -693,6 +693,45 @@ describe("promise_backed", () => {
       expect(r.out.result).toBe("unverified");
     });
 
+    // Review B2: the latest notify call decided the claim, whatever it was for.
+    it("a failed text to the patient after a page that went through does not undo the page", () => {
+      const INFERRED = PolicySchema.parse({ packs: ["scheduling"], tools: { page_on_call: { role: "notify" }, send_sms_confirmation: { role: "notify" } }, fields: {} });
+      const r = run(
+        ev([...tool("tc_p", "page_on_call", { paged: true }), ...tool("tc_s", "send_sms_confirmation", "gateway down", false), agent("I've paged the on-call surgeon.", 40)]),
+        INFERRED,
+        "inferred",
+      );
+      expect(r.out.result).toBe("passed");
+      expect(r.finding.did).toEqual([1, 2]);
+    });
+
+    it("is violated only when every earlier notify call failed", () => {
+      const both = PolicySchema.parse({ packs: ["scheduling"], tools: { page_on_call: { role: "notify" }, send_sms_confirmation: { role: "notify" } }, fields: {} });
+      const r = run(ev([...tool("tc_p", "page_on_call", "timeout", false), ...tool("tc_s", "send_sms_confirmation", "down", false), agent("I've paged the on-call surgeon.", 40)]), both, "inferred");
+      expect(r.out.result).toBe("violated");
+    });
+
+    // Review S6: any source that is not inferred is trusted, so a future "user" source counts like the preset.
+    it("a source that is not inferred, with a notify tool listed, is violated when none ran", () => {
+      const r = run(ev([...lookup(), agent(CLAIM, 30)]), NOTIFY, "user" as never);
+      expect(r.out.result).toBe("violated");
+    });
+
+    // Review B1: with an inferred policy a tool named like a notification may have been the booking.
+    it("a booking claim after a tool that only looks like a notification is unverified when the policy was inferred", () => {
+      for (const name of ["email_appointment_request", "message_front_desk"]) {
+        const INFERRED = PolicySchema.parse({ packs: ["scheduling"], tools: { check_availability: { role: "lookup" }, [name]: { role: "notify" } }, fields: {} });
+        const r = run(ev([...lookup(), ...tool("tc_n", name, { ok: true }), agent("Your appointment is booked for Tuesday December 8th at 2 PM with Dr. Kim.", 48)]), INFERRED, "inferred");
+        expect(r.out.result).toBe("unverified");
+        expect(r.finding.text).toContain(`the call used ${name}, which the policy doesn't describe`);
+      }
+    });
+
+    it("on a preset the same tool is described, so a booking claim is still violated", () => {
+      const r = run(ev([...lookup(), ...tool("tc_n", "page_surgeon", { ok: true }), agent(BOOKED, 48)]), NOTIFY, "preset");
+      expect(r.out.result).toBe("violated");
+    });
+
     it("an offer or a future intention is no claim", () => {
       const r = run(ev([...lookup(), agent("I can text the on-call surgeon. I'll page them now.", 30)]), NOTIFY);
       expect(r.out).toEqual({ contract: "promise_backed", result: "not_applicable", findings: [] });

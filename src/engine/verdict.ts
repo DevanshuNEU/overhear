@@ -40,7 +40,7 @@ export function verdictFor(results: ContractResult[], detections: Detection[], e
   if (deferrals.length > 0) reasons.push(deferralReason(deferrals, ev));
   // A call that would otherwise pass but left a tool failed with nothing done after it is not a pass.
   if (reasons.length === 0 && policy) {
-    const failed = toolFailedReason(detections, ev, policy);
+    const failed = toolFailedReason(ev, policy);
     if (failed) reasons.push(failed);
   }
 
@@ -103,21 +103,21 @@ function causeOf(finding: Finding, ev: Evidence): string[] {
 /**
  * The tool_failed reason (OVE-74): a change or lookup whose result says it failed, with nothing done after it. A
  * failure is recovered when a later call of the same role succeeded (a retry, or another tool of that role), or when
- * a change succeeded later and the agent then claimed a completion. What is left is a request that was never done,
+ * any change or transfer succeeded later. What is left is a request that was never done,
  * and the agent made no false promise, so the call needs review and never fails. With ordering none nothing is
  * "later", so it says nothing. The reason names every tool still failed, at the time of the first.
  */
-function toolFailedReason(detections: Detection[], ev: Evidence, policy: Policy): ReviewReason | null {
+function toolFailedReason(ev: Evidence, policy: Policy): ReviewReason | null {
   if (ev.ordering === "none") return null;
   const changes = toolCalls(ev, policy, "change");
-  const claims = detections.filter((d) => d.cls === "completion");
+  const transfers = toolCalls(ev, policy, "transfer");
   const unrecovered = (["change", "lookup"] as const).flatMap((role) => {
     const uses = role === "change" ? changes : toolCalls(ev, policy, role);
     return uses.filter((f) => {
       if (f.ok !== false) return false;
       if (uses.some((u) => u.callSeq > f.callSeq && u.ok === true)) return false;
-      const doneLater = changes.filter((c) => c.callSeq > f.callSeq && c.ok === true);
-      return !doneLater.some((c) => claims.some((d) => d.seq > c.callSeq));
+      // Something was done after it: a change that worked, or a transfer that connected the caller to a person.
+      return ![...changes, ...transfers].some((c) => c.callSeq > f.callSeq && c.ok === true);
     });
   });
   if (unrecovered.length === 0) return null;

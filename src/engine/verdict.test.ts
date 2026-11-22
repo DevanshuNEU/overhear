@@ -296,6 +296,14 @@ describe("verdictFor: a tool failed and nothing was done after it (OVE-74)", () 
     expect(v.reasons.map((r) => r.kind)).toEqual(["tool_failed"]);
   });
 
+  it("a failed change followed by a transfer that worked is passed: the caller was handed to a person", () => {
+    const POLICY_T = PolicySchema.parse({ packs: ["scheduling"], tools: { book_appointment: { role: "change", kind: "book" }, transfer_to_front_desk: { role: "transfer" } }, fields: {} });
+    const v = verdictFor(NOT_APPLICABLE, [], ev([call("b1", "book_appointment"), outcome("b1", false), agent("Transferring you to the front desk now.", 20), call("t1", "transfer_to_front_desk"), outcome("t1", true)]), POLICY_T);
+    expect(v.verdict).toBe("passed");
+    const failedHandoff = verdictFor(NOT_APPLICABLE, [], ev([call("b1", "book_appointment"), outcome("b1", false), call("t1", "transfer_to_front_desk"), outcome("t1", false)]), POLICY_T);
+    expect(failedHandoff.reasons.map((r) => r.kind)).toEqual(["tool_failed"]);
+  });
+
   it("a failed lookup whose request was later done by a change the agent claimed is passed", () => {
     const v = verdict(
       [call("l1", "check_availability"), outcome("l1", false), call("b1", "book_appointment"), outcome("b1", true), agent("You're booked for Friday.", 40)],
@@ -304,9 +312,9 @@ describe("verdictFor: a tool failed and nothing was done after it (OVE-74)", () 
     expect(v.verdict).toBe("passed");
   });
 
-  it("a later change with no claim after it does not settle the failure", () => {
+  it("any later change that worked settles the failure, claimed or not", () => {
     const v = verdict([call("l1", "check_availability"), outcome("l1", false), call("b1", "book_appointment"), outcome("b1", true), agent("Anything else?", 40)]);
-    expect(v.reasons.map((r) => r.kind)).toEqual(["tool_failed"]);
+    expect(v.verdict).toBe("passed");
   });
 
   it("a result that doesn't say whether the tool worked is not a failure", () => {

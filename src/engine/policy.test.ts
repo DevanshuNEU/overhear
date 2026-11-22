@@ -92,14 +92,20 @@ describe("roleFor", () => {
   });
 
   describe("notification names", () => {
-    it.each(["send_text", "text_surgeon", "send_sms", "page_on_call", "paging", "notify_on_call_surgeon", "notifyTeam", "send_message", "messaging_service", "alert_nurse", "send_email", "email_front_desk", "sendNotification", "texting"])(
+    it.each(["send_text", "text_surgeon", "send_sms", "page_on_call", "paging_service", "notify_on_call_surgeon", "notifyTeam", "send_message", "messaging_service", "alert_nurse", "send_email", "email_front_desk", "sendNotification", "texting_service"])(
       "%s is a notify tool",
       (name) => {
         expect(roleFor(name)).toEqual({ role: "notify" });
       },
     );
 
-    it.each(["get_messages", "check_alerts", "end_call", "contact_card", "context", "pageant", "realert", "textbook"])("%s is not a notify tool", (name) => {
+    // Every name the engine review found that sends nothing, and the lookups the spec called safe.
+    it.each([
+      "page_through_results", "next_page", "fetch_page", "page_size", "alert_level", "set_alert_threshold", "alert_acknowledged", "log_alert",
+      "text_to_speech", "parse_text", "normalize_text", "translate_text", "validate_email", "save_email", "sms_opt_out_status", "message_count", "delete_message",
+      "get_message_history", "text_search", "emailAddressLookup", "get_messages", "check_alerts", "end_call", "contact_card", "context", "pageant", "realert", "textbook",
+      "call_front_desk", "call_surgeon",
+    ])("%s is not a notify tool", (name) => {
       expect(roleFor(name)?.role).not.toBe("notify");
     });
 
@@ -135,7 +141,7 @@ describe("roleFor", () => {
 
     it("needs the noun to end the name, so a booking's side tools stay undescribed", () => {
       expect(roleFor("add_booking_note")).toBeNull();
-      expect(roleFor("confirm_booking_by_email")).toEqual({ role: "notify" }); // it sends an email, and is no change
+      expect(roleFor("confirm_booking_by_email")).toBeNull(); // the first word is no send verb, and it is no change
       expect(roleFor("delete_booking_reminder")).toBeNull();
     });
 
@@ -158,7 +164,7 @@ describe("roleFor", () => {
     it("leaves verbs without a booking noun alone", () => {
       expect(roleFor("set_timezone")).toBeNull();
       expect(roleFor("add_note")).toBeNull();
-      expect(roleFor("confirm_email")).toEqual({ role: "notify" }); // no booking noun, so not a change; the email word makes it a notify
+      expect(roleFor("confirm_email")).toBeNull();
       expect(roleFor("delete_item")).toBeNull();
       expect(roleFor("change_address")).toEqual({ role: "change", kind: "update" });
     });
@@ -367,6 +373,34 @@ describe("inferPolicy", () => {
       date: { path: "args.datetime", type: "date", required: true },
       time: { path: "args.datetime", type: "time", required: true },
       provider: { path: "args.providerName", type: "name" },
+    });
+  });
+
+  describe("fields under other names, and from the change's own result", () => {
+    const fieldsOf = (items: Record<string, unknown>[], book: Record<string, unknown>, result: Record<string, unknown> = { ok: true }) =>
+      inferPolicy(ev([...tool("tc_1", "check_availability", {}, { slots: items }), ...tool("tc_2", "book_appointment", book, result)])).fields;
+
+    it("reads start and provider_name from the items", () => {
+      expect(fieldsOf([{ id: "s1", start: "2026-12-08T14:00:00Z", provider_name: "Dr. Kim" }], { slotId: "s1" })).toEqual({
+        date: { path: "item.start", type: "date", required: true },
+        time: { path: "item.start", type: "time", required: true },
+        provider: { path: "item.provider_name", type: "name" },
+      });
+    });
+
+    it("reads doctor_name beside startsAt, so the provider does not go uncovered", () => {
+      expect(Object.keys(fieldsOf([{ id: "s1", startsAt: "2026-12-08T14:00:00Z", doctor_name: "Dr. Kim" }], { slotId: "s1" }))).toEqual(["date", "time", "provider"]);
+    });
+
+    it("reads appointment_time from the booking's arguments", () => {
+      expect(fieldsOf([{ id: "s1" }], { slotId: "s1", appointment_time: "2026-12-08T14:00:00Z" })).toMatchObject({ date: { path: "args.appointment_time" }, time: { path: "args.appointment_time" } });
+    });
+
+    it("fills what the items lack from the change's result, and never requires it", () => {
+      const fields = fieldsOf([{ slot_id: "s1", time: "09:00", provider: "Dr. Lee" }], { slot_id: "s1" }, { status: "booked", date: "2026-12-03", time: "09:00" });
+      expect(fields.date).toEqual({ path: "result.date", type: "date" });
+      expect(fields.time).toEqual({ path: "item.time", type: "time", required: true });
+      expect(fields.provider).toEqual({ path: "item.provider", type: "name" });
     });
   });
 

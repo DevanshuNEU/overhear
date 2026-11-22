@@ -201,6 +201,15 @@ function otherClauseKind(s: string, at: number): ChangeKind | undefined {
   return undefined;
 }
 
+// The agent owning up in the same sentence: "I booked it, but it didn't go through", "I paged the surgeon, but the page failed".
+const OWNS_FAILURE =
+  /\b(?:but|however|although|though|except)\b[^.!?]*\b(?:(?:did ?n['\u2019]?t|did not|does ?n['\u2019]?t|do ?n['\u2019]?t) (?:go through|work|succeed|send|complete|get through|deliver|post|take)|not go through|fail(?:ed|s)?|error(?:ed)?|unsuccessful|never (?:went|got))\b/i;
+
+/** Whether the rest of the sentence after a match says the thing just claimed did not happen. */
+function ownsFailure(s: string, from: number): boolean {
+  return OWNS_FAILURE.test(s.slice(from));
+}
+
 /** Whether the words before a match make it conditional, negated or a question rather than a claim. */
 function notAClaim(s: string, at: number): boolean {
   const clauseStart = Math.max(s.lastIndexOf(",", at - 1), s.lastIndexOf(";", at - 1)) + 1;
@@ -215,7 +224,7 @@ function completions(s: string): Hit[] {
     for (const m of s.matchAll(re)) {
       // A match may begin with its own comma ("..., booked"), so the words before it end where the match text starts.
       const start = m.index + (m[0].length - m[0].replace(/^[,.;]\s*/, "").length);
-      if (notAClaim(s, start)) continue;
+      if (notAClaim(s, start) || ownsFailure(s, m.index + m[0].length)) continue;
       // "already" says the calendar stood that way before: "Your appointment is already booked".
       if (!/^(?:i|we)\b/i.test(m[0]) && /\balready\b/i.test(clauseTail(s, m.index + m[0].length))) continue;
       found.push({ at: m.index, kind: kindOf(m[0]) });
@@ -247,9 +256,17 @@ const NOTIFY = [
   `${NOTIFY_LEAD}let\\s+${NOTIFY_OBJECT}\\s+know\\b`,
 ].map((src) => new RegExp(src, "gi"));
 
+// A send in the past or reported by someone else is not the agent saying it did it on this call: "We notified the clinic
+// when your results came in last week", "Your doctor said, I've messaged the nurse". When in doubt it is not a claim.
+const NOTIFY_PAST =
+  /\b(?:last (?:week|month|year|night|time)|yesterday|earlier|previously|the other day|days? ago|weeks? ago|in the past|(?:when|whenever|after) (?:your|the|you|their|she|he|they)\b[^,.]*\b(?:came|come|comes|arrived|arrive|were|was|got|get|gets|called|call|calls)\b)/i;
+const SPEECH_BEFORE = /\b(?:said|says|saying|told|tells|asked|replied|wrote|writes|mentioned|quote[sd]?|reads?|stated|claims?)\b|["\u201c]/i;
+
 /** Every notification the sentence says was sent, as a completion of the kind notify (at most one per sentence). */
 function notifications(s: string): Hit[] {
-  const at = NOTIFY.flatMap((re) => [...s.matchAll(re)].filter((m) => !notAClaim(s, m.index)).map((m) => m.index));
+  if (NOTIFY_PAST.test(s)) return [];
+  const claim = (m: RegExpExecArray) => !notAClaim(s, m.index) && !ownsFailure(s, m.index + m[0].length) && !SPEECH_BEFORE.test(s.slice(0, m.index));
+  const at = NOTIFY.flatMap((re) => [...s.matchAll(re)].filter(claim).map((m) => m.index));
   return at.length > 0 ? [{ cls: "completion", kind: "notify", at: Math.min(...at) }] : [];
 }
 
