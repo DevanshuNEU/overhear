@@ -21,7 +21,7 @@ Why Overhear works the way it does, and what each choice costs. One rule sits un
 
 - **Retell, then LiveKit Agents.** Vapi and ElevenLabs come later.
 - **LiveKit calls come in as files.** A LiveKit agent saves one session report per call (`ctx.make_session_report().to_dict()`), and Overhear reads those files. The cost: a few lines of code in the agent first.
-- **Tool success is never taken from the platform alone.** Retell's `successful` and LiveKit's `is_error` only say whether the tool raised. Overhear reads the result's payload too: when the agent's policy names the success field, that field decides. When it doesn't, a result that says nothing either way reads Couldn't check, never Passed.
+- **Tool success is never taken from the platform alone.** Retell's `successful` and LiveKit's `is_error` only say whether the tool raised. So the order is: the platform saying the tool failed means failed. Otherwise the success field the agent's policy names decides, when the payload has it. Otherwise the platform saying it worked counts, except when a booking or verification result's body reads like an error (an `error` field, `ok: false`, a status of "failed"): then it reads Couldn't check, never Failed or Passed, since a guess must not decide either way. With no signal at all, it reads Couldn't check.
 - **LiveKit end reasons are mapped to the reasons the engine already reads.** A participant disconnect means the caller hung up. A session the agent or code closed means the agent ended the call.
 
 ## Evidence and numbers
