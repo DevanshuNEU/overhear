@@ -94,6 +94,15 @@ describe("analyzeRecord", () => {
     expect(analyzeRecord(wrapped, opts)).toEqual(analyzeRetellCall(wrapped, opts));
   });
 
+  it("detects a booking claim written with expressive markup", () => {
+    const items = [
+      { type: "message", role: "user", content: ["Book me for December 3rd at 10:30."], created_at: 1795322000 },
+      { type: "message", role: "assistant", content: ['You\'re <expr type="emotion" label="happy"/>booked for December 3rd at 10:30 AM.'], created_at: 1795322001 },
+    ];
+    const out = analyzeRecord({ job_id: "AJ_expr", chat_history: { items } }, opts);
+    expect(out.kind === "report" && out.report.verdict).toBe("failed");
+  });
+
   it("returns no_content for a LiveKit report with no messages", () => {
     const raw = { job_id: "AJ_empty", chat_history: { items: [] } };
     expect(analyzeRecord(raw, opts)).toEqual({ kind: "no_content", callId: "AJ_empty", reason: "no_transcript" });

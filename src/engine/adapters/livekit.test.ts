@@ -173,7 +173,30 @@ describe("call start, timestamps and fields", () => {
   });
 });
 
+describe("message text", () => {
+  it("strips expressive markup from assistant text only, keeping the enclosed words", () => {
+    const out = items(
+      report([
+        msg("user", ['Is it <expr type="x"/>booked?']),
+        msg("assistant", ['You\'re <expr type="emotion" label="happy"/>booked. <expr style="slow">Thanks</expr> a lot.']),
+      ]),
+    ) as Turn[];
+    expect(out[0].text).toBe('Is it <expr type="x"/>booked?');
+    expect(out[1].text).toBe("You're booked. Thanks a lot.");
+  });
+});
+
 describe("gaps and no content", () => {
+  it("is no_content when no message has readable text, such as messages whose content LiveKit dropped", () => {
+    const empty = report([msg("user", []), msg("assistant", ["  ", { type: "audio" }]), msg("assistant", ['<expr type="x"/>'])]);
+    expect(fromLiveKit(empty)).toEqual({ kind: "no_content", callId: "AJ_1", reason: "no_transcript" });
+  });
+
+  it("keeps a report where at least one message has text, with its empty messages", () => {
+    const out = items(report([msg("user", []), msg("assistant", ["Hello", { type: "image" }])]));
+    expect(out).toHaveLength(2);
+  });
+
   it("has no gaps: an empty tool list in a LiveKit history means no tool was called", () => {
     expect(adapt(report([msg("user", ["hi"]), msg("assistant", ["hello"])])).evidence.gaps).toEqual([]);
   });

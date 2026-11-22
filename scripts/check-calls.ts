@@ -178,8 +178,13 @@ function expand(arg: string, cwd: string): { files: string[] } | { error: string
     return { error: `Could not read ${plain(arg, 200)}: ${why}. Check the path and run the command again.` };
   }
   if (stat.isDirectory()) {
-    const files = fs
-      .readdirSync(full)
+    let names: string[];
+    try {
+      names = fs.readdirSync(full);
+    } catch (err) {
+      return { error: `Could not read ${plain(arg, 200)}: it could not be read (${(err as NodeJS.ErrnoException).code ?? "unknown error"}). Check the path and its permissions, then run the command again.` };
+    }
+    const files = names
       .filter((f) => f.endsWith(".json"))
       .sort()
       .map((f) => path.join(full, f));

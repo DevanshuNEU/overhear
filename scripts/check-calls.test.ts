@@ -149,6 +149,21 @@ describe("main", () => {
     expect(out).toBe("");
   });
 
+  it("exits 2 for a folder it cannot list, naming it and the fix", () => {
+    const locked = path.join(dir, "locked");
+    fs.mkdirSync(locked);
+    fs.chmodSync(locked, 0o000);
+    try {
+      if (process.getuid?.() === 0) return;
+      expect(main(["locked"], io())).toBe(2);
+      expect(err).toContain("locked");
+      expect(err).toContain("could not be read");
+      expect(err).toContain("Check the path");
+    } finally {
+      fs.chmodSync(locked, 0o755);
+    }
+  });
+
   it("exits 2 for an empty folder, a bad time zone and an unknown option", () => {
     expect(main(["."], io())).toBe(2);
     expect(err).toContain("no .json files");

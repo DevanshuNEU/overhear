@@ -62,7 +62,8 @@ export function fromLiveKit(raw: unknown): Adapted {
   if (callId === undefined) throw new InputError(LIVEKIT_NO_CALL_ID.message, LIVEKIT_NO_CALL_ID.fix);
 
   const history = (raw.chat_history as Rec).items as unknown[];
-  const hasMessage = history.some((it) => isRec(it) && it.type === "message" && (it.role === "assistant" || it.role === "user"));
+  // LiveKit drops image and audio parts, so a message can be an empty list. Only a message with readable text is conversation.
+  const hasMessage = history.some((it) => isRec(it) && it.type === "message" && (it.role === "assistant" || it.role === "user") && messageText(it).trim() !== "");
   if (!hasMessage) return { kind: "no_content", callId, reason: "no_transcript" };
 
   const startMs = callStartMs(raw, history);
@@ -129,7 +130,7 @@ function readItem(it: unknown, seq: number, startSec: number | null, toolCallIds
       kind: "turn",
       seq,
       role: it.role === "assistant" ? "agent" : "caller",
-      text: textOf(it.content),
+      text: messageText(it),
       startSec: at === null || startSec === null ? null : Math.max(0, at - startSec),
       interrupted: typeof it.interrupted === "boolean" ? it.interrupted : null,
     };
@@ -144,6 +145,19 @@ function readItem(it: unknown, seq: number, startSec: number | null, toolCallIds
     return { kind: "tool_result", seq, id: it.call_id, ok: null, platformOk: typeof it.is_error === "boolean" ? !it.is_error : null, payload: readOutput(it.output) };
   }
   return { kind: "event", seq, type, data: eventData(it) };
+}
+
+/**
+ * Expressive markup in assistant text: `<expr .../>`, `<expr ...>` and `</expr>`. LiveKit's ChatMessage.text_content strips
+ * it for assistant messages only and keeps the enclosed words (strip_expr_markup and _split_expr in
+ * livekit-agents/livekit/agents/tts/_provider_format.py at livekit-agents@1.8.13), so the caller heard the plain words.
+ */
+const EXPR_MARKUP = /<\/?expr\b[^>]*>/g;
+
+/** A message item's text, as LiveKit's text_content reads it: markup stripped from assistant text, caller text as it is. */
+function messageText(it: Rec): string {
+  const text = textOf(it.content);
+  return it.role === "assistant" ? text.replace(EXPR_MARKUP, "") : text;
 }
 
 /** A message's text: the string parts of content joined with one space. Images and audio are not text. */
