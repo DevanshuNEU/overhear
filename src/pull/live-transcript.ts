@@ -273,6 +273,11 @@ function relay({ url, key, epoch, signal, claim, deps }: RelayInput): ReadableSt
         },
       });
       if (signal.aborted) return stop();
+      // The call's cap is already past: there is nothing to stream, so end without opening a socket at all.
+      if (capMs <= 0) {
+        event("end", {});
+        return stop();
+      }
       signal.addEventListener("abort", stop, { once: true });
       write(": open\n\n");
       capTimer = setTimeout(finish, capMs);

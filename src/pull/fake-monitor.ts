@@ -49,10 +49,12 @@ export async function startFakeMonitor(
 ): Promise<FakeMonitor> {
   const connections: FakeConnection[] = [];
   const sockets = new Set<Duplex>();
+  let stopping = false;
   const server = http.createServer(rest);
   server.on("upgrade", (req, socket: Duplex) => {
     const key = req.headers["sec-websocket-key"];
-    if (typeof key !== "string") {
+    // A connection that lands after stop() began would keep server.close() waiting forever.
+    if (stopping || typeof key !== "string") {
       socket.destroy();
       return;
     }
@@ -105,8 +107,11 @@ export async function startFakeMonitor(
     connections,
     stop: () =>
       new Promise<void>((resolve) => {
+        stopping = true;
         for (const s of sockets) s.destroy();
         server.close(() => resolve());
+        // Plain HTTP connections still open (keep-alive, or one mid-handshake) would hold close() too.
+        server.closeAllConnections();
       }),
   };
 }
