@@ -46,22 +46,34 @@ describe("analyzeRecord on real LiveKit reports", () => {
     expect(tool).toMatchObject({ kind: "tool_result", platformOk: false, ok: false });
   });
 
-  it("transfer-no-tool: a transfer claim with no tool in the record is unverified, not violated, because the engine reads an empty tool list as a missing tool transcript", () => {
+  it("transfer-no-tool: a transfer claim with no tool anywhere is unverified for the no-transfer-tool reason (inferred policy, so a tool we did not recognise cannot be ruled out)", () => {
     const r = reportOf("transfer-no-tool");
     expect(r.verdict).toBe("needs_review");
     const transfer = result(r, "transfer_kept");
     expect(transfer?.result).toBe("unverified");
-    expect(transfer?.findings[0].gaps).toEqual(["missing_tool_transcript"]);
+    expect(transfer?.findings[0].text).toContain("no transfer tool is known");
+    expect(transfer?.findings[0].gaps).toEqual([]);
+    expect(r.evidence.gaps).toEqual([]);
   });
 
-  it("caller-hung-up-mid-announcement: unverified, never violated (today for the missing-tool reason, not the caller-left one)", () => {
+  it("caller-hung-up-mid-announcement: unverified with the caller-left reason, never violated", () => {
     const r = reportOf("caller-hung-up-mid-announcement");
     expect(r.evidence.callFields.disconnection_reason).toBe("user_hangup");
     expect(r.verdict).toBe("needs_review");
     const transfer = result(r, "transfer_kept");
     expect(transfer?.result).toBe("unverified");
-    // The speech detector does read the cut-off "I'm transferring you to " as a transfer claim.
+    expect(transfer?.findings[0].text).toContain("caller hung up while the agent was announcing the transfer");
+    // The speech detector reads the cut-off "I'm transferring you to " as a transfer claim.
     expect(r.detections.some((d) => d.cls === "transfer" && d.seq === 4)).toBe(true);
+  });
+
+  it("booked-no-tool: a booking claim with no tool anywhere is failed, because a LiveKit history lists every tool call", () => {
+    const r = reportOf("booked-no-tool");
+    expect(r.verdict).toBe("failed");
+    const promise = result(r, "promise_backed");
+    expect(promise?.result).toBe("violated");
+    expect(promise?.findings[0].said).toEqual([4]);
+    expect(r.evidence.gaps).toEqual([]);
   });
 
   it("interrupted-turn: the agent turn carries interrupted true", () => {

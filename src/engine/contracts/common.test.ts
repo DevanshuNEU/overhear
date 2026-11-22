@@ -6,7 +6,7 @@ import type { Finding, Gap, GapCode } from "@/report/schema";
 import { GAP_CODES } from "@/report/schema";
 import { ev, type ItemSpec } from "../testing/build";
 import { GAP_DETAIL, GAP_TEXT } from "../wording";
-import { HANGUP_GRACE_SEC, RELEVANT_GAPS, SPEAKING_WORDS_PER_SEC, callerHungUpBeforeResult, callerLeftAfter, gapsTouching, softenForMissingTools, worst } from "./common";
+import { HANGUP_GRACE_SEC, RELEVANT_GAPS, SPEAKING_WORDS_PER_SEC, callerHungUpBeforeResult, callerLeftAfter, gapsTouching, softenForMissingTools, toolsRecorded, worst } from "./common";
 
 const turn: ItemSpec = { kind: "turn", role: "agent", text: "You're booked", startSec: 3, interrupted: null };
 const call: ItemSpec = { kind: "tool_call", id: "tc_1", name: "book_appointment", args: {} };
@@ -230,5 +230,29 @@ describe("callerHungUpBeforeResult", () => {
     expect(callerHungUpBeforeResult(withReason([turn, call], "agent_hangup"), 2)).toBe(false);
     expect(callerHungUpBeforeResult(withReason([turn, call, turn]), 2)).toBe(false);
     expect(callerHungUpBeforeResult(withReason([turn, call, { ...call, id: "u" }]), 2)).toBe(false);
+  });
+});
+
+describe("toolsRecorded", () => {
+  const gapMissing = gap("missing_tool_transcript", []);
+  it("is true when the record holds a tool call, on either platform", () => {
+    expect(toolsRecorded(ev([turn, call]))).toBe(true);
+    expect(toolsRecorded(ev([turn, call], { platform: "livekit" }))).toBe(true);
+  });
+
+  it("is false for a Retell record with no tool call: its tool calls may just be missing", () => {
+    expect(toolsRecorded(ev([turn]))).toBe(false);
+  });
+
+  it("is true for a LiveKit record with no tool call, which means none were made, unless a gap says otherwise", () => {
+    expect(toolsRecorded(ev([turn], { platform: "livekit" }))).toBe(true);
+    expect(toolsRecorded(ev([turn], { platform: "livekit", gaps: [gapMissing] }))).toBe(false);
+  });
+
+  it("lets a violated finding stand on a LiveKit record with no tool call, and adds no gap", () => {
+    const e = ev([turn], { platform: "livekit" });
+    const f: Finding = { result: "violated", text: "t", said: [1], did: [], asked: [], gaps: [], fields: [] };
+    expect(softenForMissingTools(e, f, "promise_backed")).toBe(f);
+    expect(e.gaps).toEqual([]);
   });
 });

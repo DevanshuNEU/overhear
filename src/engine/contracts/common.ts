@@ -68,9 +68,21 @@ export function gapsTouching(ev: Evidence, contract: ContractId, seqs: number[])
  * Any other finding is returned as it came. The caller passes only findings caused by an absence: a violated
  * finding that rests on something else (a failure, words read out) must not come here.
  */
+/**
+ * Whether the record shows the call's tool calls, so that "no tool was called" is something it can prove. True with a
+ * tool call or backend action in it. Also true for a LiveKit report with no missing_tool_transcript gap: LiveKit
+ * always records tool calls in the chat history, so an empty list means none were made (docs/research/livekit-facts.md,
+ * section 2 and the mapping table). A Retell record with no tool items is a turns-only record whose tool calls may
+ * simply not be there, so it is not.
+ */
+export function toolsRecorded(ev: Evidence): boolean {
+  if (ev.items.some((it) => it.kind === "tool_call" || it.kind === "backend_action")) return true;
+  return ev.platform === "livekit" && !ev.gaps.some((g) => g.code === "missing_tool_transcript");
+}
+
 export function softenForMissingTools(ev: Evidence, finding: Finding, contract: ContractId): Finding {
   if (finding.result !== "violated") return finding;
-  if (ev.items.some((it) => it.kind === "tool_call" || it.kind === "backend_action")) return finding;
+  if (toolsRecorded(ev)) return finding;
   if (!ev.gaps.some((g) => g.code === "missing_tool_transcript")) {
     ev.gaps.push({ code: "missing_tool_transcript", detail: GAP_DETAIL.missing_tool_transcript, seqs: [] });
   }

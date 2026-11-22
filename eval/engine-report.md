@@ -12,19 +12,19 @@ No cases yet.
 
 ## Constructed data
 
-47 cases (real 3, mutation 39, external 0, generated 5). Engine outcomes: 47 reports, 0 with no content, 0 errors.
+48 cases (real 3, mutation 39, external 0, generated 6). Engine outcomes: 48 reports, 0 with no content, 0 errors.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 100% (47 of 47) | 47 | 92% to 100% |
-| Verdict accuracy | 100% (47 of 47) | 47 | 92% to 100% |
-| Precision of failed | 100% (18 of 18) | 18 | 82% to 100% |
-| Recall of failed | 100% (18 of 18) | 18 | 82% to 100% |
+| Cases passing every check | 100% (48 of 48) | 48 | 93% to 100% |
+| Verdict accuracy | 100% (48 of 48) | 48 | 93% to 100% |
+| Precision of failed | 100% (19 of 19) | 19 | 83% to 100% |
+| Recall of failed | 100% (19 of 19) | 19 | 83% to 100% |
 | False failed on normal calls | 0% (0 of 8) | 8 | 0% to 32% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 44 | 100% (44 of 44) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 8) | 15% (6 of 40) |
+| promise_backed | 45 | 100% (45 of 45) | 100% (8 of 8) | 100% (8 of 8) | 0% (0 of 8) | 15% (6 of 41) |
 | verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 8) | no data (n = 0) |
 | spoken_matches_committed | 42 | 100% (42 of 42) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 8) | 17% (5 of 30) |
 | transfer_kept | 45 | 100% (45 of 45) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 8) | 47% (8 of 17) |
@@ -34,7 +34,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 
 | Expected | failed | needs_review | passed | nothing_done | no_content | error |
 | --- | --- | --- | --- | --- | --- | --- |
-| failed | 18 | 0 | 0 | 0 | 0 | 0 |
+| failed | 19 | 0 | 0 | 0 | 0 | 0 |
 | needs_review | 0 | 19 | 0 | 0 | 0 | 0 |
 | passed | 0 | 0 | 8 | 0 | 0 | 0 |
 | nothing_done | 0 | 0 | 0 | 2 | 0 | 0 |
@@ -43,6 +43,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 
 | Case | Data | Source | Locked | Expected | Engine said | Passes |
 | --- | --- | --- | --- | --- | --- | --- |
+| livekit-booked-no-tool | constructed | generated | yes | failed | failed | yes |
 | livekit-booking-error-said-booked | constructed | generated | yes | failed | failed | yes |
 | livekit-booking-success | constructed | generated | yes | passed | passed | yes |
 | livekit-caller-hung-up-mid-announcement | constructed | generated | yes | needs_review | needs_review | yes |

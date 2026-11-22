@@ -481,9 +481,9 @@ export type NoContentReason = (typeof NO_CONTENT_REASONS)[number];
 
 /** The sentence a call shows in place of a verdict when it has no report. */
 export const NO_CONTENT_LINE: Record<NoContentReason, string> = {
-  storage_stripped: "Retell didn't keep this call's transcript, because the agent stores only basic call details.",
+  storage_stripped: "The platform didn't keep this call's transcript, because the agent stores only basic call details.",
   never_connected: "The call never connected, so there's no conversation to check.",
-  no_transcript: "Retell returned no transcript for this call.",
+  no_transcript: "The call record has no transcript.",
 };
 
 /** What the engine says about a record it cannot read as a Retell call, and what to pass instead. */

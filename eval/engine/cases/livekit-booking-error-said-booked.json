@@ -14,8 +14,8 @@
     ]
   },
   "record": {
-    "job_id": "AJ_offline",
-    "room_id": "RM_offline",
+    "job_id": "AJ_offline_booking_error_said_booked",
+    "room_id": "RM_offline_booking_error_said_booked",
     "room": "offline-room",
     "events": [
       { "type": "conversation_item_added", "item": { "id": "item_c3b53285ef4c", "type": "agent_handoff", "old_agent_id": null, "new_agent_id": "default_agent", "created_at": 1795322073.278074 }, "created_at": 1795322073.27808 },
