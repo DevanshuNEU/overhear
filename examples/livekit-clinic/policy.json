@@ -1,0 +1,20 @@
+{
+  "packs": ["scheduling"],
+  "tools": {
+    "check_availability": {
+      "role": "lookup",
+      "items": "result.open_slots",
+      "id": "item.slot_id"
+    },
+    "book_appointment": {
+      "role": "change",
+      "kind": "book",
+      "id": "args.slot_id"
+    }
+  },
+  "fields": {
+    "date": { "path": "item.date", "type": "date", "required": true },
+    "time": { "path": "item.time", "type": "time", "required": true },
+    "provider": { "path": "item.provider", "type": "name" }
+  }
+}

@@ -48,6 +48,8 @@ npm run check -- reports/
 
 It prints one line per call and exits 1 when any call failed, so it can run in CI. Retell exports work with it too.
 
+Overhear guesses your agent's tools from their names, so a transfer your agent promised and never made reads Needs review ("Couldn't check"), not Failed. To turn on the strict check, write a policy file that names every tool the agent has, and pass it with `--policy policy.json`, or save it as `~/.overhear/policy.json` for the dashboard. See [docs/policy.md](docs/policy.md).
+
 ## What it checks
 
 Three rules, each read from the call record:
