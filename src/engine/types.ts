@@ -5,7 +5,7 @@
 // plain data and read plain data back, so the entry point has one shape, Analyze, and is pure: the same record
 // and options give the same Outcome on any machine.
 import type { NoContentReason } from "@/report/labels";
-import type { CallReport } from "@/report/schema";
+import type { CallReport, Policy } from "@/report/schema";
 
 /** A record the engine cannot read at all, with what the caller can do about it. */
 export class InputError extends Error {
@@ -29,6 +29,15 @@ export interface EngineOptions {
    * shape of its results. The engine reads no environment, so the caller passes it in.
    */
   demoAgentId?: string;
+  /**
+   * The team's own policy (docs/policy.md), when it has one. It is used for every call, instead of the preset or an
+   * inferred policy, and the engine checks it with PolicySchema first (an invalid one is an error outcome, never a
+   * guess). A user policy promises it names every tool the agent has, so it counts like the preset: a transfer that
+   * was promised and never made reads Failed, not Couldn't check, when the policy lists no transfer tool.
+   * The promise is checked per call: a call that used a tool the policy does not name gets the cautious (inferred)
+   * reading, still with the policy's tools and fields.
+   */
+  policy?: Policy;
 }
 
 /**

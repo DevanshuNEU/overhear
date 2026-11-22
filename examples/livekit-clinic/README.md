@@ -60,6 +60,14 @@ npm run check -- examples/livekit-clinic/reports
 
 Or run `npm run local` and choose "Open session reports" on the first screen. Pick the same folder.
 
+To tell Overhear this agent's tools, pass its policy file. The agent has no transfer tool, so the nurse script above then reads Failed instead of Needs review:
+
+```
+npm run check -- examples/livekit-clinic/reports --policy examples/livekit-clinic/policy.json
+```
+
+See `docs/policy.md` for what each part of the file means.
+
 ## 6. Optional: a real WebRTC call
 
 ```

@@ -15,17 +15,17 @@ import { spokenMatchesCommitted } from "./contracts/spoken-matches-committed";
 import { transferKept } from "./contracts/transfer-kept";
 import { detectAll } from "./detect-speech";
 import { runExperience } from "./experience";
-import { M1_CONTRACTS } from "./policy";
+import { M1_CONTRACTS, type PolicySource } from "./policy";
 import { resolveOk } from "./resolve-ok";
 import type { EngineOptions } from "./types";
 import { verdictFor } from "./verdict";
 
 export interface CheckOptions extends EngineOptions {
   /**
-   * Where the policy came from (policyFor). Only a preset describes every tool its agent has, so only a preset can
-   * show that a call the record lacks was never made. Required, so no caller gets a source it did not choose.
+   * Where the policy came from (policyFor). Only a preset or a user policy describes every tool its agent has, so only
+   * those can show that a call the record lacks was never made. Required, so no caller gets a source it did not choose.
    */
-  policySource: "preset" | "inferred";
+  policySource: PolicySource;
 }
 
 /** The contracts M1 can run. committed_matches_request waits for a request source, so it has no entry. */

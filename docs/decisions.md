@@ -15,7 +15,7 @@ Why Overhear works the way it does, and what each choice costs. One rule sits un
   - A caller who keeps saying "Hello?" past that point, or waits in silence, is still Failed.
   - The cost: both numbers are estimates, so a slow talker or a long pause can tip a call either way. A record without word timestamps always reads Couldn't check.
 - **A booking claimed before any attempt stays Failed, even if the caller hangs up.** The caller left believing something false.
-- **An unknown transfer tool means Couldn't check.** If Overhear doesn't know an agent's transfer tool, a transfer claim with no transfer reads Couldn't check, because Overhear can't tell "never attempted" from "attempted through a tool it didn't recognise". Naming the tool in the agent's policy turns on the strict check.
+- **An unknown transfer tool means Couldn't check.** If Overhear doesn't know an agent's transfer tool, a transfer claim with no transfer reads Couldn't check, because Overhear can't tell "never attempted" from "attempted through a tool it didn't recognise". Giving Overhear a policy file that names every tool the agent has turns on the strict check: with a policy and no transfer tool in it, that claim reads Failed (`docs/policy.md`).
 
 ## Platforms
 

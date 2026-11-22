@@ -3,6 +3,7 @@
 // Pure: a contract reads its context and returns a result. The one thing it may add is a gap to the evidence it was
 // handed (softenForMissingTools), which the pipeline owns.
 import { GAP_CODES, type ContractId, type ContractResult, type Detection, type Evidence, type Finding, type Gap, type GapCode, type Policy, type Result } from "@/report/schema";
+import type { PolicySource } from "../policy";
 import type { ToolUse } from "../committed";
 import { GAP_DETAIL, GAP_TEXT, unverifiedText } from "../wording";
 
@@ -12,10 +13,10 @@ export interface ContractContext {
   ev: Evidence;
   policy: Policy;
   /**
-   * Where the policy came from (policyFor). Only a preset describes every tool its agent has, so only a preset can
-   * show that a call the record lacks was never made; an inferred policy knows just the tools the call used.
+   * Where the policy came from (policyFor). Only a preset or a user policy describes every tool its agent has, so only
+   * those can show that a call the record lacks was never made; an inferred policy knows just the tools the call used.
    */
-  policySource: "preset" | "inferred";
+  policySource: PolicySource;
   /** The time zone spoken times are read in: the policy's when it names one, else the caller's. */
   tz: string;
   /** Whether tz is the policy's own. */
