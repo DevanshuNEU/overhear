@@ -81,3 +81,14 @@ Migrations run before the app comes up, so every deploy applies pending schema c
 3. Put that `RETELL_AGENT_ID` in the Railway variables and redeploy.
 4. Run `npm run db:seed` once against the production `DATABASE_URL`, so the clinic has providers, slots and patients. After that, the open slots top themselves up each time a visitor starts a call.
 5. Open the public page, check that the sample calls show, choose "Call the demo agent", book an appointment, and check that your call appears with a verdict.
+
+## How the agent checks who is calling, and its limits
+
+The agent asks for the caller's full name, has them spell it letter by letter, reads the spelling back, then asks for the date of birth and reads it back. Only then does it call `verify_patient`. When that finds a file, the agent says the name on file and asks "Is that you?" before it books, moves or cancels anything.
+
+`verify_patient` looks up every patient with that exact date of birth and picks the one whose name is most similar to what the caller said (similarity of at least 0.65, in `src/clinic/service.ts`). Matching loosely means a misheard name still finds the right file. It also brings two known gaps:
+
+- **Two patients with the same name and the same date of birth.** The lookup picks one of them, and the caller can't tell which. It isn't handled yet. Fixes, in order of preference: (1) when more than one file matches, return "more than one match" instead of a patient, and have the agent ask for a third detail, such as the phone number on file or a postcode; (2) for phone calls, check the caller's number against the number on file; (3) when it still can't tell, hand the caller to staff and change nothing.
+- **A similar name with the same date of birth.** A different patient whose name sounds close could match. Spelling the name and confirming the name on file make this unlikely, but the lookup itself is still loose. The fix is to match the spelled name exactly, and use similarity only to suggest "did you mean" while the caller confirms.
+
+These matter for the demo clinic only. Overhear itself doesn't verify anyone: it checks whether what the agent said matches what its tools did. A check that the agent verified the caller before changing an appointment is designed but not built yet.
