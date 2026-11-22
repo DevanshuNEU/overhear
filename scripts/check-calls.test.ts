@@ -23,14 +23,16 @@ describe("formatCalls", () => {
   it("prints one aligned line per call: status, call id, headline, then the file", () => {
     const text = stripAnsi(formatCalls([failed(), review(), passed(), empty(), broken()], { color: false }));
     const lines = text.split("\n");
-    expect(lines[0]).toMatch(/^Failed {8}\S+ {2}The call broke a rule/);
+    expect(lines[0]).toMatch(/^Failed {8}\S+ {2}The agent said twice/);
+    expect(lines.find((l) => l.startsWith("Passed"))).toContain("Every promise was kept.");
+    expect(text).not.toContain("The call broke a rule");
     const starts = lines.filter((l) => /^(Failed|Needs review|Passed|Nothing done|No content|Error)/.test(l));
     expect(starts).toHaveLength(5);
     // The id column starts at the same place on every line.
     const col = starts.map((l) => l.search(/ {2}\S/) + 2);
     expect(new Set(col).size).toBe(1);
     expect(text).toContain("No content");
-    expect(text).toContain("Retell returned no transcript");
+    expect(text).toContain("The call record has no transcript.");
     expect(text).toMatch(/Error {9}/);
   });
 
@@ -191,6 +193,6 @@ describe("main", () => {
     const lk = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../eval/engine/cases/livekit-booking-error-said-booked.json"), "utf8")) as { record: unknown };
     write("lk.json", lk.record);
     expect(main(["lk.json", "--color", "off"], io())).toBe(1);
-    expect(out).toMatch(/^Failed +AJ_offline /);
+    expect(out).toMatch(/^Failed +AJ_offline_booking_error_said_booked /);
   });
 });

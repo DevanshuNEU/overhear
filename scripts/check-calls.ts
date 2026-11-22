@@ -10,6 +10,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { analyzeRecord } from "@/engine/analyze";
+import { LIST_WORDS } from "@/app/callListWords";
+import { rowFor } from "@/pull/pull";
 import { NO_CONTENT_LINE, VERDICT_LABEL } from "@/report/labels";
 import type { Outcome } from "@/engine/types";
 
@@ -59,11 +61,17 @@ function statusOf(o: Outcome): Status {
   return VERDICT_LABEL[o.report.verdict] as Status;
 }
 
-/** The words after the call id: the report's headline, the reason there is no content, or what went wrong. */
+/**
+ * The words after the call id. For a report, the sentence the call list shows for that call (rowFor's lead, and
+ * CallRow's wording for a passed or nothing-done call). Otherwise the reason there is no content, or what went wrong.
+ */
 function headlineOf(o: Outcome): string {
   if (o.kind === "error") return o.message;
   if (o.kind === "no_content") return NO_CONTENT_LINE[o.reason];
-  return o.report.headline;
+  const row = rowFor({ callId: o.report.callId, startedAt: 0, durationMs: null, callStatus: "ended", agentId: null, dataStorageSetting: null }, o);
+  if (row.verdict === "passed") return row.notes?.includes("no_promises_made") ? LIST_WORDS.noPromises : LIST_WORDS.everyPromiseKept;
+  const text = row.lead ?? row.headline ?? "";
+  return row.verdict === "nothing_done" ? text.replace(/^Nothing done\.\s*/, "") : text;
 }
 
 /** The lines under a failed call: what each violated finding says. */
