@@ -12,6 +12,12 @@ import { compactJson } from "./json";
 export const CASE_SCHEMA_VERSION = 1;
 
 /**
+ * The agent id the eval runs as the demo agent. A case whose record carries this agent_id gets the demo's preset by id,
+ * the strict reading; a record with no agent id gets it only by the shape of its results, which is a guess.
+ */
+export const EVAL_DEMO_AGENT_ID = "agent_eval_demo";
+
+/**
  * Where a case came from. real: a call that happened, scrubbed. mutation: a programmatic edit of another case,
  * named in derivedFrom. external: converted from data someone else built, such as a public benchmark. generated:
  * the output of a platform's own library, run from a script we wrote: not a real call, not a mutation, not someone

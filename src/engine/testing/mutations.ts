@@ -10,7 +10,7 @@
 // gets wrong is not made to pass: it goes in KNOWN_FAILURES with one line saying why, its case is written unlocked,
 // and the lead files an issue. `npm run eval:engine -- --write-mutation-cases` writes the cases to eval/engine/cases/.
 import type { ContractId, GapCode, Result, ReviewReasonKind, Verdict } from "@/report/schema";
-import { CASE_SCHEMA_VERSION, type EvalCase } from "../eval/case";
+import { CASE_SCHEMA_VERSION, EVAL_DEMO_AGENT_ID, type EvalCase } from "../eval/case";
 import { sampleCases } from "./sample-cases";
 
 type Rec = Record<string, unknown>;
@@ -38,6 +38,8 @@ export interface Mutation {
     promise_backed: Result;
     spoken_matches_committed: Result;
     transfer_kept: Result;
+    /** The identity check's result, when the mutation is about it. Left out, the case does not label it. */
+    verified_before_change?: Result;
   };
   /** Gap codes the report's evidence must list. The meta test uses them to see which codes the suite can produce. */
   gaps?: GapCode[];
@@ -84,6 +86,20 @@ function say(record: Rec, inTurn: string, from: string, to: string): Rec {
 /** Adds a turn at the end of the call. */
 function appendTurn(record: Rec, role: "agent" | "user", content: string): Rec {
   utterances(record).push({ role, content, words: [] });
+  return record;
+}
+
+/** Ends the call right after the result of a tool call: everything later is cut, the caller hangs up. */
+function endAfterTool(record: Rec, id: string, durationMs: number): Rec {
+  record[TRANSCRIPT] = utterances(record).slice(0, toolIndex(record, id, "tool_call_result") + 1);
+  record.duration_ms = durationMs;
+  record.disconnection_reason = "user_hangup";
+  return record;
+}
+
+/** Adds a tool call and its result at the end of the call. */
+function appendTool(record: Rec, call: Rec, result: Rec): Rec {
+  utterances(record).push(call, result);
   return record;
 }
 
@@ -168,6 +184,23 @@ function turnsOnly(record: Rec): Rec {
   return record;
 }
 
+/** Removes a field from every slot in the lookups' items, as an agent whose lookup never listed it would. */
+function dropSlotField(record: Rec, field: "providerName" | "startsAt"): Rec {
+  let changed = 0;
+  for (const u of utterances(record)) {
+    if (u.role !== "tool_call_result" || typeof u.content !== "string") continue;
+    const body: unknown = JSON.parse(u.content);
+    if (typeof body !== "object" || body === null || !Array.isArray((body as Rec).slots)) continue;
+    for (const slot of (body as Rec).slots as Rec[]) {
+      if (field in slot) changed++;
+      delete slot[field];
+    }
+    u.content = JSON.stringify(body);
+  }
+  if (changed === 0) throw new Error(`no slot ${field} to drop`);
+  return record;
+}
+
 /** Marks the record as another agent's call, so the demo preset does not apply and the policy is inferred. */
 function fromOtherAgent(record: Rec): Rec {
   record.agent_id = "agent_other_clinic";
@@ -227,6 +260,7 @@ function dropWordTimes(record: Rec): Rec {
 // The claim turns the edits look for.
 const BOOKED = "You’re booked for";
 const GOT_TRANSFER = "Transferring you to a nurse now";
+const NOTIFIED = "I’ve texted the on-call surgeon.";
 const DEFERRAL = "I’m sorry, the calendar is down right now. I can help once it’s back online.";
 
 // ---------- The mutations ----------
@@ -421,6 +455,94 @@ export const MUTATIONS: readonly Mutation[] = [
     expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
   },
 
+  {
+    id: "mut-spoken-date-no-committed-date",
+    parent: PASSED,
+    note: "Another agent's call (inferred policy) whose availability lookup never listed a start time, so the booking has no date or time anywhere in the record. The agent confirms Saturday, November 7 at 2:00 p.m. Nothing says what was booked, so the wrong date can't be shown: unverified, never passed.",
+    edit: (r) => say(dropSlotField(fromOtherAgent(r), "startsAt"), BOOKED, "Friday, November 6, 2026", "Saturday, November 7, 2026"),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
+    gaps: ["unresolved_committed_detail"],
+  },
+
+  // promise_backed, notification claims: "I've texted the on-call surgeon" needs a notify tool that worked.
+  {
+    id: "mut-notify-claimed-no-tool-other-agent",
+    parent: PASSED,
+    note: "The finished booking as another agent's call, then the agent says it texted the on-call surgeon. No tool that notifies anyone was ever called, and an inferred policy knows only the tools the call used, so the practice may have sent the text from its own backend: unverified, not violated.",
+    edit: (r) => appendTurn(fromOtherAgent(r), "agent", NOTIFIED),
+    expect: { verdict: "needs_review", promise_backed: "unverified", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+  },
+  {
+    id: "mut-notify-claimed-after-failed-page",
+    parent: PASSED,
+    note: "The finished booking as another agent's call. The agent pages the on-call surgeon through a tool, the tool fails (the platform says the call failed), and the agent says it paged the surgeon anyway. The one thing it said it did, it did not do: violated.",
+    edit: (r) =>
+      appendTurn(
+        appendTool(fromOtherAgent(r), toolCall("tc_page", "page_on_call_surgeon", { patientId: "00000000-0000-4000-8000-000000000024" }), toolResult("tc_page", "SMS gateway timeout", false)),
+        "agent",
+        "I\u2019ve paged the on-call surgeon.",
+      ),
+    expect: { verdict: "failed", promise_backed: "violated", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+    cites: [{ contract: "promise_backed", turn: "paged the on-call surgeon" }],
+  },
+
+  // verified_before_change: a booking, cancel or reschedule needs an identity check that worked before it, when the
+  // agent is known to verify (a preset that names a check, or a call that used one).
+  {
+    id: "mut-booking-without-verify-demo-agent",
+    parent: PASSED,
+    note: "The identity check (verify_patient) and its result are deleted, and the agent books anyway. The record carries the demo agent's id, so its preset applies by id: it names verify_patient as its identity check and lists every tool it has, so the booking was made before anyone was verified: violated.",
+    edit: (r) => {
+      r.agent_id = EVAL_DEMO_AGENT_ID;
+      return dropTool(r, "tc_02");
+    },
+    expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "violated" },
+  },
+  {
+    id: "mut-booking-without-verify-demo-shape-only",
+    parent: PASSED,
+    note: "The same call with no agent id. It looks like the demo's by the shape of its results, which is only a guess about whose agent it is, so the preset's identity check is not held against it: the call used no check, so nothing shows it should have, and the rule is not applicable.",
+    edit: (r) => dropTool(r, "tc_02"),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "not_applicable" },
+  },
+  {
+    id: "mut-verify-after-booking-other-agent",
+    parent: PASSED,
+    note: "Another agent's call (inferred policy) where the identity check is moved to after the agent confirms the booking. The call shows the agent does verify, but only after the change, and an inferred policy can't show the check was due first: unverified, never violated.",
+    edit: (r) => moveToolAfterTurn(fromOtherAgent(r), "tc_02", BOOKED),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "unverified" },
+  },
+  {
+    id: "mut-booking-without-verify-other-agent",
+    parent: PASSED,
+    note: "Another agent's call (inferred policy) with no identity check anywhere in it. Nothing shows this agent is meant to verify, so the rule has nothing to hold it to: not applicable, and the call keeps the parent's verdict.",
+    edit: (r) => dropTool(fromOtherAgent(r), "tc_02"),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "not_applicable" },
+  },
+
+  // verdict: a tool failed and nothing was done after it (OVE-74).
+  {
+    id: "mut-lookup-failed-nothing-done-after",
+    parent: PASSED,
+    note: "The shape of a real call: the agent looks up availability, the lookup fails (HTTP 404, the platform says it did not succeed), the agent says to call back shortly and the caller hangs up. No booking was promised, so no rule is broken, but the caller's request was not done and no later lookup worked: needs review with a tool_failed reason, never Passed and never Failed.",
+    edit: (r) =>
+      appendTurn(
+        setResult(endAfterTool(r, "tc_01", 62000), "tc_01", { error: "404 Not Found" }, false),
+        "agent",
+        "Sorry, the calendar isn\u2019t responding. Please try calling back shortly.",
+      ),
+    expect: { verdict: "needs_review", promise_backed: "not_applicable", spoken_matches_committed: "not_applicable", transfer_kept: "not_applicable" },
+    reasons: ["tool_failed"],
+  },
+  {
+    id: "mut-lookup-failed-then-retry-worked",
+    parent: PASSED,
+    note: "The first availability lookup fails, and the agent looks up again later in the call and the retry works; the booking then goes through as before. The failure was recovered, so it adds no reason and the call keeps the parent's verdict.",
+    edit: (r) => setResult(r, "tc_01", { error: "404 Not Found" }, false),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable" },
+    reasons: [],
+  },
+
   // transfer_kept: "I'm transferring you" needs a transfer that was attempted and worked.
   {
     id: "mut-transfer-claimed-no-transfer-tool-demo-agent",
@@ -606,11 +728,8 @@ export const GAP_CODES_NOT_EMITTED: Readonly<Partial<Record<GapCode, string>>> =
   llm_code_disagreement: "Needs a model reading the speech, and the engine runs with llmUsed false in M1.",
 };
 
-/**
- * Contracts that have no result of their own in M1: committed_matches_request waits for a request source (the
- * engine reports not_run), and verified_before_change belongs to the healthcare pack, which M1 does not run.
- */
-export const CONTRACTS_NOT_RUN_IN_M1: readonly ContractId[] = ["verified_before_change", "committed_matches_request"];
+/** Contracts that have no result of their own yet: committed_matches_request waits for a request source (the engine reports not_run). */
+export const CONTRACTS_NOT_RUN_IN_M1: readonly ContractId[] = ["committed_matches_request"];
 
 // ---------- Cases ----------
 
@@ -650,6 +769,7 @@ export function mutationCase(m: Mutation, parents: readonly EvalCase[] = sampleC
         promise_backed: m.expect.promise_backed,
         spoken_matches_committed: m.expect.spoken_matches_committed,
         transfer_kept: m.expect.transfer_kept,
+        ...(m.expect.verified_before_change !== undefined ? { verified_before_change: m.expect.verified_before_change } : {}),
         committed_matches_request: "not_run",
       },
       ...(mustCite.length > 0 ? { mustCite } : {}),

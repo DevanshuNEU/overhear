@@ -19,7 +19,7 @@ vi.mock("./check", async (importOriginal) => {
 
 const opts = { tz: "UTC" };
 const ny = "America/New_York";
-const isPreset = (policy: unknown) => isDeepStrictEqual(policy, preset);
+const isPreset = (policy: unknown) => isDeepStrictEqual(policy, { ...preset, packs: ["healthcare"] });
 
 describe("analyzeRetellCall", () => {
   it("turns a raw record into a validated report", () => {
@@ -59,6 +59,8 @@ describe("analyzeRetellCall", () => {
         { kind: "tool_result", id: "tc_1", ok: null, platformOk: false, payload: "HTTP 500: Request failed" },
         { kind: "tool_call", id: "tc_2", name: "check_availability", args: {} },
         { kind: "tool_result", id: "tc_2", ok: null, platformOk: true, payload: { slots: [{ id: "slot_1", providerName: "Dr. Priya Nair", startsAt: "2026-11-06T14:00:00Z" }] } },
+        { kind: "tool_call", id: "tc_v", name: "verify_patient", args: { name: "Jordan Ellis" } },
+        { kind: "tool_result", id: "tc_v", ok: null, platformOk: true, payload: { verified: true, patientId: "p1" } },
         { kind: "tool_call", id: "tc_3", name: "book_appointment", args: { slotId: "slot_1", patientId: "p1" } },
         { kind: "tool_result", id: "tc_3", ok: null, platformOk: true, payload: { ok: true } },
         turn("agent", "You're booked for Friday, November 6 at 2:00 p.m. with Dr. Priya Nair.", 30),

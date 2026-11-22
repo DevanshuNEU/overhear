@@ -9,8 +9,8 @@
 // when every earlier tool call is one the policy describes; a tool it doesn't describe might have been the change.
 // Nothing is violated on shaky evidence: a gap that touches the claim, the call or its result, or ordering none,
 // makes the finding unverified.
-import type { ChangeKind, Detection, Evidence, Finding, GapCode } from "@/report/schema";
-import type { ToolUse } from "../committed";
+import type { Detection, DetectionKind, Evidence, Finding, GapCode } from "@/report/schema";
+import { toolCalls, type ToolUse } from "../committed";
 import { toolPolicy } from "../policy";
 import {
   REASONS,
@@ -54,12 +54,21 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   const { ev } = ctx;
   // With ordering none the seqs say nothing about what came first, so no change is "before" or "after" anything.
   const unordered = ev.ordering === "none" && hasToolCalls(ev);
-  const earlier = unordered ? ctx.changes : ctx.changes.filter((c) => c.callSeq < seq);
+  // A notification claim ("I've texted the surgeon") is backed by a notify-role call, every other claim by a change.
+  const notify = claim.kind === "notify";
+  const pool = notify ? toolCalls(ev, ctx.policy, "notify") : ctx.changes;
+  const before = unordered ? pool : pool.filter((c) => c.callSeq < seq);
+  // A notification claim is backed by the latest notify call that worked: another notify call (a text to the patient)
+  // failing after the page went through does not undo the page. It reads as failed only when every earlier one failed.
+  // Only a call whose result arrived before the claim can back it: one still running at the claim does not, and must not
+  // push aside a page that had already gone through. With none, the usual rules apply (unfinished, or failed).
+  const worked = before.filter((c) => c.ok === true && c.resultSeq !== null && (unordered || c.resultSeq < seq));
+  const earlier = notify && worked.length > 0 ? worked : before;
   const backing = claim.kind ? backingFor(claim.kind, earlier) : latest(earlier);
   if (!claim.kind && !backing) return null;
 
   const did = seqsOf(backing);
-  const kind: ChangeKind | undefined = claim.kind ?? backing?.at(-1)?.kind;
+  const kind: DetectionKind | undefined = claim.kind ?? backing?.at(-1)?.kind;
   const time = formatTime(seq, ev);
   const base = { said: [seq], did, asked: [], fields: [] };
   const violated = (reason: PromiseReason): Finding => ({
@@ -79,11 +88,17 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
 
   if (!backing) {
     // A tool the policy doesn't describe might have been the change, so nothing here proves one wasn't attempted.
-    const unknown = undescribedBefore(ctx, seq);
+    const unknown = undescribedBefore(ctx, seq, -Infinity, !notify);
     if (unknown.tools.length > 0) {
       return { ...base, did: unknown.seqs, result: "unverified", text: unverifiedText("promise_backed", [unknownToolCause(unknown.tools, kind)]), gaps: [] };
     }
-    const later = claim.kind ? backingFor(claim.kind, ctx.changes.filter((c) => c.callSeq > seq)) : undefined;
+    if (notify && (ctx.policySource === "inferred" || !hasNotifyTool(ctx))) {
+      // Only a policy that is not inferred (a preset) lists every tool its agent has, so only a preset can show that no notification was sent. With no
+      // notification tool known the practice may send it from its own backend.
+      const cause = hasNotifyTool(ctx) ? REASONS.notify_not_in_record : REASONS.no_notify_tool;
+      return { ...base, result: "unverified", text: unverifiedText("promise_backed", [cause]), gaps: [] };
+    }
+    const later = claim.kind ? backingFor(claim.kind, pool.filter((c) => c.callSeq > seq)) : undefined;
     return softenForMissingTools(ev, violated({ why: later ? "attempted_later" : "not_attempted", kind }), "promise_backed");
   }
 
@@ -91,7 +106,7 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
   const failed = backing.find((c) => c.ok === false);
   if (failed) {
     // A tool the policy doesn't describe, run after the failure, may have been a retry that worked.
-    const retry = undescribedBefore(ctx, seq, failed.callSeq);
+    const retry = undescribedBefore(ctx, seq, failed.callSeq, !notify);
     if (retry.tools.length > 0) {
       const seqs = [...did, ...retry.seqs].sort((a, b) => a - b);
       return { ...base, did: seqs, result: "unverified", text: unverifiedText("promise_backed", [unknownToolCause(retry.tools, kind)]), gaps: [] };
@@ -118,15 +133,26 @@ function judge(ctx: ContractContext, seq: number, claim: Detection): Finding | n
  * The tools used before a claim that the policy gives no role, in order of first use, with the seqs of their calls.
  * With `after`, only those used after that seq.
  */
-function undescribedBefore(ctx: ContractContext, seq: number, after = -Infinity): { tools: string[]; seqs: number[] } {
+function undescribedBefore(ctx: ContractContext, seq: number, after = -Infinity, notifyToo = false): { tools: string[]; seqs: number[] } {
   const used = ctx.ev.items.flatMap((it) => {
     if (it.seq >= seq || it.seq <= after) return [];
     if (it.kind === "tool_call") return [{ seq: it.seq, name: it.name }];
     if (it.kind === "backend_action") return [{ seq: it.seq, name: it.tool }];
     return [];
   });
-  const unknown = used.filter((u) => toolPolicy(ctx.policy, u.name) === undefined);
+  // With an inferred policy a tool that only looks like a notification (a name with "email" or "message" in it) may
+  // still have been the change, so for a claim that is not a notification it counts as undescribed too.
+  const maybe = (name: string) => {
+    const tp = toolPolicy(ctx.policy, name);
+    return tp === undefined || (notifyToo && ctx.policySource === "inferred" && tp.role === "notify");
+  };
+  const unknown = used.filter((u) => maybe(u.name));
   return { tools: [...new Set(unknown.map((u) => u.name))], seqs: unknown.map((u) => u.seq) };
+}
+
+/** Whether the policy names a tool that sends a notification. */
+function hasNotifyTool(ctx: ContractContext): boolean {
+  return Object.values(ctx.policy.tools).some((t) => t.role === "notify");
 }
 
 /** Whether the record has any tool call, which is what makes "nothing was attempted" something it can prove. */
@@ -150,7 +176,7 @@ function latest(changes: ToolUse[]): Backing | undefined {
  * The most recent backing for a claim of this kind: a change of the kind (or of no kind), and for a reschedule also a
  * book that follows a cancel. How recent a backing is comes from its last call.
  */
-function backingFor(kind: ChangeKind, changes: ToolUse[]): Backing | undefined {
+function backingFor(kind: DetectionKind, changes: ToolUse[]): Backing | undefined {
   const options: Backing[] = changes.filter((c) => c.kind === kind || c.kind === undefined).map((c) => [c]);
   if (kind === "reschedule") {
     for (const book of changes.filter((c) => c.kind === "book")) {

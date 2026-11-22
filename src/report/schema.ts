@@ -9,7 +9,9 @@ export const SCHEMA_VERSION = 1;
 
 export const PLATFORMS = ["retell", "livekit"] as const;
 export const CHANGE_KINDS = ["book", "cancel", "reschedule", "update"] as const;
-export const ROLES = ["verify", "lookup", "change", "transfer"] as const;
+// The kinds of claim a completion can be about: a change to a booking, or a notification sent to a person or team.
+export const DETECTION_KINDS = [...CHANGE_KINDS, "notify"] as const;
+export const ROLES = ["verify", "lookup", "change", "transfer", "notify"] as const;
 export const FIELD_TYPES = ["date", "time", "datetime", "name", "string", "number", "money", "id"] as const;
 export const GAP_CODES = [
   "missing_tool_transcript",
@@ -36,10 +38,11 @@ export const SPEECH_CLASSES = ["completion", "transfer", "intention", "offer", "
 // The call experience checks: how the call sounded to the caller, apart from the contracts. A check that ran and
 // found nothing is listed in experience.ran with no problem.
 export const EXPERIENCE_CHECKS = ["agent_ends_call", "error_handled", "spoken_format"] as const;
-export const REVIEW_REASON_KINDS = ["unverified_result", "deferral", "unanswered_request"] as const;
+export const REVIEW_REASON_KINDS = ["unverified_result", "deferral", "tool_failed", "unanswered_request"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 export type ChangeKind = (typeof CHANGE_KINDS)[number];
+export type DetectionKind = (typeof DETECTION_KINDS)[number];
 export type GapCode = (typeof GAP_CODES)[number];
 export type Result = (typeof RESULTS)[number];
 export type Verdict = (typeof VERDICTS)[number];
@@ -208,7 +211,7 @@ export const PolicySchema = z.strictObject({
 export const DetectionSchema = z.strictObject({
   seq: Seq, // an agent turn
   cls: z.enum(SPEECH_CLASSES),
-  kind: z.enum(CHANGE_KINDS).optional(),
+  kind: z.enum(DETECTION_KINDS).optional(),
   quote: z.string().min(1), // exact words, a substring of the turn
   source: z.enum(["code", "llm", "both"]),
 });

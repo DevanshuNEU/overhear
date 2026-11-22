@@ -107,7 +107,7 @@ interface Run {
 }
 
 /** Runs the contract the way the pipeline will (resolveOk, detections, changes, every committed-detail gap added), then checks the schema. */
-function run(input: Evidence, policy: Policy = PRESET, addGaps = true, zone: { tz: string; policyTz: boolean } = { tz: "UTC", policyTz: true }): Run {
+function run(input: Evidence, policy: Policy = PRESET, addGaps = true, zone: { tz: string; policyTz: boolean } = { tz: "UTC", policyTz: true }, policySource: "preset" | "inferred" = "preset"): Run {
   const resolved = resolveOk({ ...input, callStartMs: input.callStartMs ?? CALL_START }, policy);
   const list = changes(resolved, policy);
   const gaps = addGaps ? list.flatMap((c) => committedDetails(resolved, policy, c).gaps) : [];
@@ -115,7 +115,7 @@ function run(input: Evidence, policy: Policy = PRESET, addGaps = true, zone: { t
   const ctx: ContractContext = {
     ev: evidence,
     policy,
-    policySource: "preset",
+    policySource,
     tz: zone.tz,
     policyTz: zone.policyTz,
     detections: detectAll(evidence, Object.keys(policy.tools)),
@@ -437,6 +437,107 @@ describe("spoken_matches_committed", () => {
     it("a cancellation followed by a booking that is confirmed once is judged on the booking alone", () => {
       const r = run(ev([...lookup([slot("s1")]), ...tool("tc_c", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]));
       expect(r.out.findings.map((f) => f.result)).toEqual(["passed"]);
+    });
+  });
+
+  describe("a spoken detail with nothing to compare it with", () => {
+    // A policy that defines a time and a provider but no date, as an inferred one does when the lookup lists no date.
+    const noDate: Policy = PolicySchema.parse({
+      ...preset,
+      fields: Object.fromEntries(Object.entries(preset.fields).filter(([name]) => name !== "date")),
+      tools: { ...preset.tools, book_appointment: { ...preset.tools.book_appointment, required: ["time"] } },
+    });
+    const noFields: Policy = PolicySchema.parse({ ...preset, fields: {} });
+
+    it("a date the agent said, with no date field in the policy, is unverified and names the date", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Saturday, November 7 at 2 PM with Dr. Nair.", 20)]), noDate);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the date of the booking isn't in the call.");
+      expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
+      expect(r.evidence.gaps.find((g) => g.code === "unresolved_committed_detail" && g.field === "date")).toMatchObject({ tool: "book_appointment", kind: "book" });
+      expect(r.finding.fields.map((f) => f.field)).toEqual(["time", "provider"]);
+    });
+
+    it("a wrong time still reads violated beside a date nothing can check", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Saturday, November 7 at 3 PM with Dr. Nair.", 20)]), noDate);
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a confirmation that says only what the policy covers still passes", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for 2 PM with Dr. Nair.", 20)]), noDate);
+      expect(r.out.result).toBe("passed");
+    });
+
+    it("a change with nothing to compare is unverified when the confirmation speaks a date, a time or a provider", () => {
+      for (const [text, field] of [
+        ["Your appointment on Friday, November 6 is cancelled.", "date"],
+        ["Your 2 PM appointment is cancelled.", "time"],
+        ["Your appointment with Dr. Nair is cancelled.", "provider"],
+      ] as const) {
+        const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), agent(text, 20)]), noFields);
+        expect(r.out.result).toBe("unverified");
+        expect(r.finding.text).toContain(`the ${field} of the cancellation`);
+        expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
+      }
+    });
+
+    it("a confirmation that speaks no comparable detail stays not applicable", () => {
+      const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), agent("Your appointment is cancelled.", 20)]), noFields);
+      expect(r.out).toEqual({ contract: "spoken_matches_committed", result: "not_applicable", findings: [] });
+    });
+
+    it("a detail spoken after a change that failed is not asked about", () => {
+      const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: false }, false), agent("Your appointment on Friday, November 6 is cancelled.", 20)]), noFields);
+      expect(r.out.result).toBe("not_applicable");
+    });
+  });
+
+  // Re-review F2: a date or time an inferred policy read from the booking's own result can be when it was made.
+  describe("a value read from the booking's own result", () => {
+    const fromResult = PolicySchema.parse({
+      packs: ["scheduling"],
+      tools: { check_availability: { role: "lookup" }, book_appointment: { role: "change", kind: "book" } },
+      fields: { date: { path: "result.date", type: "date" }, time: { path: "result.time", type: "time" } },
+    });
+    const booked = (payload: Record<string, unknown>) => ev([...tool("tc_1", "check_availability", {}, { slots: [{ id: "s1", label: "Tuesday 2 PM" }] }), ...tool("tc_2", "book_appointment", { slot_id: "s1" }, payload), agent("You're booked for Tuesday, December 8 at 2 PM.", 20)]);
+    const inferred = (payload: Record<string, unknown>) => run(booked(payload), fromResult, true, { tz: "UTC", policyTz: false }, "inferred");
+
+    it.each([
+      ["a date of the day it was made", { ok: true, date: "2026-11-22" }],
+      ["a timestamp of when it was made", { ok: true, time: "2026-11-22T13:14:05Z" }],
+      ["a start with a timestamp", { ok: true, start: "2026-11-22T13:14:05", time: "2026-11-22T13:14:05" }],
+    ])("%s is unverified, never violated", (_name, payload) => {
+      const r = inferred(payload);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.fields.some((f) => f.status === "differs")).toBe(false);
+    });
+
+    it("a result value that matches still passes", () => {
+      expect(inferred({ ok: true, date: "2026-12-08", time: "14:00" }).out.result).toBe("passed");
+    });
+
+    it("the same path in a policy that is not inferred can still be violated", () => {
+      expect(run(booked({ ok: true, date: "2026-11-22" }), fromResult, true, { tz: "UTC", policyTz: false }, "preset").out.result).toBe("violated");
+    });
+  });
+
+  // CodeRabbit on #106: a field the policy has, with no value in the record, is still a detail with nothing to compare.
+  describe("a configured field the booking result leaves out", () => {
+    const optionalDate = PolicySchema.parse({
+      packs: ["scheduling"],
+      tools: { book_appointment: { role: "change", kind: "book" } },
+      fields: { date: { path: "result.date", type: "date" } },
+    });
+
+    it("a date said when the result has none is unverified, not dropped as not applicable", () => {
+      const r = run(ev([...book("tc_1", "s1", { ok: true }), agent("Your appointment is booked for Tuesday.", 20)]), optionalDate);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the date of the booking isn't in the call.");
+    });
+
+    it("a confirmation with no date in it stays not applicable", () => {
+      const r = run(ev([...book("tc_1", "s1", { ok: true }), agent("Your appointment is booked.", 20)]), optionalDate);
+      expect(r.out).toEqual({ contract: "spoken_matches_committed", result: "not_applicable", findings: [] });
     });
   });
 

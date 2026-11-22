@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { failedSample, passedSample } from "@/report/samples";
 import { m1View } from "../testing/build";
 import type { Analyze, EngineOptions } from "../types";
-import { parseCase, type EvalCase } from "./case";
+import { EVAL_DEMO_AGENT_ID, parseCase, type EvalCase } from "./case";
 import { DEFAULT_TZ, brokenLock, outcomeOf, runCase, runEngineEval } from "./run";
 
 function makeCase(over: Partial<EvalCase> & { expect: EvalCase["expect"] }): EvalCase {
@@ -33,8 +33,8 @@ describe("runCase", () => {
     runCase(makeCase({ expect: { verdict: "failed" }, tz: "America/New_York" }), spy);
     runCase(makeCase({ expect: { verdict: "failed" } }), spy);
     expect(seen).toEqual([
-      [{ call_id: "call_x" }, { tz: "America/New_York" }],
-      [{ call_id: "call_x" }, { tz: DEFAULT_TZ }],
+      [{ call_id: "call_x" }, { tz: "America/New_York", demoAgentId: EVAL_DEMO_AGENT_ID }],
+      [{ call_id: "call_x" }, { tz: DEFAULT_TZ, demoAgentId: EVAL_DEMO_AGENT_ID }],
     ]);
     expect(DEFAULT_TZ).toBe("UTC");
   });

@@ -119,6 +119,15 @@ describe("resolveOk: a body that reads like an error", () => {
   const UNKNOWN = { ok: null, codes: ["unknown_success"] };
   const TRUE = { ok: true, codes: [] };
 
+  // Re-review F6: a verify result that says nobody was found is not a good check.
+  it("an inferred verify result with verified, found, match or valid false is unknown, never true", () => {
+    for (const body of [{ verified: false }, { found: false }, { match: false }, { valid: false }]) {
+      expect(read("check_identity", body, inferredVerify)).toEqual(UNKNOWN);
+    }
+    expect(read("check_identity", { verified: true, patientId: "p1" }, inferredVerify)).toEqual(TRUE);
+    expect(read("check_identity", { patientId: "p1" }, inferredVerify)).toEqual(TRUE);
+  });
+
   it("a 200 with an error string gives unknown", () => {
     expect(read("book_slot", { error: "slot taken" }, inferredBook)).toEqual(UNKNOWN);
     expect(read("book_slot", "", inferredBook)).toEqual(TRUE);

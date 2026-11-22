@@ -21,13 +21,17 @@
 // unresolved: it is never compared and never printed. An optional field is listed as unresolved only when the agent
 // actually said it, so a call stored with names scrubbed does not come out unverified for a provider nobody named.
 //
+// A date, time or provider the agent said that the policy has no field for at all is the same kind of hole: no
+// committed value can be resolved, so the finding is unverified and names the field (and a gap is added for it). It
+// is not_applicable only when the agent said no comparable detail. A wrong value that can be compared still violates.
+//
 // The pipeline adds the unresolved_committed_detail gaps from committedDetails to the evidence before contracts run.
 // This contract reads those fields from committedDetails itself and so does not need the gap to decide; it cites the
 // code in a finding only when the evidence holds that gap.
 import type { Detection, FieldCheck, Finding, GapCode } from "@/report/schema";
 import { committedDetails, type FieldType, type ToolUse } from "../committed";
-import { REASONS, describeGap, fillText, spokenPassedText, spokenViolatedText, unverifiedText, ZONE_SHORT, zoneUnsureCause, type GapText } from "../wording";
-import { fieldCheckZoned, type MatchContext, type ReadingMatch, type ZoneDoubt } from "../spoken";
+import { REASONS, describeGap, fillText, unresolvedDetail, spokenPassedText, spokenViolatedText, unverifiedText, ZONE_SHORT, zoneUnsureCause, type GapText } from "../wording";
+import { fieldCheckZoned, spokenValues, type MatchContext, type ReadingMatch, type ZoneDoubt } from "../spoken";
 import { gapsTouching, worst, type Contract, type ContractContext } from "./common";
 
 type Details = ReturnType<typeof committedDetails>;
@@ -47,8 +51,9 @@ export const spokenMatchesCommitted: Contract = (ctx) => {
       if (nothingToCompare) {
         // Nothing to say or check, so a confirmation needs no finding. No confirmation at all is still unverified,
         // except a cancellation that a booking follows at once: that booking's confirmation covers the reschedule.
-        if (window.length > 0) return [];
-        if (change.kind === "cancel" && next?.kind === "book" && next.ok === true) return [];
+        // A confirmation that speaks a date, time or provider the record can't be compared with is not "didn't apply".
+        if (window.length > 0 && uncoveredSpoken(ctx, details, sentencesOf(window), true).length === 0) return [];
+        if (window.length === 0 && change.kind === "cancel" && next?.kind === "book" && next.ok === true) return [];
       }
       return [judge(ctx, change, details, window, unordered)];
     });
@@ -88,7 +93,7 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
 
   // The first agent turn with a claim about this change, and each of its claim sentences.
   const turn = window.length > 0 ? window[0].seq : undefined;
-  const sentences = turn === undefined ? [] : window.filter((d) => d.seq === turn).map((d) => d.quote);
+  const sentences = sentencesOf(window);
 
   const evidenceGaps = touching([...(turn === undefined ? [] : [turn]), ...did]);
   const gapCauses = evidenceGaps.map((g) => describeGap(g, { tool: change.tool, kind }));
@@ -105,6 +110,13 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
   const { rows, zone } = fieldRows(details, sentences, match);
   const fields = rows.map((r) => r.check);
 
+  // A value an inferred policy read from the booking's own result (a timestamp of when it was made, say) can't prove the
+  // agent wrong: a mismatch against it is only unverified.
+  if (ctx.policySource === "inferred") {
+    for (const r of rows) {
+      if (r.check.status === "differs" && ctx.policy.fields[r.check.field]?.path.startsWith("result.")) r.check.status = "unresolved";
+    }
+  }
   const differs = rows.filter((r) => r.check.status === "differs");
   const causes: GapText[] = [...gapCauses];
   const codes: GapCode[] = [...gapCodes];
@@ -120,6 +132,16 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
     } else if (r.check.status === "not_spoken" && r.required) {
       causes.push({ missing: fillText(REASONS.field_not_spoken.missing, { field: r.check.field }), fix: REASONS.field_not_spoken.fix });
     }
+  }
+
+  // A date, time or provider the agent said that the record has no committed value for at all.
+  for (const field of uncoveredSpoken(ctx, details, sentences)) {
+    causes.push(describeGap({ code: "unresolved_committed_detail", field, kind, tool: change.tool }));
+    const seqs = change.resultSeq === null ? [change.callSeq] : [change.callSeq, change.resultSeq];
+    if (!ev.gaps.some((g) => g.code === "unresolved_committed_detail" && g.field === field && g.seqs.includes(change.callSeq))) {
+      ev.gaps.push({ code: "unresolved_committed_detail", detail: unresolvedDetail(field, change.tool, "no_source"), seqs, tool: change.tool, field, ...(kind ? { kind } : {}) });
+    }
+    codes.push("unresolved_committed_detail");
   }
 
   // One reason for the whole date and time, whichever of the date or the time was in doubt.
@@ -144,6 +166,28 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
     gaps: [],
     fields,
   };
+}
+
+/** The claim sentences of the first turn in a window: the one turn a change is judged on. */
+function sentencesOf(window: Detection[]): string[] {
+  return window.length === 0 ? [] : window.filter((d) => d.seq === window[0].seq).map((d) => d.quote);
+}
+
+/**
+ * The fields (date, time, provider) the agent spoke in its confirmation that the policy has nothing to compare with:
+ * no field of that type, so no committed value can be resolved for it. A date needs a date or datetime field, a time
+ * a time or datetime field, a provider a name field. A field the policy does define is judged by the rows instead.
+ */
+function uncoveredSpoken(ctx: ContractContext, details: Details, sentences: string[], resolvedOnly = false): string[] {
+  // With resolvedOnly a field the policy has but the record gave no value for covers nothing: there is still nothing to compare.
+  const types = new Set(resolvedOnly ? Object.keys(details.fields).map((f) => details.types[f]) : Object.values(details.types));
+  const match: MatchContext = { callStartMs: ctx.ev.callStartMs, tz: ctx.tz, policyTz: ctx.policyTz, otherNames: ctx.providerNames };
+  const said = (type: FieldType) => sentences.some((s) => spokenValues(type, s, match).length > 0);
+  const out: string[] = [];
+  if (!types.has("date") && !types.has("datetime") && said("date")) out.push("date");
+  if (!types.has("time") && !types.has("datetime") && said("time")) out.push("time");
+  if (!types.has("name") && said("name")) out.push("provider");
+  return out;
 }
 
 /** The unverified cause for a change nobody confirmed. */

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "mut-lookup-failed-nothing-done-after",
+  "source": "mutation",
+  "independent": false,
+  "platform": "retell",
+  "locked": true,
+  "label": { "by": "mutation", "at": "2026-11-07", "note": "The shape of a real call: the agent looks up availability, the lookup fails (HTTP 404, the platform says it did not succeed), the agent says to call back shortly and the caller hangs up. No booking was promised, so no rule is broken, but the caller's request was not done and no later lookup worked: needs review with a tool_failed reason, never Passed and never Failed." },
+  "derivedFrom": "sample-passed",
+  "expect": { "verdict": "needs_review", "contracts": { "promise_backed": "not_applicable", "spoken_matches_committed": "not_applicable", "transfer_kept": "not_applicable", "committed_matches_request": "not_run" } },
+  "record": {
+    "call_id": "call_mut_lookup_failed_nothing_done_after",
+    "agent_version": 0,
+    "call_status": "ended",
+    "start_timestamp": 1793911370896,
+    "call_type": "web_call",
+    "disconnection_reason": "user_hangup",
+    "duration_ms": 62000,
+    "call_analysis": { "call_successful": true, "call_summary": "Jordan Ellis scheduled an appointment with Dr. Priya Nair for Friday, November 6, 2026, at 2:00 p.m., after 10:00 a.m. was unavailable. The agent also advised bringing photo ID, an insurance card, and a current medications list.", "user_sentiment": "Positive", "in_voicemail": false },
+    "transcript_with_tool_calls": [
+      {
+        "role": "agent",
+        "content": "Hello, this is Riley at Northwind Family Clinic. How may I help you today?",
+        "words": [{ "word": "Hello,", "start": 0.5, "end": 0.5 }]
+      },
+      {
+        "role": "user",
+        "content": "Hey, Riley. What's up? ",
+        "words": [{ "word": "Hey,", "start": 4.478, "end": 4.478 }]
+      },
+      { "role": "user", "content": "(unintelligible audio)", "words": [] },
+      {
+        "role": "agent",
+        "content": "Hi ",
+        "words": [{ "word": "Hi", "start": 6.104, "end": 6.104 }]
+      },
+      {
+        "role": "agent",
+        "content": "This is Riley at Northwind Family Clinic. How can I help you today?",
+        "words": [{ "word": "This", "start": 7.418, "end": 7.418 }]
+      },
+      {
+        "role": "user",
+        "content": "So I wanted to book an appointment. ",
+        "words": [{ "word": "So", "start": 11.278, "end": 11.278 }]
+      },
+      {
+        "role": "agent",
+        "content": "Absolutely. What day would you prefer, and do you have a provider in mind?",
+        "words": [{ "word": "Absolutely.", "start": 13.918, "end": 13.918 }]
+      },
+      {
+        "role": "user",
+        "content": "What's your data I can get with you? ",
+        "words": [{ "word": "What's", "start": 18.748, "end": 18.748 }]
+      },
+      {
+        "role": "agent",
+        "content": "I can help schedule an appointment at Northwind Family Clinic. What date would you prefer, and do you have a provider in mind?",
+        "words": [{ "word": "I", "start": 21.704, "end": 21.704 }]
+      },
+      {
+        "role": "user",
+        "content": "I don't have any provider in mind. Can you let me know? Like, what's the earliest date that I can get? The appointment for? ",
+        "words": [{ "word": "I", "start": 28.358, "end": 28.358 }]
+      },
+      { "role": "tool_call_invocation", "tool_call_id": "tc_01", "name": "check_availability", "arguments": "{\"execution_message\":\"I’ll check the earliest available appointments with any provider.\"}" },
+      {
+        "role": "agent",
+        "content": "I’ll ",
+        "words": [{ "word": "I’ll", "start": 40.517, "end": 40.517 }]
+      },
+      { "role": "tool_call_result", "tool_call_id": "tc_01", "content": "{\"error\":\"404 Not Found\"}", "successful": false },
+      { "role": "agent", "content": "Sorry, the calendar isn’t responding. Please try calling back shortly.", "words": [] }
+    ]
+  }
+}

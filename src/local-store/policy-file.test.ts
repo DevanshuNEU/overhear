@@ -99,7 +99,7 @@ describe("the local analyzers", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     put("{nope");
     const out = analyzeCall(record());
-    expect(out.kind === "report" && out.report.policy).toEqual(preset);
+    expect(out.kind === "report" && out.report.policy).toEqual({ ...preset, packs: ["healthcare"] });
   });
 
   it("the files analyzer uses a valid file, and ignores an invalid one", () => {

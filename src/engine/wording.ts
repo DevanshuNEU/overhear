@@ -2,7 +2,7 @@
 // these and nothing else writes them. Contract titles are not here: they come from CONTRACT_TITLE (and CONTRACT_NOUN for "Couldn't check") in
 // @/report/labels, so a renamed title flows into every stored finding.
 import { CONTRACT_NOUN } from "@/report/labels";
-import type { ChangeKind, ContractId, Evidence, Gap, GapCode } from "@/report/schema";
+import type { ChangeKind, ContractId, DetectionKind, Evidence, Gap, GapCode } from "@/report/schema";
 import { isPlaceholder } from "./placeholder";
 import type { ZoneDoubt } from "./spoken";
 
@@ -78,6 +78,11 @@ export const REASONS = {
     missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the transfer",
     fix: "Add {tool} to the policy.",
   },
+  no_notify_tool: { missing: "no notification tool is known for this agent", fix: "Add the agent's notification tool to the policy." },
+  notify_not_in_record: {
+    missing: "the record shows no notification before that, and the policy may not list every tool this agent has",
+    fix: "Export the call with its tool calls, or add the agent's notification tool to a full policy.",
+  },
   no_transfer_tool: { missing: "no transfer tool is known for this agent", fix: "Add the agent's transfer tool to the policy." },
   transfer_no_result: {
     missing: "the {tool} call has no result and nothing else in the record shows the caller was connected",
@@ -102,6 +107,22 @@ export const REASONS = {
   caller_left_before_result: {
     missing: "the caller hung up before {tool} returned, so the record can't show whether it worked",
     fix: "Nothing in the record to fix: the result never came back.",
+  },
+  unknown_verify_tool: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether it was the identity check",
+    fix: "Add {tool} to the policy.",
+  },
+  unknown_verify_tools: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the identity check",
+    fix: "Add {tool} to the policy.",
+  },
+  verify_not_before: {
+    missing: "the identity check didn't succeed before the change, and this agent's policy was inferred, so we couldn't tell whether it was due first",
+    fix: "Describe the agent's tools in a policy.",
+  },
+  verify_no_result: {
+    missing: "the {tool} call has no result in the record, so we couldn't tell whether the identity check worked",
+    fix: "Export the call with its tool results, or add a backend log with --actions.",
   },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
   zone_unsure: {
@@ -131,7 +152,7 @@ const ZONE_WHAT: Record<"date" | "time" | "datetime", string> = { date: "date", 
  * The unverified cause for a spoken date or time that fits the committed value only in a plausible zone other than
  * the one the check ran in: it says what was said, what the value is in each zone, and why that is not enough.
  */
-export function zoneUnsureCause(slots: { said: string; kind?: ChangeKind; type: "date" | "time" | "datetime"; doubt: ZoneDoubt }): GapText {
+export function zoneUnsureCause(slots: { said: string; kind?: DetectionKind; type: "date" | "time" | "datetime"; doubt: ZoneDoubt }): GapText {
   const { doubt } = slots;
   const values: Record<string, string> = {
     said: slots.said,
@@ -156,9 +177,16 @@ function nameList(names: string[]): string {
  * The unverified cause for a claim that no described change backs while the call used tools the policy does not
  * describe: any of them could have been the change, so the record does not prove nothing was attempted.
  */
-export function unknownToolCause(tools: string[], kind?: ChangeKind): GapText {
+export function unknownToolCause(tools: string[], kind?: DetectionKind): GapText {
   const text = tools.length === 1 ? REASONS.unknown_tool : REASONS.unknown_tools;
   const slots = { tool: nameList(tools), kind };
+  return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
+}
+
+/** The unverified cause for a change with no successful identity check before it while the call used tools the policy does not describe. */
+export function unknownVerifyToolCause(tools: string[]): GapText {
+  const text = tools.length === 1 ? REASONS.unknown_verify_tool : REASONS.unknown_verify_tools;
+  const slots = { tool: nameList(tools) };
   return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
 }
 
@@ -170,15 +198,16 @@ export function unknownTransferToolCause(tools: string[]): GapText {
 }
 
 /** Words for the kinds of change, in the sentences. */
-export const KIND_WORDS: Record<ChangeKind, string> = {
+export const KIND_WORDS: Record<DetectionKind, string> = {
   book: "booking",
   cancel: "cancellation",
   reschedule: "reschedule",
   update: "update",
+  notify: "notification",
 };
 
 /** The word for a kind of change, or "change" when there is no kind. */
-export function kindWord(kind?: ChangeKind): string {
+export function kindWord(kind?: DetectionKind): string {
   return kind ? KIND_WORDS[kind] : "change";
 }
 
@@ -186,7 +215,7 @@ export function kindWord(kind?: ChangeKind): string {
 export interface TextSlots {
   tool?: string;
   field?: string;
-  kind?: ChangeKind;
+  kind?: DetectionKind;
 }
 
 /** A string with its slots filled. A slot with no value reads "tool", "detail" or "change". */
@@ -264,6 +293,11 @@ export function noWayForwardText(failedSeq: number, ev: Evidence): string {
   return `A tool failed at ${formatTime(failedSeq, ev)}, and the agent offered no way forward: no callback, no person to talk to, no time to try again.`;
 }
 
+/** The review reason for a tool that failed with nothing done after it: when it failed, and which tools. */
+export function toolFailedText(time: string, tools: string[]): string {
+  return `A tool failed at ${time} and the caller's request wasn't done (${nameList(tools)}).`;
+}
+
 /** A turn where the agent said something, with each thing it said quoted as it was said. */
 export interface SaidAt {
   seq: number;
@@ -291,10 +325,10 @@ export function computerFormatText(turns: SaidAt[], ev: Evidence): string {
 
 /** Why a promise is broken: the reason slot of the promise_backed template. */
 export type PromiseReason =
-  | { why: "not_attempted"; kind?: ChangeKind }
-  | { why: "attempted_later"; kind?: ChangeKind }
-  | { why: "failed"; kind?: ChangeKind; error: string }
-  | { why: "unfinished"; kind?: ChangeKind };
+  | { why: "not_attempted"; kind?: DetectionKind }
+  | { why: "attempted_later"; kind?: DetectionKind }
+  | { why: "failed"; kind?: DetectionKind; error: string }
+  | { why: "unfinished"; kind?: DetectionKind };
 
 /**
  * The error a failed result gives: its error field when that is readable text, else "no reason given". A redaction
@@ -329,7 +363,7 @@ export function promiseViolatedText(time: string, quote: string, reason: Promise
 }
 
 /** promise_backed, passed. Not in 6.8: the three sample calls are the contract for it. */
-export function promisePassedText(time: string, quote: string, kind?: ChangeKind): string {
+export function promisePassedText(time: string, quote: string, kind?: DetectionKind): string {
   return `${said(time, quote)} The ${kindWord(kind)} succeeded before that.`;
 }
 
@@ -337,6 +371,19 @@ export function promisePassedText(time: string, quote: string, kind?: ChangeKind
 export function verifiedViolatedText(kind: ChangeKind | undefined, time: string, reason: "no_check" | "other_patient"): string {
   const why = reason === "no_check" ? "before any identity check" : "for a different patient than the one verified";
   return `The ${kindWord(kind)} at ${time} happened ${why}.`;
+}
+
+/** What the agent did, in the past tense, for the sentence about a change made before any identity check. */
+const DID_WORDS: Record<ChangeKind, string> = { book: "booked", cancel: "cancelled", reschedule: "rescheduled", update: "updated the booking" };
+
+/** verified_before_change, violated: the change worked and no identity check had worked before it. */
+export function verifiedBeforeViolatedText(time: string, kind?: ChangeKind): string {
+  return `At ${time} the agent ${kind ? DID_WORDS[kind] : "changed the booking"} before verifying who was calling.`;
+}
+
+/** verified_before_change, passed. Not in 6.8: the samples are the contract for it. */
+export function verifiedBeforePassedText(time: string, kind?: ChangeKind, samePatient = false): string {
+  return `The ${kindWord(kind)} at ${time} came after a successful identity check${samePatient ? " for the same patient" : ""}.`;
 }
 
 /** spoken_matches_committed, violated. */

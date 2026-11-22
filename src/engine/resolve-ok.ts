@@ -5,7 +5,7 @@
 // tool's own path comes first; lookups ignore the top-level path and count as successful when their items path
 // reads a list. Otherwise the platform's field saying it worked makes it true, with one exception: Retell's
 // `successful: true` means only that the HTTP call came back, and an API can answer 200 with { "error": "slot taken" }.
-// So a change or verify result whose body reads like an error (a truthy error or errors, ok or success false, a
+// So a change, verify or notify result whose body reads like an error (a truthy error or errors, ok or success false, a
 // status of "error" or "failed") is unknown: not true, and not false either, since a heuristic read must not make a
 // false "failed". With none of these, ok stays null and an unknown_success gap names the result. Nothing else ever
 // makes ok true: text such as "OK" or a truthy non-boolean is not read as success, and neither is anything in the
@@ -55,8 +55,17 @@ function settle(result: ToolResult, call: ToolCall | undefined, policy: Policy):
   }
   if (tool?.role === "lookup" && tool.items !== undefined && Array.isArray(readPath(tool.items, roots))) return ok(true);
   if (result.platformOk !== true) return ok(null);
-  if ((tool?.role === "change" || tool?.role === "verify") && readsLikeError(result.payload)) return ok(null, true);
+  if ((tool?.role === "change" || tool?.role === "verify" || tool?.role === "notify") && readsLikeError(result.payload)) return ok(null, true);
+  // A verify result that says no one was found: the check ran and did not succeed, so it is never a good check.
+  if (tool?.role === "verify" && saysNotVerified(result.payload)) return ok(null, true);
   return ok(true);
+}
+
+/** A verify body whose verified, found, match or valid is false. */
+function saysNotVerified(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return false;
+  const body = payload as Record<string, unknown>;
+  return ["verified", "found", "match", "valid"].some((k) => Object.hasOwn(body, k) && body[k] === false);
 }
 
 /** A body that says it failed: a truthy error or errors, ok or success false, or a status of error or failed. */

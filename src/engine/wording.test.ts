@@ -106,8 +106,9 @@ describe("wording", () => {
   });
 
   it("words for kinds of change, and change when there is none", () => {
-    expect(KIND_WORDS).toEqual({ book: "booking", cancel: "cancellation", reschedule: "reschedule", update: "update" });
+    expect(KIND_WORDS).toEqual({ book: "booking", cancel: "cancellation", reschedule: "reschedule", update: "update", notify: "notification" });
     expect(kindWord()).toBe("change");
+    expect(kindWord("notify")).toBe("notification");
     expect(kindWord("cancel")).toBe("cancellation");
   });
 

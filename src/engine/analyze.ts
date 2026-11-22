@@ -30,8 +30,8 @@ function run(read: (raw: unknown) => Adapted, raw: unknown, opts: EngineOptions)
   try {
     const adapted = read(raw);
     if (adapted.kind === "no_content") return adapted;
-    const { policy, source } = chosenPolicy(adapted, opts);
-    const report = checkCall(adapted.evidence, policy, { tz: opts.tz, policySource: source });
+    const { policy, source, byShape } = chosenPolicy(adapted, opts);
+    const report = checkCall(adapted.evidence, policy, { tz: opts.tz, policySource: source, ...(byShape ? { policyByShape: true } : {}) });
     const valid = CallReportSchema.safeParse(report);
     if (!valid.success) {
       const first = valid.error.issues[0];
@@ -46,7 +46,7 @@ function run(read: (raw: unknown) => Adapted, raw: unknown, opts: EngineOptions)
 }
 
 /** The team's policy when the caller gave one, else the preset or inferred policy for this call. */
-function chosenPolicy(adapted: Extract<Adapted, { kind: "evidence" }>, opts: EngineOptions): { policy: Policy; source: PolicySource } {
+function chosenPolicy(adapted: Extract<Adapted, { kind: "evidence" }>, opts: EngineOptions): { policy: Policy; source: PolicySource; byShape?: true } {
   if (opts.policy === undefined) return policyFor(adapted.evidence, { agentId: adapted.agentId, demoAgentId: opts.demoAgentId });
   const valid = PolicySchema.safeParse(opts.policy);
   if (!valid.success) {

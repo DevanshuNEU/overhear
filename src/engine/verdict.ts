@@ -10,8 +10,9 @@
 //
 // M1 has no request source, so an unanswered request is never a reason here.
 import { headlineFor } from "@/report/labels";
-import type { ContractResult, Detection, Evidence, Finding, Note, ReviewReason, Verdict } from "@/report/schema";
-import { deferralReasonText, formatTime } from "./wording";
+import type { ContractResult, Detection, Evidence, Finding, Note, Policy, ReviewReason, Verdict } from "@/report/schema";
+import { toolCalls } from "./committed";
+import { deferralReasonText, formatTime, toolFailedText } from "./wording";
 
 /** A caller who says this many words or fewer in a whole call has not asked for anything. */
 export const NOTHING_DONE_MAX_CALLER_WORDS = 10;
@@ -29,7 +30,7 @@ export interface VerdictParts {
  * Reasons come in the order the headline prefers them: unverified results in contract order, then the deferral.
  * There is at most one reason per kind and contract; a deferral reason carries every deferral turn in seqs.
  */
-export function verdictFor(results: ContractResult[], detections: Detection[], ev: Evidence): VerdictParts {
+export function verdictFor(results: ContractResult[], detections: Detection[], ev: Evidence, policy?: Policy): VerdictParts {
   if (results.some((r) => r.result === "violated")) {
     return { verdict: "failed", notes: [], headline: headlineFor("failed", [], []), reasons: [] };
   }
@@ -37,6 +38,11 @@ export function verdictFor(results: ContractResult[], detections: Detection[], e
   const reasons: ReviewReason[] = results.filter((r) => r.result === "unverified").map((r) => unverifiedReason(r, ev));
   const deferrals = detections.filter((d) => d.cls === "deferral");
   if (deferrals.length > 0) reasons.push(deferralReason(deferrals, ev));
+  // A call that would otherwise pass but left a tool failed with nothing done after it is not a pass.
+  if (reasons.length === 0 && policy) {
+    const failed = toolFailedReason(ev, policy);
+    if (failed) reasons.push(failed);
+  }
 
   if (reasons.length > 0) {
     return { verdict: "needs_review", notes: [], headline: headlineFor("needs_review", [], reasons), reasons };
@@ -92,6 +98,33 @@ function causeOf(finding: Finding, ev: Evidence): string[] {
   const touched = new Set([...finding.said, ...finding.did]);
   const gaps = ev.gaps.filter((g) => finding.gaps.includes(g.code) && (g.seqs.length === 0 || g.seqs.some((s) => touched.has(s))));
   return gaps.length > 0 ? gaps.map((g) => g.detail) : [finding.text];
+}
+
+/**
+ * The tool_failed reason (OVE-74): a change or lookup whose result says it failed, with nothing done after it. A
+ * failure is recovered when a later call of the same role succeeded (a retry, or another tool of that role), or when
+ * any change or transfer succeeded later. What is left is a request that was never done,
+ * and the agent made no false promise, so the call needs review and never fails. With ordering none nothing is
+ * "later", so it says nothing. The reason names every tool still failed, at the time of the first.
+ */
+function toolFailedReason(ev: Evidence, policy: Policy): ReviewReason | null {
+  if (ev.ordering === "none") return null;
+  const changes = toolCalls(ev, policy, "change");
+  const transfers = toolCalls(ev, policy, "transfer");
+  const unrecovered = (["change", "lookup"] as const).flatMap((role) => {
+    const uses = role === "change" ? changes : toolCalls(ev, policy, role);
+    return uses.filter((f) => {
+      if (f.ok !== false) return false;
+      if (uses.some((u) => u.callSeq > f.callSeq && u.ok === true)) return false;
+      // Something was done after it: a change that worked, or a transfer that connected the caller to a person.
+      return ![...changes, ...transfers].some((c) => c.callSeq > f.callSeq && c.ok === true);
+    });
+  });
+  if (unrecovered.length === 0) return null;
+  unrecovered.sort((a, b) => a.callSeq - b.callSeq);
+  const first = unrecovered[0];
+  const seqs = sorted(unrecovered.flatMap((f) => (f.resultSeq === null ? [f.callSeq] : [f.callSeq, f.resultSeq])));
+  return { kind: "tool_failed", text: toolFailedText(formatTime(first.resultSeq ?? first.callSeq, ev), [...new Set(unrecovered.map((f) => f.tool))]), seqs };
 }
 
 /** The one deferral reason: each deferring turn once, in turn order, quoting the first deferral found at it. */

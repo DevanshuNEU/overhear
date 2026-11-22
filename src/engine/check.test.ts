@@ -26,6 +26,7 @@ function booked(startsAt: string, confirmation: string, providerName = "Dr. Priy
   return ev([
     caller("Book me for Friday.", 1),
     ...tool("tc_1", "check_availability", { date: "2026-11-06" }, { slots: [slot(startsAt, providerName)] }),
+    ...tool("tc_v", "verify_patient", { name: "Jordan Ellis" }, { verified: true, patientId: "p1" }),
     agent("Booking that now.", 10),
     ...tool("tc_2", "book_appointment", { slotId: "slot_1", patientId: "p1" }, { ok: true }),
     agent(confirmation, 20),
@@ -37,9 +38,9 @@ function parsed(report: CallReport): CallReport {
 }
 
 describe("checkCall", () => {
-  it("runs the scheduling pack: three contracts in spec order, then committed_matches_request as not_run", () => {
+  it("runs the healthcare pack: the four contracts and the identity check in spec order, committed_matches_request as not_run", () => {
     const r = parsed(checkCall(booked("2026-11-06T14:00:00Z", "You're booked for Friday, November 6 at 2:00 p.m. with Dr. Priya Nair."), PRESET, { tz: "UTC", policySource: "preset" }));
-    expect(r.results.map((c) => c.contract)).toEqual(["promise_backed", "spoken_matches_committed", "transfer_kept", "committed_matches_request"]);
+    expect(r.results.map((c) => c.contract)).toEqual(["promise_backed", "verified_before_change", "spoken_matches_committed", "transfer_kept", "committed_matches_request"]);
     expect(r.results.at(-1)).toEqual({ contract: "committed_matches_request", result: "not_run", findings: [] });
     expect(r.request).toBeNull();
     expect(r.requestSource).toBeNull();
@@ -48,11 +49,11 @@ describe("checkCall", () => {
     expect(r.notes).toEqual(["request_not_checked"]);
   });
 
-  it("lists only the scheduling pack whatever the policy it was given says", () => {
+  it("lists the healthcare pack whatever the policy it was given says", () => {
     const healthcare: Policy = { ...PRESET, packs: ["healthcare"] };
     const r = parsed(checkCall(booked("2026-11-06T14:00:00Z", "You're booked for Friday at 2:00 p.m."), healthcare, { tz: "UTC", policySource: "preset" }));
-    expect(r.policy.packs).toEqual(["scheduling"]);
-    expect(r.results.map((c) => c.contract)).not.toContain("verified_before_change");
+    expect(r.policy.packs).toEqual(["healthcare"]);
+    expect(r.results.map((c) => c.contract)).toContain("verified_before_change");
     expect(healthcare.packs).toEqual(["healthcare"]);
     expect(CONTRACT_IDS).toContain("verified_before_change");
   });
@@ -62,8 +63,8 @@ describe("checkCall", () => {
     const r = checkCall(e, PRESET, { tz: "UTC", policySource: "preset" });
     expect(r.callId).toBe(e.callId);
     expect(r.platform).toBe("retell");
-    expect(r.policy).toEqual({ ...PRESET, packs: ["scheduling"] });
-    expect(r.evidence.items.filter((i) => i.kind === "tool_result").map((i) => (i as { ok: boolean | null }).ok)).toEqual([true, true]);
+    expect(r.policy).toEqual({ ...PRESET, packs: ["healthcare"] });
+    expect(r.evidence.items.filter((i) => i.kind === "tool_result").map((i) => (i as { ok: boolean | null }).ok)).toEqual([true, true, true]);
   });
 
   it("does not change the evidence or the policy it was given", () => {
@@ -148,6 +149,7 @@ describe("checkCall", () => {
       ev([
         caller("Book me for Friday.", 1),
         ...tool("tc_1", "check_availability", { date: "2026-11-06" }, { slots: [{ id: "slot_1", providerName: "Dr. Priya Nair", startsAt: "[date 1]" }] }),
+        ...tool("tc_v", "verify_patient", { name: "Jordan Ellis" }, { verified: true, patientId: "p1" }),
         agent("Booking that now.", 10),
         ...tool("tc_2", "book_appointment", { slotId: "slot_1", patientId: "p1" }, { ok: true }),
         agent("You're booked for Friday at 2:00 p.m.", 20),
@@ -269,7 +271,7 @@ describe("checkCall", () => {
       expect(r.notes).toEqual([]);
       expect(r.reasons).toEqual([]);
       expect(r.headline).toBe("Nothing done. The caller said almost nothing, and the agent took no action.");
-      expect(r.results.map((c) => c.result)).toEqual(["not_applicable", "not_applicable", "not_applicable", "not_run"]);
+      expect(r.results.map((c) => c.result)).toEqual(["not_applicable", "not_applicable", "not_applicable", "not_applicable", "not_run"]);
     });
 
     it("the same call with one lookup is passed", () => {

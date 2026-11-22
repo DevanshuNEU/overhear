@@ -28,8 +28,8 @@ export function contractsFor(packs: readonly Pack[]): ContractId[] {
   return CONTRACT_IDS.filter((c) => wanted.has(c));
 }
 
-/** M1 runs the scheduling pack. */
-export const M1_CONTRACTS: readonly ContractId[] = contractsFor(["scheduling"]);
+/** The contracts the engine runs: the healthcare pack, which is the scheduling pack and the identity check. */
+export const M1_CONTRACTS: readonly ContractId[] = contractsFor(["healthcare"]);
 
 const NORTHWIND: Policy = PolicySchema.parse(northwind);
 
@@ -58,10 +58,11 @@ export type AgentRef = {
  * the scrubbed samples, falls back to the shape rule: it must look like the demo agent by more than its tool names,
  * which are common (see isDemoShaped).
  */
-export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: PolicySource } {
+export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: PolicySource; byShape?: true } {
   const { agentId, demoAgentId } = agent;
   const isDemo = agentId ? demoAgentId !== undefined && demoAgentId !== "" && agentId === demoAgentId : isDemoShaped(ev);
-  if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset" };
+  // A preset picked by the call's shape (no agent id) is a guess about whose agent this is, and says so with byShape.
+  if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset", ...(agentId ? {} : { byShape: true as const }) };
   return { policy: inferPolicy(ev), source: "inferred" };
 }
 
@@ -158,6 +159,17 @@ const ROLE_RULES: RoleRule[] = [
   { words: ["check", "get", "find", "list", "search", "lookup", "availability"], role: { role: "lookup" } },
 ];
 
+/**
+ * A tool sends a notification when the first word of its name is a send verb and no word says it does something else
+ * ("page_through_results", "alert_level", "text_to_speech", "message_count"). The first word, because "validate_email" and
+ * "parse_text" act on an email or a text rather than send one. Only an inferred policy reads this: a name is a guess.
+ */
+const SEND_VERBS = new Set(["send", "text", "texting", "sms", "page", "paging", "notify", "notifying", "message", "messaging", "alert", "alerting", "email", "emailing"]);
+const NOT_SENDING = new Set([
+  "results", "size", "level", "through", "validate", "parse", "delete", "history", "search", "speech", "list", "get", "read", "check",
+  "next", "threshold", "count", "status", "opt", "acknowledged", "acknowledge", "log", "translate", "normalize", "save", "fetch", "set",
+]);
+
 /** The words of a tool name in order: split at underscores, dashes, spaces and camelCase humps, lower-cased. */
 function nameWords(name: string): string[] {
   const spaced = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
@@ -177,9 +189,11 @@ export function roleFor(name: string): Pick<ToolPolicy, "role" | "kind"> | null 
   const verb = !nounLast ? undefined : FILLERS.has(list[list.length - 2]) && list.length >= 3 ? list[list.length - 3] : list[list.length - 2];
   const side = hasSideNoun(list);
   const rule = ROLE_RULES.find(
-    (r) => !(side && r.role.role === "change") && (r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb))),
+    (r) => !(side && r.role.role === "change") && !(r.role.role === "verify" && list.some((w) => BOOKING_NOUNS.has(w))) && (r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb))),
   );
-  return rule ? { ...rule.role } : null;
+  if (rule) return { ...rule.role };
+  if (SEND_VERBS.has(list[0]) && !list.some((w) => NOT_SENDING.has(w))) return { role: "notify" };
+  return null;
 }
 
 // ---------- Inference ----------
@@ -238,12 +252,23 @@ export function inferPolicy(ev: Evidence): Policy {
   );
 
   const fromItems = [...lookups.values()].map((l) => fieldsFrom(l.items[0], "item")).find((f) => Object.keys(f).length > 0);
-  const fromArgs = uses
-    .filter((u) => names.includes(u.name) && roleFor(u.name)?.role === "change")
-    .map((u) => fieldsFrom(u.args, "args"))
+  const changeUses = uses.filter((u) => names.includes(u.name) && roleFor(u.name)?.role === "change");
+  const fromArgs = changeUses.map((u) => fieldsFrom(u.args, "args")).find((f) => Object.keys(f).length > 0);
+  // What the lookup items lack is read from the change's own arguments, then from its own result (a booking that
+  // answers with the date and time it made). A field read from a result is never required: a cancel has none.
+  const fromResult = changeUses
+    .flatMap((u) => u.payloads)
+    .filter(isRec)
+    .map((p) => fieldsFrom(p, "result"))
     .find((f) => Object.keys(f).length > 0);
+  // The items win, then the arguments, then the result; a field in none of them is left out.
+  const fields: Record<string, FieldPolicy> = {};
+  for (const name of ["date", "time", "provider"]) {
+    const found = fromItems?.[name] ?? fromArgs?.[name] ?? fromResult?.[name];
+    if (found) fields[name] = found;
+  }
 
-  const policy: Policy = { packs: ["scheduling"], tools, fields: fromItems ?? fromArgs ?? {} };
+  const policy: Policy = { packs: ["scheduling"], tools, fields };
   if (oneKey) policy.success = `result.${oneKey}`;
   return policy;
 }
@@ -290,11 +315,12 @@ function successKey(payloads: unknown[]): string | null {
   return null;
 }
 
-const DATE_TIME_KEYS = ["date", "time", "start_time", "startsAt", "starts_at", "datetime"];
-const PROVIDER_KEYS = ["provider", "providerName", "doctor"];
+const DATE_TIME_KEYS = ["date", "time", "start", "start_at", "start_time", "startsAt", "starts_at", "appointment_time", "slot_time", "datetime"];
+const PROVIDER_KEYS = ["provider", "providerName", "provider_name", "doctor", "doctor_name", "practitioner"];
 
 /** Date, time and provider fields read from one object's keys, judged by the shape of each value. */
-function fieldsFrom(rec: Rec, root: "item" | "args"): Record<string, FieldPolicy> {
+function fieldsFrom(rec: Rec, root: "item" | "args" | "result"): Record<string, FieldPolicy> {
+  const required = root === "result" ? {} : { required: true };
   let date: FieldPolicy | undefined;
   let time: FieldPolicy | undefined;
   let provider: FieldPolicy | undefined;
@@ -302,8 +328,8 @@ function fieldsFrom(rec: Rec, root: "item" | "args"): Record<string, FieldPolicy
     if (!Object.hasOwn(rec, key)) continue;
     const shape = timeShape(rec[key]);
     const path = `${root}.${key}`;
-    if ((shape === "datetime" || shape === "date") && !date) date = { path, type: "date", required: true };
-    if ((shape === "datetime" || shape === "time") && !time) time = { path, type: "time", required: true };
+    if ((shape === "datetime" || shape === "date") && !date) date = { path, type: "date", ...required };
+    if ((shape === "datetime" || shape === "time") && !time) time = { path, type: "time", ...required };
   }
   const providerKey = PROVIDER_KEYS.find((k) => Object.hasOwn(rec, k) && typeof rec[k] === "string" && (rec[k] as string).trim() !== "");
   if (providerKey) provider = { path: `${root}.${providerKey}`, type: "name" };
