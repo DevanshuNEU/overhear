@@ -26,7 +26,7 @@
 //    answer also forbids framing. The route handlers repeat this check.
 // 2. Excluded paths pass untouched.
 // 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`, `/api/pins`, `/api/agents`,
-//    `/api/test-calls`) answer 404.
+//    `/api/test-calls`, `/api/files`) answer 404.
 //    `/reports/` stays served, because there it shows only the samples.
 // 3-. Old demo links (`/demo`, `/demo/calls/{id}`, `/calls/{id}`) redirect permanently to `/`. This runs before the
 //    password: the redirect reveals nothing, and `/` then asks for whatever it asks for.

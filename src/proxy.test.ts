@@ -406,6 +406,21 @@ describe("proxy in local mode (OVERHEAR_LOCAL=1)", () => {
     }
   });
 
+  it("holds /api/files to this computer: a foreign Host, a change without a same-origin Origin and a cross-site read are refused", async () => {
+    localMode();
+    delete process.env.DASHBOARD_PASSWORD;
+    expect((await proxy(reqOf("/api/files", LOOPBACK)))?.status).toBe(200);
+    expect((await proxy(reqOf("/api/files", { host: "evil.com" })))?.status).toBe(403);
+    for (const method of ["POST", "DELETE"]) {
+      expect((await proxy(reqOf("/api/files", LOOPBACK, method)))?.status, method).toBe(403);
+      expect((await proxy(reqOf("/api/files", { ...LOOPBACK, origin: "http://evil.com" }, method)))?.status, method).toBe(403);
+      expect((await proxy(reqOf("/api/files", { ...LOOPBACK, origin: "http://localhost:3000" }, method)))?.status, method).toBe(200);
+    }
+    for (const site of ["cross-site", "same-site"]) {
+      expect((await proxy(reqOf("/api/files", { ...LOOPBACK, "sec-fetch-site": site })))?.status, site).toBe(403);
+    }
+  });
+
   it("treats the report screen the same with and without OVERHEAR_DEMO_STATES, read independently", async () => {
     localMode();
     delete process.env.DASHBOARD_PASSWORD;
@@ -426,7 +441,7 @@ describe("proxy on a hosted copy (OVERHEAR_LOCAL unset)", () => {
   it("answers 404 for the key, pull and call routes, on every method", async () => {
     vi.stubEnv("OVERHEAR_LOCAL", "");
     delete process.env.DASHBOARD_PASSWORD;
-    for (const path of ["/api/connect", "/api/connect/", "/api/pulls", "/api/pulls/p1", "/api/pulls/p1/cancel", "/api/calls/c1/refetch", "/api/pins", "/api/pins/pin-x", "/api/agents", "/api/test-calls", "/api/test-calls/call_1/result"]) {
+    for (const path of ["/api/connect", "/api/connect/", "/api/pulls", "/api/pulls/p1", "/api/pulls/p1/cancel", "/api/calls/c1/refetch", "/api/pins", "/api/pins/pin-x", "/api/agents", "/api/test-calls", "/api/test-calls/call_1/result", "/api/files"]) {
       for (const method of ["GET", "POST", "DELETE"]) {
         const res = await proxy(reqOf(path, { host: "overhear.up.railway.app", origin: "https://overhear.up.railway.app" }, method));
         expect(res?.status, `${method} ${path}`).toBe(404);
