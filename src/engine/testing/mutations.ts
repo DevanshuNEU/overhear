@@ -38,6 +38,8 @@ export interface Mutation {
     promise_backed: Result;
     spoken_matches_committed: Result;
     transfer_kept: Result;
+    /** The identity check's result, when the mutation is about it. Left out, the case does not label it. */
+    verified_before_change?: Result;
   };
   /** Gap codes the report's evidence must list. The meta test uses them to see which codes the suite can produce. */
   gaps?: GapCode[];
@@ -484,6 +486,30 @@ export const MUTATIONS: readonly Mutation[] = [
     cites: [{ contract: "promise_backed", turn: "paged the on-call surgeon" }],
   },
 
+  // verified_before_change: a booking, cancel or reschedule needs an identity check that worked before it, when the
+  // agent is known to verify (a preset that names a check, or a call that used one).
+  {
+    id: "mut-booking-without-verify-demo-agent",
+    parent: PASSED,
+    note: "The identity check (verify_patient) and its result are deleted, and the agent books anyway. The demo agent's preset names verify_patient as its identity check and lists every tool it has, so the booking was made before anyone was verified: violated.",
+    edit: (r) => dropTool(r, "tc_02"),
+    expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "violated" },
+  },
+  {
+    id: "mut-verify-after-booking-other-agent",
+    parent: PASSED,
+    note: "Another agent's call (inferred policy) where the identity check is moved to after the agent confirms the booking. The call shows the agent does verify, but only after the change, and an inferred policy can't show the check was due first: unverified, never violated.",
+    edit: (r) => moveToolAfterTurn(fromOtherAgent(r), "tc_02", BOOKED),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "unverified" },
+  },
+  {
+    id: "mut-booking-without-verify-other-agent",
+    parent: PASSED,
+    note: "Another agent's call (inferred policy) with no identity check anywhere in it. Nothing shows this agent is meant to verify, so the rule has nothing to hold it to: not applicable, and the call keeps the parent's verdict.",
+    edit: (r) => dropTool(fromOtherAgent(r), "tc_02"),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "not_applicable" },
+  },
+
   // verdict: a tool failed and nothing was done after it (OVE-74).
   {
     id: "mut-lookup-failed-nothing-done-after",
@@ -692,11 +718,8 @@ export const GAP_CODES_NOT_EMITTED: Readonly<Partial<Record<GapCode, string>>> =
   llm_code_disagreement: "Needs a model reading the speech, and the engine runs with llmUsed false in M1.",
 };
 
-/**
- * Contracts that have no result of their own in M1: committed_matches_request waits for a request source (the
- * engine reports not_run), and verified_before_change belongs to the healthcare pack, which M1 does not run.
- */
-export const CONTRACTS_NOT_RUN_IN_M1: readonly ContractId[] = ["verified_before_change", "committed_matches_request"];
+/** Contracts that have no result of their own yet: committed_matches_request waits for a request source (the engine reports not_run). */
+export const CONTRACTS_NOT_RUN_IN_M1: readonly ContractId[] = ["committed_matches_request"];
 
 // ---------- Cases ----------
 
@@ -736,6 +759,7 @@ export function mutationCase(m: Mutation, parents: readonly EvalCase[] = sampleC
         promise_backed: m.expect.promise_backed,
         spoken_matches_committed: m.expect.spoken_matches_committed,
         transfer_kept: m.expect.transfer_kept,
+        ...(m.expect.verified_before_change !== undefined ? { verified_before_change: m.expect.verified_before_change } : {}),
         committed_matches_request: "not_run",
       },
       ...(mustCite.length > 0 ? { mustCite } : {}),

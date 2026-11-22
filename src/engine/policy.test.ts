@@ -43,8 +43,8 @@ describe("packs", () => {
     expect(contractsFor([])).toEqual([]);
   });
 
-  it("runs the scheduling pack in M1", () => {
-    expect(M1_CONTRACTS).toEqual(contractsFor(["scheduling"]));
+  it("runs the healthcare pack: the scheduling contracts and the identity check", () => {
+    expect(M1_CONTRACTS).toEqual(contractsFor(["healthcare"]));
     expect(PACKS.healthcare).toEqual(expect.arrayContaining([...PACKS.scheduling]));
   });
 });

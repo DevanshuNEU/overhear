@@ -21,7 +21,7 @@ describe("checkPins", () => {
     expect(results[0].actual.verdict).toBe("failed");
     expect(results[0].expected).toEqual({
       verdict: "failed",
-      contracts: { promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated", committed_matches_request: "not_run" },
+      contracts: { promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "violated", verified_before_change: "passed", committed_matches_request: "not_run" },
       experience: { agent_ends_call: "clean", error_handled: "clean", spoken_format: "clean" },
     });
     expect(results[0].actual.contracts).toEqual(results[0].expected.contracts);
@@ -63,7 +63,7 @@ describe("checkPins", () => {
     expect(a.actual.verdict).toBe("no_content");
     expect(a.changes[0]).toEqual({ what: "verdict", name: "verdict", was: "failed", now: "no_content" });
     expect(a.changes.map((c) => c.now).slice(1).every((n) => n === "no_report")).toBe(true);
-    expect(a.changes).toHaveLength(1 + 4 + 3);
+    expect(a.changes).toHaveLength(1 + 5 + 3);
 
     const broken: Analyze = () => {
       throw new Error("boom");

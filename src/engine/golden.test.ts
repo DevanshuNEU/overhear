@@ -1,6 +1,6 @@
 // @vitest-environment node
-// The goldens: the engine's report for each sample call equals the sample, under M1's scheduling pack
-// (m1View in testing/build.ts). Each sample is checked twice: from its evidence (checkCall), and from the raw
+// The goldens: the engine's report for each sample call equals the sample, under the healthcare pack the samples list
+// Each sample is checked twice: from its evidence (checkCall), and from the raw
 // Retell record its evidence writes back to (analyzeRetellCall), which runs the adapter and the policy choice too.
 // The samples were written by hand, so a mismatch is a question: fix the engine, fix the sample, or list it open.
 import { describe, expect, it } from "vitest";
@@ -9,7 +9,7 @@ import { CallReportSchema, type CallReport } from "@/report/schema";
 import { analyzeRetellCall } from "./analyze";
 import { checkCall } from "./check";
 import { detectAll } from "./detect-speech";
-import { m1View } from "./testing/build";
+
 import { toRetell } from "./testing/retell";
 
 const opts = { tz: "UTC" };
@@ -22,20 +22,20 @@ function analyzed(sample: CallReport): CallReport {
 }
 
 describe("goldens", () => {
-  it("failed sample: checkCall equals m1View(failed)", () => {
-    expect(checkCall(failedSample.evidence, failedSample.policy, { ...opts, policySource: "preset" })).toEqual(m1View(failedSample));
+  it("failed sample: checkCall equals the failed sample", () => {
+    expect(checkCall(failedSample.evidence, failedSample.policy, { ...opts, policySource: "preset" })).toEqual(structuredClone(failedSample));
   });
 
-  it("passed sample: checkCall equals m1View(passed)", () => {
-    expect(checkCall(passedSample.evidence, passedSample.policy, { ...opts, policySource: "preset" })).toEqual(m1View(passedSample));
+  it("passed sample: checkCall equals the passed sample", () => {
+    expect(checkCall(passedSample.evidence, passedSample.policy, { ...opts, policySource: "preset" })).toEqual(structuredClone(passedSample));
   });
 
-  it("failed sample: analyzeRetellCall(toRetell(evidence)) equals m1View(failed)", () => {
-    expect(analyzed(failedSample)).toEqual(m1View(failedSample));
+  it("failed sample: analyzeRetellCall(toRetell(evidence)) equals the failed sample", () => {
+    expect(analyzed(failedSample)).toEqual(structuredClone(failedSample));
   });
 
-  it("passed sample: analyzeRetellCall(toRetell(evidence)) equals m1View(passed)", () => {
-    expect(analyzed(passedSample)).toEqual(m1View(passedSample));
+  it("passed sample: analyzeRetellCall(toRetell(evidence)) equals the passed sample", () => {
+    expect(analyzed(passedSample)).toEqual(structuredClone(passedSample));
   });
 
   // M1 has no request source, so it cannot find the unanswered request the sample's second reason rests on. The
@@ -64,7 +64,7 @@ describe("goldens", () => {
     });
 
     it("differs from the sample only where M2's request source would change it", () => {
-      const sample = m1View(needsReviewSample);
+      const sample = structuredClone(needsReviewSample);
       const r = report();
       const m1 = (c: CallReport["results"][number]) => (c.contract === "committed_matches_request" ? { ...c, result: "not_run" as const } : c);
       expect(r.results).toEqual(sample.results.map(m1));

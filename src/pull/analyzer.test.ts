@@ -49,7 +49,7 @@ describe("analyzeCall", () => {
 
   describe("the demo agent's id", () => {
     const record = (agentId: string) => ({ ...(toRetell(failedSample.evidence) as Record<string, unknown>), agent_id: agentId });
-    const hasPreset = (out: Outcome) => out.kind === "report" && isDeepStrictEqual(out.report.policy, preset);
+    const hasPreset = (out: Outcome) => out.kind === "report" && isDeepStrictEqual(out.report.policy, { ...preset, packs: ["healthcare"] });
 
     it("passes OVERHEAR_DEMO_AGENT_ID to the engine, read when the call is analyzed", () => {
       vi.stubEnv("RETELL_AGENT_ID", undefined);

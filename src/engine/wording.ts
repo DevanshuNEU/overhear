@@ -116,7 +116,10 @@ export const REASONS = {
     missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the identity check",
     fix: "Add {tool} to the policy.",
   },
-  no_verify_tool: { missing: "no identity check tool is known for this agent", fix: "Add the agent's identity check tool to the policy." },
+  verify_not_before: {
+    missing: "the identity check didn't succeed before the change, and this agent's policy was inferred, so we couldn't tell whether it was due first",
+    fix: "Describe the agent's tools in a policy.",
+  },
   verify_no_result: {
     missing: "the {tool} call has no result in the record, so we couldn't tell whether the identity check worked",
     fix: "Export the call with its tool results, or add a backend log with --actions.",
@@ -379,8 +382,8 @@ export function verifiedBeforeViolatedText(time: string, kind?: ChangeKind): str
 }
 
 /** verified_before_change, passed. Not in 6.8: the samples are the contract for it. */
-export function verifiedBeforePassedText(time: string, kind?: ChangeKind): string {
-  return `The ${kindWord(kind)} at ${time} came after a successful identity check.`;
+export function verifiedBeforePassedText(time: string, kind?: ChangeKind, samePatient = false): string {
+  return `The ${kindWord(kind)} at ${time} came after a successful identity check${samePatient ? " for the same patient" : ""}.`;
 }
 
 /** spoken_matches_committed, violated. */

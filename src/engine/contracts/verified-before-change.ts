@@ -8,13 +8,16 @@
 //   - the policy names an identity check tool (a preset lists every tool its agent has; an inferred policy knows the
 //     ones the call used): violated, since the agent changed a booking before any check worked. A check that failed,
 //     or that ran only after the change, is no check.
-//   - the policy names none: unverified. We can't tell how this agent checks who is calling, and it may do so outside
-//     the tools we can see.
+//   - the policy was inferred (the call used a check, but only after the change or without success): unverified, since
+//     only a described policy shows what the agent was meant to do.
+// The contract applies only when we know the agent is meant to verify: a policy that isn't inferred (a preset) and names
+// an identity check tool, or a call that used one. Otherwise it is not_applicable, with no note or reason.
 // Nothing is violated on shaky evidence, as in the other contracts: a gap that touches the change or a check, ordering
 // none, an identity check whose result doesn't say whether it worked, or a tool the policy doesn't describe used
 // before the change (it might have been the check) makes the finding unverified.
 import type { ChangeKind, Evidence, Finding, GapCode } from "@/report/schema";
 import { toolCalls, type ToolUse } from "../committed";
+import { readPath } from "../paths";
 import { toolPolicy } from "../policy";
 import {
   REASONS,
@@ -33,6 +36,10 @@ import { gapsTouching, softenForMissingTools, worst, type Contract, type Contrac
 const NEEDS_CHECK: readonly (ChangeKind | undefined)[] = ["book", "cancel", "reschedule"];
 
 export const verifiedBeforeChange: Contract = (ctx) => {
+  // It applies only when we know the agent is meant to verify: a described policy that names an identity check tool,
+  // or a call that used one. Otherwise there is nothing to hold it to: not applicable, with no note.
+  const knowsVerify = (ctx.policySource !== "inferred" && hasVerifyTool(ctx)) || toolCalls(ctx.ev, ctx.policy, "verify").length > 0;
+  if (!knowsVerify) return { contract: "verified_before_change", result: "not_applicable", findings: [] };
   const findings = ctx.changes.filter((c) => c.ok === true && NEEDS_CHECK.includes(c.kind)).map((change) => judge(ctx, change));
   return { contract: "verified_before_change", result: worst(findings.map((f) => f.result)), findings };
 };
@@ -61,7 +68,7 @@ function judge(ctx: ContractContext, change: ToolUse): Finding {
     return finding("unverified", unverifiedText("verified_before_change", causes), did, [...new Set(touching.map((g) => g.code))]);
   }
 
-  if (worked.length > 0) return finding("passed", verifiedBeforePassedText(time, change.kind), did);
+  if (worked.length > 0) return finding("passed", verifiedBeforePassedText(time, change.kind, samePatient(ctx, change, worked.at(-1)!)), did);
 
   // A check whose result doesn't say whether it worked, or has none, is a hole in the record.
   const unsettled = before.find((c) => c.ok === null);
@@ -79,9 +86,10 @@ function judge(ctx: ContractContext, change: ToolUse): Finding {
     return finding("unverified", unverifiedText("verified_before_change", [unknownVerifyToolCause(unknown.tools)]), [...seqsOf([change]), ...unknown.seqs].sort((a, b) => a - b));
   }
 
-  // A policy that names no identity check tool can't show the agent skipped one.
-  if (!Object.values(ctx.policy.tools).some((t) => t.role === "verify")) {
-    return finding("unverified", unverifiedText("verified_before_change", [REASONS.no_verify_tool]), did);
+  // Only a described policy (a preset) can show the agent skipped a check it was meant to make. With an inferred one we
+  // know the agent verifies, since the call used a check, but not that this check was due before this change.
+  if (ctx.policySource === "inferred" || !hasVerifyTool(ctx)) {
+    return finding("unverified", unverifiedText("verified_before_change", [REASONS.verify_not_before]), did);
   }
   return softenForMissingTools(ev, finding("violated", verifiedBeforeViolatedText(time, change.kind), did), "verified_before_change");
 }
@@ -98,4 +106,19 @@ function undescribedBefore(ctx: ContractContext, seq: number): { tools: string[]
   const unknown = used.filter((u) => toolPolicy(ctx.policy, u.name) === undefined);
   const results = ev.items.flatMap((it) => (it.kind === "tool_result" && it.seq < seq && unknown.some((u) => u.id === it.id) ? [it.seq] : []));
   return { tools: [...new Set(unknown.map((u) => u.name))], seqs: [...new Set([...unknown.map((u) => u.seq), ...results])].sort((a, b) => a - b) };
+}
+
+/** Whether the policy names an identity check tool. */
+function hasVerifyTool(ctx: ContractContext): boolean {
+  return Object.values(ctx.policy.tools).some((t) => t.role === "verify");
+}
+
+/** Whether the policy names the patient on both calls and they are the same one: the check was for who the change is for. */
+function samePatient(ctx: ContractContext, change: ToolUse, check: ToolUse): boolean {
+  const changePath = toolPolicy(ctx.policy, change.tool)?.patientId;
+  const checkPath = toolPolicy(ctx.policy, check.tool)?.patientId;
+  if (changePath === undefined || checkPath === undefined) return false;
+  const a = readPath(changePath, { args: change.args, result: change.result });
+  const b = readPath(checkPath, { args: check.args, result: check.result });
+  return (typeof a === "string" || typeof a === "number") && a !== "" && String(a) === String(b);
 }

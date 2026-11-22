@@ -7,7 +7,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { analyzeRetellCall } from "@/engine/analyze";
 import type { Outcome } from "@/engine/types";
-import { m1View } from "@/engine/testing/build";
 import { toRetell } from "@/engine/testing/retell";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import type { CallReport } from "@/report/schema";
@@ -86,9 +85,9 @@ describe("pullSource", () => {
     const passed = await getReport(passedId, pullSource);
     expect(failed).toEqual({ status: "found", report: expected(failedSample, failedId) });
     expect(passed).toEqual({ status: "found", report: expected(passedSample, passedId) });
-    // The golden (M1's view of the sample) is the report, apart from the id the fake Retell served the call under.
+    // The golden (the sample) is the report, apart from the id the fake Retell served the call under.
     const reId = (sample: CallReport, id: string) => {
-      const golden = m1View(sample);
+      const golden = structuredClone(sample);
       return { ...golden, callId: id, evidence: { ...golden.evidence, callId: id } };
     };
     if (failed.status === "found") expect(failed.report).toEqual(reId(failedSample, failedId));

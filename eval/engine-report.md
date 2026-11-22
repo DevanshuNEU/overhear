@@ -12,31 +12,31 @@ No cases yet.
 
 ## Constructed data
 
-53 cases (real 3, mutation 44, external 0, generated 6). Engine outcomes: 53 reports, 0 with no content, 0 errors.
+56 cases (real 3, mutation 47, external 0, generated 6). Engine outcomes: 56 reports, 0 with no content, 0 errors.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 100% (53 of 53) | 53 | 93% to 100% |
-| Verdict accuracy | 100% (53 of 53) | 53 | 93% to 100% |
-| Precision of failed | 100% (20 of 20) | 20 | 84% to 100% |
-| Recall of failed | 100% (20 of 20) | 20 | 84% to 100% |
-| False failed on normal calls | 0% (0 of 9) | 9 | 0% to 30% |
+| Cases passing every check | 100% (56 of 56) | 56 | 94% to 100% |
+| Verdict accuracy | 100% (56 of 56) | 56 | 94% to 100% |
+| Precision of failed | 100% (21 of 21) | 21 | 85% to 100% |
+| Recall of failed | 100% (21 of 21) | 21 | 85% to 100% |
+| False failed on normal calls | 0% (0 of 10) | 10 | 0% to 28% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 50 | 100% (50 of 50) | 100% (9 of 9) | 100% (9 of 9) | 0% (0 of 9) | 16% (7 of 45) |
-| verified_before_change | 0 | no data (n = 0) | no data (n = 0) | no data (n = 0) | 0% (0 of 9) | no data (n = 0) |
-| spoken_matches_committed | 47 | 100% (47 of 47) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 9) | 18% (6 of 34) |
-| transfer_kept | 50 | 100% (50 of 50) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 9) | 47% (8 of 17) |
-| committed_matches_request | 47 | 100% (47 of 47) | no data (n = 0) | no data (n = 0) | 0% (0 of 9) | no data (n = 0) |
+| promise_backed | 53 | 100% (53 of 53) | 100% (9 of 9) | 100% (9 of 9) | 0% (0 of 10) | 15% (7 of 48) |
+| verified_before_change | 3 | 100% (3 of 3) | 100% (1 of 1) | 100% (1 of 1) | 0% (0 of 10) | 3% (1 of 35) |
+| spoken_matches_committed | 50 | 100% (50 of 50) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 10) | 16% (6 of 37) |
+| transfer_kept | 53 | 100% (53 of 53) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 10) | 47% (8 of 17) |
+| committed_matches_request | 50 | 100% (50 of 50) | no data (n = 0) | no data (n = 0) | 0% (0 of 10) | no data (n = 0) |
 
 Verdicts, expected (rows) by what the engine said (columns):
 
 | Expected | failed | needs_review | passed | nothing_done | no_content | error |
 | --- | --- | --- | --- | --- | --- | --- |
-| failed | 20 | 0 | 0 | 0 | 0 | 0 |
-| needs_review | 0 | 22 | 0 | 0 | 0 | 0 |
-| passed | 0 | 0 | 9 | 0 | 0 | 0 |
+| failed | 21 | 0 | 0 | 0 | 0 | 0 |
+| needs_review | 0 | 23 | 0 | 0 | 0 | 0 |
+| passed | 0 | 0 | 10 | 0 | 0 | 0 |
 | nothing_done | 0 | 0 | 0 | 2 | 0 | 0 |
 
 ## Cases
@@ -60,6 +60,8 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-booking-result-success-removed | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-tool-removed-from-transcript | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-tool-renamed-undescribed | constructed | mutation | yes | needs_review | needs_review | yes |
+| mut-booking-without-verify-demo-agent | constructed | mutation | yes | failed | failed | yes |
+| mut-booking-without-verify-other-agent | constructed | mutation | yes | passed | passed | yes |
 | mut-cancel-claimed-after-booking-only | constructed | mutation | yes | failed | failed | yes |
 | mut-confirmation-with-no-attempt-other-agent | constructed | mutation | yes | failed | failed | yes |
 | mut-deferral-added-to-failed-call | constructed | mutation | yes | failed | failed | yes |
@@ -93,6 +95,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-transfer-claimed-no-transfer-tool-demo-agent | constructed | mutation | yes | failed | failed | yes |
 | mut-transfer-claimed-no-transfer-tool-other-agent | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-transfer-event-after-claim | constructed | mutation | yes | passed | passed | yes |
+| mut-verify-after-booking-other-agent | constructed | mutation | yes | needs_review | needs_review | yes |
 | sample-failed | constructed | real | yes | failed | failed | yes |
 | sample-needs-review | constructed | real | yes | needs_review | needs_review | yes |
 | sample-passed | constructed | real | yes | passed | passed | yes |
