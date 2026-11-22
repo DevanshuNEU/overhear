@@ -1,5 +1,5 @@
 // A tiny in-memory sliding-window rate limiter. Deliberately not backed by a
-// durable store (Redis/Upstash): the reasoning lives in docs/design.md under
+// durable store (Redis/Upstash): the reasoning lives in docs/history/2026-09-grader-design.md under
 // "Rate limiting", but in short, Overhear runs as a single Railway instance and
 // this is a soft spend guard for a demo, not a security control, so per-instance
 // counters that reset on redeploy are acceptable and buy us zero extra infra.

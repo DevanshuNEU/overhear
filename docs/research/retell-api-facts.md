@@ -2,8 +2,8 @@
 
 Research for a TypeScript/Next.js app that (1) creates a Retell voice agent for
 healthcare appointment scheduling with custom function-calling tools that hit our
-own API routes, (2) receives Retell webhooks to run an LLM-as-judge QA scorer on
-the transcript, and (3) shows results in a dashboard.
+own API routes, (2) receives Retell webhooks, and (3) shows call results in a
+dashboard.
 
 - Compiled: 2026-09-22
 - Sources: only `docs.retellai.com`, `github.com/RetellAI`, the `retell-sdk` npm

@@ -1,3 +1,5 @@
+> This describes the retired first version of Overhear, an LLM-graded QA analyst. The product is now the deterministic said-versus-did engine. Kept as history.
+
 # Overhear - an AI QA analyst for voice agents
 
 **Date:** 2026-09-22

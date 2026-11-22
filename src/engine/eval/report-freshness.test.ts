@@ -1,6 +1,6 @@
 // @vitest-environment node
 // The committed engine report is fresh: it covers the current case files and engine sources, and it is what a
-// run would write now. Mirrors src/eval/report-freshness.test.ts for the old judge. "Older than the cases or the
+// run would write now. "Older than the cases or the
 // engine" is checked by content, not file times: a fingerprint of every input, which git checkouts cannot fake.
 // When this fails, run `npm run eval:engine` and commit both report files.
 import fs from "node:fs";

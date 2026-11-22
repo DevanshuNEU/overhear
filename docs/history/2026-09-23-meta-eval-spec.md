@@ -1,3 +1,5 @@
+> This spec belongs to the retired first version of Overhear, an LLM-graded QA analyst. Kept as history.
+
 # Overhear meta-eval: calibrated scoring and a judge-accuracy harness
 
 Date: 2026-09-23

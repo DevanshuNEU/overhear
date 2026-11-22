@@ -1,3 +1,5 @@
+> This spec belongs to the retired first version of Overhear, an LLM-graded QA analyst. Kept as history.
+
 # Overhear redesign: product framing, Signal identity, and a self-consistency metric
 
 Date: 2026-09-24

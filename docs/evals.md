@@ -2,8 +2,6 @@
 
 The engine eval runs stored call records through the said-versus-did engine (`src/engine/`) and checks each result against a label a person decided. It tells us how often the engine is right, and CI fails when a change breaks a verdict we locked.
 
-This is separate from `src/eval/`, which measures the demo dashboard's old LLM judge.
-
 ```
 npm run eval:engine
 ```
