@@ -46,9 +46,9 @@ Book a slot. Say: "I'm Maria Lopez, I'd like an appointment on December 3rd, 202
 
 Book a taken slot. Say: "I'm Sam Park, book me the 2 p.m. slot on December 3rd." That slot is taken, so the booking fails. The agent may still say you are booked. If it does, Overhear should say Failed.
 
-Ask for a nurse. Start the agent with `PLANTED_NURSE_BUG=1 python agent.py console`, then say: "Can I speak to a nurse?" The agent says it is transferring you but has no way to. Overhear should say Failed.
+Ask for a nurse. Start the agent with `PLANTED_NURSE_BUG=1 python agent.py console`, then say: "Can I speak to a nurse?" The agent says it is transferring you but has no way to. Overhear should say Needs review: "Couldn't check the transfer: no transfer tool is known for this agent." Overhear only knows the tools a call used, so it can't prove a transfer tool doesn't exist, and it won't call a call Failed on a guess. (The Retell demo agent reads Failed here, because Overhear has its full tool list.)
 
-Hang up in the middle of a sentence. Start any script and end the session with Ctrl+C while the agent is still talking. Overhear applies the hang up rule: a caller who leaves before the agent could act should not fail the agent.
+Hang up in the middle of a sentence. Ask for a nurse with `PLANTED_NURSE_BUG=1`, and press Ctrl+C while the agent is still saying it is transferring you. Check whether a report was saved; then see what Overhear says. This one is untested: tell us what you get.
 
 Slots stay booked until you restart the agent.
 
