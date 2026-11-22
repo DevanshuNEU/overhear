@@ -4,17 +4,22 @@
 import Link from "next/link";
 import { PAGE_NAME } from "@/report/labels";
 import { LIST_WORDS } from "./callListWords";
+import { FILES_WORDS } from "./filesWords";
 import { RUN_IT_URL, SAMPLE_WORDS } from "./sampleListWords";
 
 export const NAV_WORDS = {
   label: "Main",
   calls: "Calls",
   testCall: "Test call",
+  files: "Files",
 } as const;
+
+/** Where the calls come from: a Retell key, session report files, or both. With both, Calls is the key's and Files is the files'. */
+export type NavView = "retell" | "files" | "both";
 
 type Props = {
   /** Which link is the page the person is on. None on a call's report. */
-  current?: "calls" | "test-call";
+  current?: "calls" | "test-call" | "files";
   /** A page inside the Calls section (a call report): Calls shows as current, but is not the page itself. */
   section?: "calls";
   /** The right side. Without it: "Connected to Retell." in muted text. */
@@ -23,6 +28,8 @@ type Props = {
   className?: string;
   /** A hosted copy: no Test call, and on the right a note and the link to run Overhear on your own calls. */
   hosted?: boolean;
+  /** Local mode only. With files open and no key, Calls links to /files; with both, a third item Files does. Default: the key alone. */
+  view?: NavView;
 };
 
 // Outlined, not filled: on the hosted copy the first thing a visitor does is call the demo agent (the band under the headline).
@@ -32,8 +39,8 @@ const SECONDARY_LINK =
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent";
 const LINK = `inline-flex min-h-11 items-center rounded-md px-2 text-sm font-medium ${FOCUS}`;
 
-export function ProductNav({ current, section, right, className = "mb-10 sm:mb-14", hosted = false }: Props) {
-  const item = (id: "calls" | "test-call", href: string, label: string) => {
+export function ProductNav({ current, section, right, className = "mb-10 sm:mb-14", hosted = false, view = "retell" }: Props) {
+  const item = (id: "calls" | "test-call" | "files", href: string, label: string) => {
     const page = current === id;
     const here = page || (id === "calls" && section === "calls");
     return (
@@ -50,8 +57,9 @@ export function ProductNav({ current, section, right, className = "mb-10 sm:mb-1
             {PAGE_NAME}
           </Link>
           <nav aria-label={NAV_WORDS.label} className="flex items-center gap-x-1">
-            {item("calls", "/", NAV_WORDS.calls)}
-            {hosted ? null : item("test-call", "/test-call", NAV_WORDS.testCall)}
+            {item("calls", !hosted && view === "files" ? "/files" : "/", NAV_WORDS.calls)}
+            {!hosted && view === "both" ? item("files", "/files", NAV_WORDS.files) : null}
+            {hosted || view === "files" ? null : item("test-call", "/test-call", NAV_WORDS.testCall)}
           </nav>
         </div>
         {hosted ? (
@@ -62,7 +70,7 @@ export function ProductNav({ current, section, right, className = "mb-10 sm:mb-1
             </a>
           </div>
         ) : (
-          (right ?? <p className="text-[13px] text-report-muted">{LIST_WORDS.connected}</p>)
+          (right ?? <p className="text-[13px] text-report-muted">{view === "files" ? FILES_WORDS.navNote : LIST_WORDS.connected}</p>)
         )}
       </div>
     </header>

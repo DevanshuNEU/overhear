@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import ReportPage, { generateMetadata } from "./page";
+import { analyzeRecord } from "@/engine/analyze";
+import { addReport, clearFiles } from "@/files/store";
 import { failedSample } from "@/report/samples";
 import { KEEP_WORDS } from "@/report/labels";
 
@@ -66,6 +68,20 @@ describe("/reports/[callId]", () => {
       vi.stubEnv("OVERHEAR_LOCAL", "1");
       render(await ReportPage(params(failedSample.callId)));
       expect(keepButton()).toBeNull();
+    });
+
+    it("is not on a call read from a file, which Retell cannot be asked for again", async () => {
+      vi.stubEnv("OVERHEAR_LOCAL", "1");
+      const outcome = analyzeRecord((JSON.parse(fs.readFileSync(path.join(process.cwd(), "eval/engine/cases/livekit-booked-no-tool.json"), "utf8")) as { record: unknown }).record, { tz: "UTC" });
+      if (outcome.kind !== "report") throw new Error("fixture must give a report");
+      addReport("booked.json", outcome.report);
+      try {
+        render(await ReportPage(params(outcome.report.callId)));
+        expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+        expect(keepButton()).toBeNull();
+      } finally {
+        clearFiles();
+      }
     });
 
     it("is on a call from this computer in local mode", async () => {

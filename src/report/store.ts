@@ -39,7 +39,11 @@ const defaultSource: ReportSource = async (callId) => {
     return demoCallReport(callId);
   }
   const { pullSource } = await import("@/pull/report-source");
-  return pullSource(callId);
+  const pulled = await pullSource(callId);
+  if (pulled !== undefined) return pulled;
+  // Then a call read from a file the person opened (src/files/store.ts).
+  const { getFileReport } = await import("@/files/store");
+  return getFileReport(callId);
 };
 
 /**

@@ -7,7 +7,7 @@
 import { randomUUID } from "node:crypto";
 import type { Outcome } from "@/engine/types";
 import { answerOf } from "@/components/report/answer";
-import type { CallReport, Note, Verdict } from "@/report/schema";
+import type { CallReport, Note, Platform, Verdict } from "@/report/schema";
 import { createLimiter, POOL_SIZE, runPool, type Limiter, type PoolError, type PoolResult } from "./pool";
 import { PULL_ERROR_MESSAGE, type PullErrorCode } from "./labels";
 import { logSafe } from "./redact";
@@ -30,6 +30,10 @@ export type PullRow = {
   experienceProblems?: number;
   /** The report's notes (no promises made, request not checked). Absent when it has none. */
   notes?: Note[];
+  /** Which platform the call came from. Set for calls read from files, where the list may mix platforms. */
+  platform?: Platform;
+  /** The file the call was read from. Set only when another file holds a call with the same id. */
+  file?: string;
 };
 
 export type PullProgress = {

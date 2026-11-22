@@ -39,6 +39,8 @@ type Props = {
   pollMs?: number;
   /** The clock, for the countdown in a pause. */
   now?: () => number;
+  /** Session report files are open too, so the nav also links to them. */
+  filesOpen?: boolean;
 };
 
 const PHASES = new Set(["listing", "fetching", "done", "cancelled", "failed"]);
@@ -98,14 +100,15 @@ function Count({ label, n, tone }: { label: string; n: number; tone?: "critical"
   );
 }
 
-export const hrefFor = (filter: Filter) => (filter === "all" ? "/" : `/?show=${filter}`);
+/** The address of the list under a filter. `base` is the list's own path: "/" for a pull, "/files" for the files. */
+export const hrefFor = (filter: Filter, base = "/") => (filter === "all" ? base : `${base}?show=${filter}`);
 
 /** One filter: its word and how many calls it holds. A count of 0 shows, muted, and still works. */
-export function FilterLink({ label, n, tone, filter, active, onSelect }: { label: string; n: number; tone?: "critical" | "warning"; filter: Filter; active: boolean; onSelect: (f: Filter) => void }) {
+export function FilterLink({ label, n, tone, filter, active, onSelect, base }: { label: string; n: number; tone?: "critical" | "warning"; filter: Filter; active: boolean; onSelect: (f: Filter) => void; base?: string }) {
   const color = n === 0 ? "text-report-muted" : tone === "critical" ? "text-report-critical" : tone === "warning" ? "text-report-warning" : "text-report-ink-2";
   return (
     <a
-      href={hrefFor(filter)}
+      href={hrefFor(filter, base)}
       aria-current={active ? "true" : undefined}
       onClick={(e) => {
         // A click that means "open somewhere else" (new tab, new window) keeps the plain link.
@@ -125,7 +128,7 @@ export function FilterLink({ label, n, tone, filter, active, onSelect }: { label
 const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-report-line-strong bg-report-surface px-4 text-sm font-semibold enabled:hover:bg-report-calm-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent disabled:cursor-default disabled:text-report-ink-2";
 
-export function CallListScreen({ location, onDisconnected: handOff, timeZone, pollMs = 1000, now: clockFn = Date.now }: Props) {
+export function CallListScreen({ location, onDisconnected: handOff, timeZone, pollMs = 1000, now: clockFn = Date.now, filesOpen = false }: Props) {
   const [progress, setProgress] = useState<PullProgress | null>(null);
   const [pullId, setPullId] = useState<string | null>(null);
   const [count, setCount] = useState<number>(DEFAULT_COUNT);
@@ -355,6 +358,7 @@ export function CallListScreen({ location, onDisconnected: handOff, timeZone, po
       <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
         <ProductNav
           current="calls"
+          view={filesOpen ? "both" : "retell"}
           right={<ConnectionBar location={location} beforeDisconnect={beforeDisconnect} onDisconnected={() => onDisconnected(undefined)} />}
         />
         <main>

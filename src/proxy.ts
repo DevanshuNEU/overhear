@@ -24,9 +24,13 @@
 //    gets a 403. This runs before the excluded paths, so health, `/_next/*`, the tools and the webhook answer only
 //    this computer too, and it covers the server-rendered pages that show call transcripts. Every local-mode
 //    answer also forbids framing. The route handlers repeat this check.
+//    Then a request that says its body is over 1 MB gets a 413, except on `/api/files` (next.config.ts lets the proxy
+//    buffer 64 MB for it).
 // 2. Excluded paths pass untouched.
+// 3-0. Hosted copy only, first of all: a request with a content-length over 1 MB, and a chunked POST to the demo call
+//    routes (they take no body), get a 413 with a plain sentence.
 // 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`, `/api/pins`, `/api/agents`,
-//    `/api/test-calls`) answer 404.
+//    `/api/test-calls`, `/api/files`) answer 404.
 //    `/reports/` stays served, because there it shows only the samples.
 // 3-. Old demo links (`/demo`, `/demo/calls/{id}`, `/calls/{id}`) redirect permanently to `/`. This runs before the
 //    password: the redirect reveals nothing, and `/` then asks for whatever it asks for.
@@ -44,16 +48,40 @@ import { checkLocalRequest, forbidFraming, hostedNotFound, isLocalMode, isProduc
 
 export function proxy(request: NextRequest): Response {
   if (!isLocalMode()) return hosted(request);
-  const refused = checkLocalRequest(request);
+  const refused = checkLocalRequest(request) ?? (request.nextUrl.pathname === FILES_PATH || request.nextUrl.pathname.startsWith(`${FILES_PATH}/`) ? null : tooLarge(request));
   if (refused) return refused;
   const res = gate(request);
   forbidFraming(res.headers);
   return res;
 }
 
+// next.config.ts lets the proxy buffer 64 MB so /api/files can take opened session reports, and that applies to every
+// request the proxy sees. So no other request may carry more than 1 MB: nothing else in the app sends a body that large.
+const FILES_PATH = "/api/files";
+const SMALL_BODY_BYTES = 1024 * 1024;
+
+function plain413(): Response {
+  return new NextResponse("That request is too large.", { status: 413, headers: { "cache-control": "no-store", "content-type": "text/plain; charset=utf-8" } });
+}
+
+/** A 413 for a request that says its body is over 1 MB, or null. */
+function tooLarge(request: NextRequest): Response | null {
+  const length = Number(request.headers.get("content-length"));
+  return Number.isFinite(length) && length > SMALL_BODY_BYTES ? plain413() : null;
+}
+
+/** A 413 for a chunked POST to the demo call routes, which take no body and so have no length to check. */
+function chunkedDemoCall(request: NextRequest): Response | null {
+  if (!isDemoCallPath(request.nextUrl.pathname) || request.method === "GET" || request.method === "HEAD") return null;
+  const chunked = (request.headers.get("transfer-encoding") ?? "").toLowerCase().includes("chunked");
+  return chunked && !request.headers.has("content-length") ? plain413() : null;
+}
+
 /** A hosted copy: excluded paths untouched, then the product API routes 404, then the shared gate. */
 function hosted(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
+  const big = tooLarge(request) ?? chunkedDemoCall(request);
+  if (big) return big;
   if (isExcludedPath(pathname)) return NextResponse.next();
   if (isProductApiPath(pathname)) return hostedNotFound();
   const moved = movedResponse(request);
