@@ -10,7 +10,7 @@
 // Reads `DASHBOARD_PASSWORD` directly from `process.env` rather than
 // importing `@/lib/env` (the zod-validated env module), so this file has no
 // dependency on the full env schema and stays light. If the password is
-// unset or empty, every request is allowed through (local dev stays open).
+// unset or empty, a local copy and `next dev` let every request through; a hosted production copy answers 503 (step 3c).
 //
 // Machine-to-machine routes (`/api/tools/*`, `/api/webhooks/retell`) are
 // already verified by `verifyRetellSignature` and must keep working for
@@ -34,7 +34,9 @@
 // 3b. Hosted copy with OVERHEAR_PUBLIC_SAMPLES=1: `/`, `/reports/*` and the demo call routes (`/api/demo-calls`,
 //    `/api/demo-calls/*`) pass without the password. Unset means this
 //    step does not exist.
-// 4. The shared password, when one is set.
+// 3c. Hosted copy with no password (and not `next dev`): every path that reached this step answers 503, "This copy has
+//    no password set." Only the excluded paths and, with the flag, the public sample paths are served.
+// 4. The shared password, when one is set. `/owner` is not a public sample path, so it always lands here.
 import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth, isDemoCallPath, isExcludedPath, isPublicSamplePath, requestScheme, sameOriginRequest } from "@/lib/auth-gate";
 import { movedDemoPath } from "@/lib/demo-paths";
@@ -63,7 +65,15 @@ function hosted(request: NextRequest): Response {
   }
   // Opt in, set by whoever owns the deploy: the sample calls are public, every other path keeps the password.
   if (process.env.OVERHEAR_PUBLIC_SAMPLES === "1" && isPublicSamplePath(pathname)) return NextResponse.next();
+  // Fail closed: a hosted copy that lost its password (a blank variable after a redeploy) must not open every page.
+  // Only `next dev` keeps the open behaviour, so contributors can work without setting one.
+  if (!process.env.DASHBOARD_PASSWORD && process.env.NODE_ENV !== "development") return noPassword();
   return gate(request);
+}
+
+/** The answer on a hosted copy with no password: a plain sentence, never the page. */
+function noPassword(): Response {
+  return new NextResponse("This copy has no password set.", { status: 503, headers: { "cache-control": "no-store", "content-type": "text/plain; charset=utf-8" } });
 }
 
 /** Excluded paths pass; old demo links redirect; everything else meets the password. */

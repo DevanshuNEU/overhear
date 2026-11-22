@@ -35,7 +35,8 @@ const EXCLUDED_PATHS = [
 ];
 
 describe("proxy", () => {
-  it("allows every request when no password is configured", async () => {
+  it("allows every request when no password is configured, under next dev", async () => {
+    vi.stubEnv("NODE_ENV", "development");
     delete process.env.DASHBOARD_PASSWORD;
     const res = await proxy(reqOf("/"));
     expect(res?.status).not.toBe(401);
@@ -172,6 +173,58 @@ describe("proxy", () => {
       vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", "1");
       process.env.DASHBOARD_PASSWORD = "secret";
       expect((await proxy(reqOf("/api/pulls"))).status).toBe(404);
+    });
+  });
+
+  describe("a hosted copy with no password fails closed (M2)", () => {
+    const NOT_PUBLIC = ["/", "/reports/call_sample_failed", "/test-call", "/owner", "/api/demo-calls", "/eval", "/anything"];
+    const hostedNoPassword = (flag: string, nodeEnv = "production") => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", flag);
+      vi.stubEnv("NODE_ENV", nodeEnv);
+      delete process.env.DASHBOARD_PASSWORD;
+    };
+
+    it("answers 503 with a plain sentence on every gated path, in production", async () => {
+      hostedNoPassword("");
+      for (const path of NOT_PUBLIC) {
+        const res = await proxy(reqOf(path));
+        expect(res.status, path).toBe(503);
+        expect(await res.text(), path).toBe("This copy has no password set.");
+      }
+    });
+
+    it("also answers 503 when the password is set but blank", async () => {
+      hostedNoPassword("");
+      process.env.DASHBOARD_PASSWORD = "";
+      expect((await proxy(reqOf("/"))).status).toBe(503);
+    });
+
+    it("still serves the public sample paths with the flag on, and 503s the rest, /owner included", async () => {
+      hostedNoPassword("1");
+      for (const path of ["/", "/reports/call_sample_failed", "/api/demo-calls"]) expect((await proxy(reqOf(path))).status, path).toBe(200);
+      for (const path of ["/test-call", "/owner", "/eval"]) expect((await proxy(reqOf(path))).status, path).toBe(503);
+    });
+
+    it("still serves the machine paths and Next assets", async () => {
+      hostedNoPassword("");
+      for (const path of [...EXCLUDED_PATHS, "/_next/static/chunks/app.js", "/favicon.ico"]) expect((await proxy(reqOf(path))).status, path).toBe(200);
+    });
+
+    it("keeps today's open behaviour under next dev", async () => {
+      hostedNoPassword("", "development");
+      for (const path of NOT_PUBLIC) expect((await proxy(reqOf(path))).status, path).toBe(200);
+    });
+  });
+
+  describe("/owner stays behind the password", () => {
+    it.each(["", "1"])("401s without the password and passes with it, with OVERHEAR_PUBLIC_SAMPLES=%j", async (flag) => {
+      vi.stubEnv("OVERHEAR_LOCAL", "");
+      vi.stubEnv("OVERHEAR_PUBLIC_SAMPLES", flag);
+      process.env.DASHBOARD_PASSWORD = "secret";
+      expect((await proxy(reqOf("/owner"))).status).toBe(401);
+      expect((await proxy(reqOf("/owner", { authorization: `Basic ${btoa("u:wrong")}` }))).status).toBe(401);
+      expect((await proxy(reqOf("/owner", GOOD_AUTH))).status).toBe(200);
     });
   });
 
@@ -387,8 +440,9 @@ describe("proxy on a hosted copy (OVERHEAR_LOCAL unset)", () => {
     expect((await proxy(reqOf("/api/connect")))?.status).toBe(404);
   });
 
-  it("keeps serving the report screen and the other pages, with any Host", async () => {
+  it("keeps serving the report screen and the other pages, with any Host (next dev, no password)", async () => {
     vi.stubEnv("OVERHEAR_LOCAL", "");
+    vi.stubEnv("NODE_ENV", "development");
     delete process.env.DASHBOARD_PASSWORD;
     for (const path of ["/reports/call_sample_failed", "/", "/test-call"]) {
       const res = await proxy(reqOf(path, { host: "overhear.up.railway.app" }));
