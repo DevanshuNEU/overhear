@@ -1,5 +1,7 @@
 // Where a call made on the public demo stands, and what the engine made of it. Hosted only, in memory only: nothing is
-// written to disk or the database, and a restart forgets every call.
+// written to disk or the database (the webhook only logs the event type and call id), and a restart forgets every call. Retell
+// itself records calls on the demo account; Overhear keeps a call's outcome in memory for an hour (READY_TTL_MS) and shows it only to
+// the browser whose signed cookie names it.
 //
 // One ask is one get-call request on the server's own Retell key, and never more than one per call every 2 seconds: the last
 // answer is kept for that long, and asks that arrive together share one request. A call whose agent is not the demo agent is
