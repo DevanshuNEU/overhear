@@ -4,7 +4,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { appointmentSlots, appointments, patients, providers, actionEvents } from "@/db/schema";
-import type { Slot, ToolName } from "@/domain/types";
+import type { Slot, ToolName } from "@/clinic/types";
 
 type Out<R> = { result: R };
 

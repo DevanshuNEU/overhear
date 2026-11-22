@@ -27,6 +27,7 @@ export const appointments = pgTable("appointments", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Unused since the LLM grader was removed. Kept until a separate migration drops it.
 export const calls = pgTable("calls", {
   id: text("id").primaryKey(), // Retell call_id
   transcript: jsonb("transcript").notNull(), // TranscriptObject
@@ -48,6 +49,7 @@ export const actionEvents = pgTable("action_events", {
   toolCallId: text("tool_call_id"), // Retell's in-flight tool_call_id; null when the request didn't carry one
 });
 
+// Unused since the LLM grader was removed. Kept until a separate migration drops it.
 export const qaScores = pgTable("qa_scores", {
   callId: text("call_id").primaryKey(),
   composite: real("composite").notNull(),        // 0..100

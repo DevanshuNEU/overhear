@@ -28,13 +28,13 @@
 // 3. Hosted copy only: the product API routes (`/api/connect`, `/api/pulls`, `/api/calls/`, `/api/pins`, `/api/agents`,
 //    `/api/test-calls`) answer 404.
 //    `/reports/` stays served, because there it shows only the samples.
+// 3-. Old demo links (`/demo`, `/demo/calls/{id}`, `/calls/{id}`) redirect permanently to `/`. This runs before the
+//    password: the redirect reveals nothing, and `/` then asks for whatever it asks for.
 // 3a. A change (POST) to the demo call routes needs a same-origin Origin, with or without the password.
 // 3b. Hosted copy with OVERHEAR_PUBLIC_SAMPLES=1: `/`, `/reports/*` and the demo call routes (`/api/demo-calls`,
 //    `/api/demo-calls/*`) pass without the password. Unset means this
 //    step does not exist.
 // 4. The shared password, when one is set.
-// 5. Old demo links (`/calls/{id}`, from before the demo moved to `/demo`) redirect to `/demo/calls/{id}`. This
-//    runs after the password, so a visitor without it gets a 401 here, as before the move.
 import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth, isDemoCallPath, isExcludedPath, isPublicSamplePath, requestScheme, sameOriginRequest } from "@/lib/auth-gate";
 import { movedDemoPath } from "@/lib/demo-paths";
@@ -54,6 +54,8 @@ function hosted(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
   if (isExcludedPath(pathname)) return NextResponse.next();
   if (isProductApiPath(pathname)) return hostedNotFound();
+  const moved = movedResponse(request);
+  if (moved) return moved;
   // A call started from another site would spend our Retell minutes: a POST to the demo call routes must be same-origin,
   // with or without the password. (The route repeats the check.)
   if (isDemoCallPath(pathname) && request.method !== "GET" && request.method !== "HEAD" && !sameOriginRequest(request.headers.get("origin"), request.headers.get("host") ?? request.nextUrl.host, requestScheme(request.headers.get("x-forwarded-proto"), request.url))) {
@@ -64,22 +66,25 @@ function hosted(request: NextRequest): Response {
   return gate(request);
 }
 
-/** Excluded paths pass; everything else meets the password, then the old demo link redirect. */
+/** Excluded paths pass; old demo links redirect; everything else meets the password. */
 function gate(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
   if (isExcludedPath(pathname)) return NextResponse.next();
 
-  const denied = passwordGate(request);
-  if (denied) return denied;
+  const moved = movedResponse(request);
+  if (moved) return moved;
 
-  const moved = movedDemoPath(pathname);
-  if (moved) {
-    const url = request.nextUrl.clone();
-    url.pathname = moved;
-    return NextResponse.redirect(url);
-  }
+  return passwordGate(request) ?? NextResponse.next();
+}
 
-  return NextResponse.next();
+/** A permanent redirect to `/` for an old demo link, or null for any other path. */
+function movedResponse(request: NextRequest): Response | null {
+  const target = movedDemoPath(request.nextUrl.pathname);
+  if (!target) return null;
+  const url = request.nextUrl.clone();
+  url.pathname = target;
+  url.search = "";
+  return NextResponse.redirect(url, 308);
 }
 
 /** A 401 when a password is set and the request does not carry it; null when the request may go on. */

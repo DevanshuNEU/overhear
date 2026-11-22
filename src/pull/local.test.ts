@@ -95,7 +95,7 @@ describe("isProductApiPath", () => {
     for (const path of ["/api/agents", "/api/agents/", "/api/test-calls", "/api/test-calls/c1/result"]) {
       expect(isProductApiPath(path), path).toBe(true);
     }
-    for (const path of ["/api/agentsx", "/api/test-callsx", "/api/connection", "/api/pullsx", "/api/web-call", "/reports/call_sample_failed", "/", "/demo/calls/c1", "/calls/c1"]) {
+    for (const path of ["/api/agentsx", "/api/test-callsx", "/api/connection", "/api/pullsx", "/reports/call_sample_failed", "/", "/demo/calls/c1", "/calls/c1"]) {
       expect(isProductApiPath(path), path).toBe(false);
     }
   });

@@ -40,9 +40,9 @@ describe("isExcludedPath", () => {
     expect(isExcludedPath("/favicon.ico")).toBe(true);
   });
 
-  it("does not exclude the dashboard or web-call routes", () => {
+  it("does not exclude the dashboard or the demo call routes", () => {
     expect(isExcludedPath("/")).toBe(false);
     expect(isExcludedPath("/calls/123")).toBe(false);
-    expect(isExcludedPath("/api/web-call")).toBe(false);
+    expect(isExcludedPath("/api/demo-calls")).toBe(false);
   });
 });

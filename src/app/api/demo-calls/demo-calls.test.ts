@@ -3,21 +3,14 @@ import caseJson from "../../../../eval/engine/cases/mut-transfer-claim-caller-ke
 
 const { createWebCall, getCall } = vi.hoisted(() => ({ createWebCall: vi.fn(), getCall: vi.fn() }));
 vi.mock("@/pull/retell-source", async (original) => ({ ...(await original<object>()), createWebCall, getCall }));
-// /api/web-call builds the Retell SDK itself: stand in for it so this file never reaches the network. The rest of the module
-// (APIError, which src/pull/retell-source.ts imports) stays as it is.
-const { sdkCreateWebCall } = vi.hoisted(() => ({ sdkCreateWebCall: vi.fn() }));
-vi.mock("retell-sdk", async (original) => ({
-  ...(await original<object>()),
-  default: class MockRetell {
-    call = { createWebCall: sdkCreateWebCall };
-  },
-}));
+const { ensureDemoData } = vi.hoisted(() => ({ ensureDemoData: vi.fn() }));
+vi.mock("@/demo/ensure", () => ({ ensureDemoData }));
+vi.mock("@/db/client", () => ({ db: {} }));
 const envMock =vi.hoisted(() => ({ RETELL_API_KEY: "key_test_secret", RETELL_AGENT_ID: "agent_demo" as string | undefined }));
 vi.mock("@/lib/env", () => ({ env: envMock }));
 
 import { POST } from "./route";
 import { GET } from "./[callId]/route";
-import { POST as webCallPOST } from "../web-call/route";
 import { cookieFromHeader, DEMO_COOKIE, signDemoCookie, verifyDemoCookie } from "@/demo-call/cookie";
 import { resetDemoCalls } from "@/demo-call/store";
 import { DEMO_CALL_MESSAGE } from "@/demo-call/words";
@@ -46,8 +39,8 @@ beforeEach(() => {
   vi.stubEnv("OVERHEAR_LOCAL", "");
   envMock.RETELL_AGENT_ID = "agent_demo";
   createWebCall.mockReset().mockResolvedValue(WEB_CALL);
-  sdkCreateWebCall.mockReset().mockResolvedValue({ access_token: "tok", call_id: "call_web" });
   getCall.mockReset();
+  ensureDemoData.mockReset().mockResolvedValue(undefined);
   resetDemoCalls();
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -96,14 +89,13 @@ describe("POST /api/demo-calls", () => {
     expect(createWebCall).toHaveBeenCalledTimes(3);
   });
 
-  it("shares its budget with /api/web-call: calls started there count here", async () => {
-    const who = ip();
-    const web = () => webCallPOST(new Request("https://demo.example/api/web-call", { method: "POST", headers: { "x-forwarded-for": who } }));
-    for (let i = 0; i < 2; i++) expect((await web()).status).toBe(200);
-    expect(sdkCreateWebCall).toHaveBeenCalledTimes(2);
-    expect((await POST(start({ ip: who }))).status).toBe(200);
-    expect((await POST(start({ ip: who }))).status).toBe(429);
-    expect((await web()).status).toBe(429);
+  it("tops up the demo clinic data before it starts a call, and starts the call even when that fails", async () => {
+    expect((await POST(start())).status).toBe(200);
+    expect(ensureDemoData).toHaveBeenCalledTimes(1);
+    ensureDemoData.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await POST(start())).status).toBe(200);
+    expect(createWebCall).toHaveBeenCalledTimes(2);
   });
 
   it("is 503 when no demo agent is configured, and never calls Retell", async () => {

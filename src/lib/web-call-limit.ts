@@ -1,6 +1,6 @@
-// The spend guard for every route that starts a Retell web call on the public demo account: /api/web-call and
-// /api/demo-calls. Each call burns Retell minutes, so the two routes share one per-visitor budget and one global budget,
-// held in one limiter for the life of this server instance. A visitor cannot get 3 calls from each route.
+// The spend guard for the route that starts a Retell web call on the public demo account: /api/demo-calls. Each call
+// burns Retell minutes, so every visitor gets a small budget and the whole server gets a global one, held in one limiter
+// for the life of this server instance.
 import { RateLimiter } from "@/lib/rate-limit";
 
 const limiter = new RateLimiter();
