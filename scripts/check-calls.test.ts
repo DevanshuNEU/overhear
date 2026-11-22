@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { analyzeRecord } from "@/engine/analyze";
+import preset from "@/engine/presets/northwind-clinic.json";
 import { toRetell } from "@/engine/testing/retell";
 import { failedSample, needsReviewSample, passedSample } from "@/report/samples";
 import { PASSED_LIST_MAX, formatCalls, main, summaryLine, type CheckedCall, type Io } from "./check-calls";
@@ -209,5 +210,64 @@ describe("main", () => {
     write("lk.json", lk.record);
     expect(main(["lk.json", "--color", "off"], io())).toBe(1);
     expect(out).toMatch(/^Failed +AJ_offline_booking_error_said_booked /);
+  });
+
+  describe("--policy", () => {
+    // The failed sample with the agent's tools renamed: without a policy Overhear can only guess, so it says Needs review.
+    const renamed = () => JSON.parse(JSON.stringify(toRetell(failedSample.evidence)).replaceAll("check_availability", "find_openings").replaceAll("book_appointment", "make_booking")) as unknown;
+    const policy = () => {
+      const p = JSON.parse(JSON.stringify(preset)) as { tools: Record<string, unknown> };
+      p.tools = { ...p.tools, find_openings: p.tools.check_availability, make_booking: p.tools.book_appointment };
+      delete p.tools.check_availability;
+      delete p.tools.book_appointment;
+      return p;
+    };
+
+    it("judges the call by the policy: the missing transfer reads Failed, where without it the call needs review", () => {
+      write("call.json", renamed());
+      expect(main(["call.json"], io())).toBe(0);
+      expect(stripAnsi(out)).toContain("Needs review");
+      out = "";
+      write("policy.json", policy());
+      expect(main(["call.json", "--policy", "policy.json"], io())).toBe(1);
+      expect(stripAnsi(out)).toMatch(/^Failed /);
+      out = "";
+      expect(main(["call.json", "--policy=policy.json"], io())).toBe(1);
+    });
+
+    it("exits 2 for a policy that is not JSON, naming the file and the fix, and checks nothing", () => {
+      write("call.json", renamed());
+      write("policy.json", "{oops");
+      expect(main(["call.json", "--policy", "policy.json"], io())).toBe(2);
+      expect(err).toContain("policy.json");
+      expect(err).toContain("not valid JSON");
+      expect(err).toContain("Fix these in the file");
+      expect(out).toBe("");
+    });
+
+    it("exits 2 for a policy that breaks the schema, listing each problem with its path", () => {
+      write("call.json", renamed());
+      write("policy.json", { packs: ["scheduling"], tools: { x: { role: "nonsense" } } });
+      expect(main(["call.json", "--policy", "policy.json"], io())).toBe(2);
+      expect(err).toContain("policy.json is not valid");
+      expect(err).toContain("tools.x.role");
+      expect(err).toContain("fields");
+      expect(err).toContain("docs/policy.md");
+      expect(out).toBe("");
+    });
+
+    it("exits 2 for a policy file that does not exist, and for --policy without a value", () => {
+      write("call.json", renamed());
+      expect(main(["call.json", "--policy", "missing.json"], io())).toBe(2);
+      expect(err).toContain("missing.json");
+      err = "";
+      expect(main(["call.json", "--policy"], io())).toBe(2);
+      expect(err).toContain("--policy needs a value");
+    });
+
+    it("is in --help", () => {
+      expect(main(["--help"], io())).toBe(0);
+      expect(out).toContain("--policy <file>");
+    });
   });
 });

@@ -4,6 +4,7 @@
 //   npm run check -- calls/                      every .json file in the folder (not its subfolders)
 //   npm run check -- a.json b.json --tz America/New_York
 //   npm run check -- calls/ --color off
+//   npm run check -- calls/ --policy policy.json   judge every call by your own policy (docs/policy.md)
 //
 // Exit 0: no call failed. Exit 1: at least one failed. Exit 2: it could not run (no paths, a file it cannot read, a bad option).
 // It makes no network request and reads no stored key.
@@ -11,9 +12,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { analyzeRecord } from "@/engine/analyze";
 import { LIST_WORDS } from "@/app/callListWords";
+import { parsePolicyText } from "@/local-store/policy-file";
 import { rowFor } from "@/pull/pull";
 import { NO_CONTENT_LINE, VERDICT_LABEL } from "@/report/labels";
 import type { Outcome } from "@/engine/types";
+import type { Policy } from "@/report/schema";
 
 /** One file's outcome, with the file's name so two calls that share an id can be told apart. */
 export type CheckedCall = { file: string; outcome: Outcome };
@@ -29,13 +32,15 @@ const USAGE = [
   "  npm run check -- calls/                          check every .json file in a folder",
   "  npm run check -- call.json other.json            check two files",
   "  npm run check -- calls/ --tz America/New_York    read spoken times in another time zone",
+  "  npm run check -- calls/ --policy policy.json     judge every call by your own policy (docs/policy.md)",
   "  npm run check -- calls/ --color off              plain text, for a CI log",
   "",
-  "Usage: npm run check -- <file or folder>... [--tz <zone>] [--color auto|on|off]",
+  "Usage: npm run check -- <file or folder>... [--tz <zone>] [--policy <file>] [--color auto|on|off]",
   "",
   "Each file is one call: a Retell get-call body, or the JSON of a LiveKit SessionReport.to_dict().",
   "",
   "  --tz <zone>      IANA time zone for spoken times (default: this computer's zone)",
+  "  --policy <file>  a JSON policy that names your agent's tools (docs/policy.md). With it, a missing transfer reads Failed.",
   "  --color <mode>   auto (default: on in a terminal), on or off. NO_COLOR also turns it off.",
   "",
   "Exit 0: no call failed. Exit 1: a call failed. Exit 2: it could not run.",
@@ -128,30 +133,32 @@ export type Io = {
   zone: string;
 };
 
-type Options = { paths: string[]; tz: string | undefined; color: "auto" | "on" | "off"; help: boolean };
+type Options = { paths: string[]; tz: string | undefined; policy: string | undefined; color: "auto" | "on" | "off"; help: boolean };
 
 function parseArgs(argv: readonly string[]): Options | { error: string } {
-  const opts: Options = { paths: [], tz: undefined, color: "auto", help: false };
+  const opts: Options = { paths: [], tz: undefined, policy: undefined, color: "auto", help: false };
   const value = (i: number, name: string): string | { error: string } => {
     const v = argv[i + 1];
-    return v === undefined || v.startsWith("--") ? { error: `${name} needs a value. Example: ${name} ${name === "--tz" ? "America/New_York" : "off"}.` } : v;
+    return v === undefined || v.startsWith("--") ? { error: `${name} needs a value. Example: ${name} ${name === "--tz" ? "America/New_York" : name === "--policy" ? "policy.json" : "off"}.` } : v;
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--help" || arg === "-h") opts.help = true;
-    else if (arg === "--tz" || arg === "--color") {
+    else if (arg === "--tz" || arg === "--color" || arg === "--policy") {
       const v = value(i, arg);
       if (typeof v !== "string") return v;
       i++;
       if (arg === "--tz") opts.tz = v;
+      else if (arg === "--policy") opts.policy = v;
       else if (v === "auto" || v === "on" || v === "off") opts.color = v;
       else return { error: "--color takes auto, on or off. Example: --color off." };
     } else if (arg.startsWith("--tz=")) opts.tz = arg.slice(5);
+    else if (arg.startsWith("--policy=")) opts.policy = arg.slice(9);
     else if (arg.startsWith("--color=")) {
       const v = arg.slice(8);
       if (v !== "auto" && v !== "on" && v !== "off") return { error: "--color takes auto, on or off. Example: --color off." };
       opts.color = v;
-    } else if (arg.startsWith("--")) return { error: `Unknown option ${plain(arg, 40)}. Use --tz, --color or --help.` };
+    } else if (arg.startsWith("--")) return { error: `Unknown option ${plain(arg, 40)}. Use --tz, --policy, --color or --help.` };
     else opts.paths.push(arg);
   }
   return opts;
@@ -194,6 +201,23 @@ function expand(arg: string, cwd: string): { files: string[] } | { error: string
   return { files: [full] };
 }
 
+/** The policy file an argument names, or what is wrong with it and how to fix it. */
+function readPolicy(arg: string, cwd: string): { policy: Policy } | { error: string } {
+  const name = plain(arg, 200);
+  let text: string;
+  try {
+    text = fs.readFileSync(path.resolve(cwd, arg), "utf8");
+  } catch (err) {
+    const why = (err as NodeJS.ErrnoException).code === "ENOENT" ? "it does not exist" : `it could not be read (${(err as NodeJS.ErrnoException).code ?? "unknown error"})`;
+    return { error: `Could not read the policy ${name}: ${why}. Check the path, or see docs/policy.md for how to write one, then run the command again.` };
+  }
+  const parsed = parsePolicyText(text);
+  if ("policy" in parsed) return parsed;
+  const list = parsed.problems.slice(0, 10).map((p) => `  - ${plain(p, 300)}`);
+  const more = parsed.problems.length > 10 ? [`  - and ${parsed.problems.length - 10} more`] : [];
+  return { error: [`The policy ${name} is not valid:`, ...list, ...more, "Fix these in the file (docs/policy.md shows a complete example), then run the command again."].join("\n") };
+}
+
 /** Runs the command, writes through `io` and returns the exit code. Never throws. */
 export function main(argv: readonly string[], io: Io): number {
   const opts = parseArgs(argv);
@@ -213,6 +237,16 @@ export function main(argv: readonly string[], io: Io): number {
   if (!isZone(tz)) {
     io.stderr(`${plain(tz, 60)} is not a time zone. Use an IANA name such as America/New_York or UTC, for example --tz UTC.\n`);
     return 2;
+  }
+
+  let policy: Policy | undefined;
+  if (opts.policy !== undefined) {
+    const loaded = readPolicy(opts.policy, io.cwd);
+    if ("error" in loaded) {
+      io.stderr(`${loaded.error}\n`);
+      return 2;
+    }
+    policy = loaded.policy;
   }
 
   // Read everything first: one file that cannot be read stops the run, so a CI job never passes on a partial check.
@@ -237,7 +271,7 @@ export function main(argv: readonly string[], io: Io): number {
     return 2;
   }
 
-  const calls: CheckedCall[] = records.map(({ file, raw }) => ({ file, outcome: analyzeRecord(raw, { tz }) }));
+  const calls: CheckedCall[] = records.map(({ file, raw }) => ({ file, outcome: analyzeRecord(raw, { tz, policy }) }));
   const color = opts.color === "on" || (opts.color === "auto" && io.isTTY && (io.env.NO_COLOR === undefined || io.env.NO_COLOR === ""));
   io.stdout(`${formatCalls(calls, { color })}\n`);
   return calls.some((c) => c.outcome.kind === "report" && c.outcome.report.verdict === "failed") ? 1 : 0;
