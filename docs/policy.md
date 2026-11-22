@@ -24,7 +24,7 @@ This is a complete policy for a clinic agent that can look up open slots, verify
 
 ```json
 {
-  "packs": ["healthcare"],
+  "packs": ["scheduling"],
   "timezone": "America/New_York",
   "success": "result.ok",
   "tools": {
@@ -64,7 +64,7 @@ This is a complete policy for a clinic agent that can look up open slots, verify
 
 ## What each field does
 
-`packs` says which groups of checks run. `scheduling` checks that what the agent promised was done, that the details it spoke match what was committed, and that a transfer it promised happened. `healthcare` runs those and adds a check that the patient was verified before any change.
+`packs` says which groups of checks run. `scheduling` checks that what the agent promised was done, that the details it spoke match what was committed, and that a transfer it promised happened. `healthcare` is accepted and is meant to add a check that the patient was verified before any change, but today the scheduling checks are the ones that run, so use `scheduling`.
 
 `timezone` is an IANA name such as `America/New_York`. It is the zone your tools store times in, and Overhear reads spoken times in it. Leave it out and Overhear uses the zone of the machine running the check, or the one you pass with `--tz`.
 
@@ -77,7 +77,7 @@ This is a complete policy for a clinic agent that can look up open slots, verify
 - `success` is a path to a true or false value in this tool's result.
 - `id` names which item a change acts on. For a lookup it is a path inside one item, such as `item.id`. For a change it is a path to the argument that holds the same id, such as `args.slotId`. This is how Overhear knows which slot a booking took, and so which date and time were committed.
 - `items` is for lookup tools: the path to the list of options in the result.
-- `patientId` is where the patient's id sits: in a verify tool's result, and in a change tool's arguments. It lets Overhear match a change to the patient who was verified.
+- `patientId` is where the patient's id sits: in a verify tool's result, and in a change tool's arguments. Overhear does not use it yet, and it is safe to leave out.
 - `required` is a list of field names that must have a value for this tool's change. Leave it out and the fields marked required in `fields` apply. An empty list means none are required, which suits a cancel tool that has no date or time.
 
 `fields` names the details Overhear compares between what the agent said and what the system committed. Each has a `path` and a `type`. The types are `date`, `time`, `datetime`, `name`, `string`, `number`, `money` and `id`. Set `required` to true when a detail with no value should stop Overhear from calling the call checked. The keys `date`, `time` and `provider` are the ones the scheduling checks compare.
@@ -92,7 +92,7 @@ The checks that need to know every tool become strict.
 
 - A transfer the agent promised, with no call to a transfer tool, reads Failed. Without a policy it reads Couldn't check.
 - A booking the agent announced with no call to a change tool reads Failed. That already holds without a policy, so a policy does not change it, but the tools you name are how Overhear knows which calls count as bookings.
-- A tool the call used that your policy does not name is treated as unknown, and Overhear says it could not check what it did. Add it to the policy to have it checked.
+- Name every tool your agent has. A call that uses a tool your policy does not name gets the cautious reading: Overhear still uses your tools and fields, but it stops trusting the policy as complete for that call. A promised transfer then reads Couldn't check, as it would without a policy, and Overhear says it could not check what the unnamed tool did. Add the tool to the policy to have it checked.
 - The details of a committed change are read from the paths you gave, so a wrong date, time or provider in what the agent said is found by name.
 
 If a policy is incomplete, a call can read Failed when the agent did nothing wrong. That is the cost of the promise. When a Failed call surprises you, look first for a tool the policy does not name.

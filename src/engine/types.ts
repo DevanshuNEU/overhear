@@ -34,6 +34,8 @@ export interface EngineOptions {
    * inferred policy, and the engine checks it with PolicySchema first (an invalid one is an error outcome, never a
    * guess). A user policy promises it names every tool the agent has, so it counts like the preset: a transfer that
    * was promised and never made reads Failed, not Couldn't check, when the policy lists no transfer tool.
+   * The promise is checked per call: a call that used a tool the policy does not name gets the cautious (inferred)
+   * reading, still with the policy's tools and fields.
    */
   policy?: Policy;
 }

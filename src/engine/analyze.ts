@@ -9,7 +9,7 @@ import { CallReportSchema, PolicySchema, type Policy } from "@/report/schema";
 import { fromLiveKit, isLiveKitReport } from "./adapters/livekit";
 import { fromRetell, type Adapted } from "./adapters/retell";
 import { checkCall } from "./check";
-import { policyFor, type PolicySource } from "./policy";
+import { policyFor, toolPolicy, type PolicySource } from "./policy";
 import { InputError, type Analyze, type EngineOptions, type Outcome } from "./types";
 
 /** One Retell call in, one Outcome out. Kept for the callers that only ever hold Retell records. */
@@ -54,7 +54,11 @@ function chosenPolicy(adapted: Extract<Adapted, { kind: "evidence" }>, opts: Eng
     const where = first.path.length > 0 ? ` at ${first.path.join(".")}` : "";
     throw new InputError(`The policy is not valid (${first.message}${where}).`, "Fix the policy against docs/policy.md.");
   }
-  return { policy: valid.data, source: "user" };
+  // A user policy promises to name every tool the agent has. A call that used a tool it does not name shows the promise
+  // is broken for this call, so the call gets the cautious reading: the policy's tools and fields, with inferred trust.
+  const used = adapted.evidence.items.flatMap((it) => (it.kind === "tool_call" ? [it.name] : it.kind === "backend_action" ? [it.tool] : []));
+  const complete = used.every((name) => toolPolicy(valid.data, name) !== undefined);
+  return { policy: valid.data, source: complete ? "user" : "inferred" };
 }
 
 /** The record's call id, when it has a readable one: the record's own or the one a webhook body holds under call. */
