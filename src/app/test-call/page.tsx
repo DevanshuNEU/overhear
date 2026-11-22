@@ -2,6 +2,7 @@
 // With no key saved it goes back to `/`, where the connect screen is. Rendered per request, so `next build` cannot bake in
 // either answer.
 import { notFound, redirect } from "next/navigation";
+import { hasFiles } from "@/files/store";
 import { hasKey } from "@/pull/key-store";
 import { isLocalMode } from "@/pull/local";
 import { TestCallScreen } from "../TestCallScreen";
@@ -22,5 +23,5 @@ export default async function TestCallPage() {
     // A key store that will not open is explained on `/`.
   }
   if (!stored) redirect("/");
-  return <TestCallScreen stubbable={stubbable()} />;
+  return <TestCallScreen stubbable={stubbable()} filesOpen={hasFiles()} />;
 }

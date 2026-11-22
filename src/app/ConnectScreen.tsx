@@ -4,10 +4,11 @@
 // one field and one button. The key is read from the field when the form is sent and goes straight to /api/connect.
 // It is never in state, never in the URL (the field has no name, so even a form sent without this script sends
 // nothing), and the field is emptied once Retell accepts it. Then the screen hands over to the call list
-// (onConnected). Words that the server also says come from src/pull/labels.ts.
+// (onConnected). Below the key form, a LiveKit team opens its saved session reports instead (LiveKitFiles). Words that the server also says come from src/pull/labels.ts.
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CircleAlert, Loader2, TriangleAlert } from "lucide-react";
 import { CONNECT_MESSAGE, LOCAL_REFUSAL, type ConnectError } from "@/pull/labels";
+import { LiveKitFiles } from "./LiveKitFiles";
 
 export const CONNECT_WORDS = {
   product: "Overhear",
@@ -87,9 +88,11 @@ type Props = {
   notice?: Extract<ConnectError, "bad_key">;
   /** Retell accepted the key and it is saved. */
   onConnected: () => void;
+  /** Session report files were opened and at least one call was read from them (LiveKit). Where to go next is the parent's. */
+  onFilesOpened?: () => void;
 };
 
-export function ConnectScreen({ location, storeError, notice, onConnected }: Props) {
+export function ConnectScreen({ location, storeError, notice, onConnected, onFilesOpened = () => {} }: Props) {
   const field = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>(() => {
     const first = storeError ?? notice;
@@ -206,6 +209,8 @@ export function ConnectScreen({ location, storeError, notice, onConnected }: Pro
           </form>
 
           <Facts location={location} />
+
+          <LiveKitFiles onOpened={onFilesOpened} />
         </main>
       </div>
     </div>

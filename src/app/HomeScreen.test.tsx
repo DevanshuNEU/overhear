@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CONNECT_MESSAGE } from "@/pull/labels";
+import { router } from "@/test-utils/fakeNavigation";
 import { headlineFor } from "@/report/labels";
 import type { PullProgress } from "@/pull/pull";
 import { CONNECT_WORDS } from "./ConnectScreen";
@@ -109,5 +110,26 @@ describe("the home screen", () => {
     expect(fetchMock.mock.calls.some(([url, init]) => String(url) === "/api/pulls" && init?.method === "POST")).toBe(true);
     expect(polled()).toBe(before);
     expect(screen.queryByLabelText(CONNECT_WORDS.fieldLabel)).toBeNull();
+  });
+});
+
+describe("session report files", () => {
+  it("goes to /files once files were opened on the connect screen and a call was read", async () => {
+    const row = { callId: "AJ_1", startedAt: 1, durationMs: 1, state: "report", verdict: "failed", headline: "h", platform: "livekit" };
+    fetchMock.mockImplementation(async (input, init) => {
+      if (`${init?.method ?? "GET"} ${String(input)}` === "POST /api/files") return new Response(JSON.stringify({ rows: [row], problems: [] }), { status: 200 });
+      throw new Error("unexpected");
+    });
+    render(<HomeScreen stored={false} location={LOCATION} />);
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["{}"], "a.json");
+    Object.defineProperty(file, "text", { value: async () => "{}" });
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/files"));
+  });
+
+  it("gives the Retell list a Files item when files are open too", async () => {
+    render(<HomeScreen stored location={LOCATION} filesOpen />);
+    expect((await screen.findByRole("link", { name: "Files" })).getAttribute("href")).toBe("/files");
   });
 });

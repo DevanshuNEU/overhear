@@ -2,7 +2,8 @@
 
 // Under the shell on a local call report: the way back to the list the person came from, and Previous and Next to
 // move along that list without going back. The list is the one the call list last showed: its pull id is in the
-// tab's session, so the rows are fetched once here and cut by the same filter (callListModel) the list used.
+// tab's session, so the rows are fetched once here and cut by the same filter (callListModel) the list used. A call
+// opened from the files list (`?src=files`) takes its rows from /api/files instead.
 // With no pull, a failed fetch, or a call that is not in the pull, only the way back shows. J and K step too, when
 // the person is not typing. The pull id is not secret and nothing here touches the key.
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -17,8 +18,11 @@ const SHORTCUTS_KEY = "overhear.shortcuts";
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-report-accent";
 const ITEM = `inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-sm font-medium ${FOCUS}`;
 
-const listHref = (from: Filter) => (from === "all" ? "/" : `/?show=${from}`);
-const reportHref = (callId: string, from: Filter) => `/reports/${encodeURIComponent(callId)}${from === "all" ? "" : `?from=${from}`}`;
+const listHref = (from: Filter, files: boolean) => `${files ? "/files" : "/"}${from === "all" ? "" : `?show=${from}`}`;
+const reportHref = (callId: string, from: Filter, files: boolean) => {
+  const query = [files ? "src=files" : null, from === "all" ? null : `from=${from}`].filter(Boolean).join("&");
+  return `/reports/${encodeURIComponent(callId)}${query ? `?${query}` : ""}`;
+};
 
 function rememberedPull(): string | null {
   try {
@@ -88,7 +92,10 @@ type Props = {
 export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
   const router = useRouter();
   const params = useParams<{ callId?: string }>();
-  const from = parseFilter(useSearchParams()?.get("from"));
+  const search = useSearchParams();
+  const from = parseFilter(search?.get("from"));
+  // A call opened from the list of files (`src=files`) steps along that list, in the order /api/files gives.
+  const files = search?.get("src") === "files";
   const callId = typeof params?.callId === "string" ? params.callId : null;
   const [pulled, setRows] = useState<PullRow[] | null>(null);
   const keys = useSyncExternalStore(watchShortcuts, shortcutsOn, () => true);
@@ -102,10 +109,10 @@ export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
   // One read of the pull, when the report opens. A failure leaves only the way back. A hosted copy has no pull.
   useEffect(() => {
     if (hosted) return;
-    const id = rememberedPull();
-    if (id === null) return;
+    const pull = files ? null : rememberedPull();
+    if (!files && pull === null) return;
     let live = true;
-    fetch(`/api/pulls/${encodeURIComponent(id)}`, { cache: "no-store" })
+    fetch(files ? "/api/files" : `/api/pulls/${encodeURIComponent(pull as string)}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((body: unknown) => {
         const found = typeof body === "object" && body !== null ? (body as { rows?: unknown }).rows : undefined;
@@ -115,7 +122,7 @@ export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
     return () => {
       live = false;
     };
-  }, [hosted]);
+  }, [hosted, files]);
 
   const steps = useMemo(() => {
     if (rows === null || callId === null || yours) return null;
@@ -126,8 +133,8 @@ export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
     return { previous: list[at - 1]?.callId ?? null, next: list[at + 1]?.callId ?? null };
   }, [rows, callId, from, yours]);
 
-  const previousHref = steps?.previous ? reportHref(steps.previous, from) : null;
-  const nextHref = steps?.next ? reportHref(steps.next, from) : null;
+  const previousHref = steps?.previous ? reportHref(steps.previous, from, files) : null;
+  const nextHref = steps?.next ? reportHref(steps.next, from, files) : null;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -211,7 +218,7 @@ export function CallSteps({ samples, yourCalls = [] }: Props = {}) {
 
   return (
     <div className="relative mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 sm:mb-3">
-      <Link href={listHref(from)} className={`${ITEM} -ml-2 text-report-accent underline-offset-2 hover:underline`}>
+      <Link href={listHref(from, files)} className={`${ITEM} -ml-2 text-report-accent underline-offset-2 hover:underline`}>
         <Arrow dir="left" />
         {(hosted ? STEP_LABEL.backSamples : STEP_LABEL.back)[from]}
       </Link>

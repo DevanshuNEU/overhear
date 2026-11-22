@@ -57,6 +57,8 @@ type Props = {
   pollMs?: number;
   /** A scripted client may stand in for the SDK's (the preview states used for screenshots; see the page). */
   stubbable?: boolean;
+  /** Session report files are open too, so the nav also links to them. */
+  filesOpen?: boolean;
 };
 
 /** The agent's id, name and nothing else, from the list route. Anything else is left out. */
@@ -178,7 +180,7 @@ function Transcript({ turns, label, className = "" }: { turns: Turn[]; label: st
   );
 }
 
-export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: Props) {
+export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false, filesOpen = false }: Props) {
   const [agents, setAgents] = useState<Agents>({ kind: "loading" });
   const [agentId, setAgentId] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -544,7 +546,7 @@ export function TestCallScreen({ pollMs = DEFAULT_POLL_MS, stubbable = false }: 
   return (
     <div className="report min-h-screen bg-report-canvas font-sans text-report-ink">
       <div className={`mx-auto px-4 pb-24 pt-6 sm:px-6 ${reportShown ? "max-w-[1360px]" : "max-w-[1200px]"}`}>
-        <ProductNav current="test-call" className="mb-7 sm:mb-11" />
+        <ProductNav current="test-call" view={filesOpen ? "both" : "retell"} className="mb-7 sm:mb-11" />
         <main>
           {headline ? <Heading lead={headline.lead} next={headline.next} /> : <p className="text-sm text-report-muted">{TEST_WORDS.finished}</p>}
 

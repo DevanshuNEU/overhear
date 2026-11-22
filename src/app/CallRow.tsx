@@ -6,7 +6,7 @@
 import { ChevronRight, Loader2 } from "lucide-react";
 import type { PullRow } from "@/pull/pull";
 import type { Verdict } from "@/report/schema";
-import { experienceLine, formatDuration } from "@/report/labels";
+import { experienceLine, formatDuration, PLATFORM_LABEL } from "@/report/labels";
 import { Badge, ResultBadge, VerdictBadge } from "@/components/report/StatusBadge";
 import { formatCallTime } from "./callListModel";
 import { LIST_WORDS } from "./callListWords";
@@ -25,6 +25,10 @@ type Props = {
   from?: Verdict;
   /** Show when the call started. False on the sample list, whose calls share start times. */
   showTime?: boolean;
+  /** Name the platform under the length. Set by a list whose calls come from more than one. */
+  showPlatform?: boolean;
+  /** A call read from a file: its report opens with `src=files`, so the report steps along the files list. */
+  source?: "files";
 };
 
 // On a phone: time, length and verdict on one line, the sentence under them. From sm up: one aligned line.
@@ -87,20 +91,26 @@ function Line({ row, settled, retryFailed }: { row: PullRow; settled: boolean; r
   return settled ? null : <Skeleton className="w-3/5 max-w-72" />;
 }
 
-export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry, from, showTime = true }: Props) {
-  const started = formatCallTime(row.startedAt, timeZone);
+export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry, from, showTime = true, showPlatform = false, source }: Props) {
+  // A call read from a file may carry no start time (0): say so rather than print 1970.
+  const started = row.startedAt > 0 ? formatCallTime(row.startedAt, timeZone) : null;
+  const query = [source ? `src=${source}` : null, from ? `from=${from}` : null].filter(Boolean).join("&");
   const grid = showTime ? GRID : GRID_NO_TIME;
   const span = showTime ? "col-span-3" : "col-span-2";
   const linked = row.state === "report";
   const cells = (
     <>
       {showTime ? <span className="text-sm font-medium tabular-nums">{started ?? "Time unknown"}</span> : null}
-      <span className="text-[13px] tabular-nums text-report-muted">{row.durationMs === null ? LIST_WORDS.unknownLength : formatDuration(row.durationMs)}</span>
+      <span className="text-[13px] tabular-nums text-report-muted">
+        {row.durationMs === null ? LIST_WORDS.unknownLength : formatDuration(row.durationMs)}
+        {showPlatform && row.platform ? <span className="block text-[13px] leading-snug">{PLATFORM_LABEL[row.platform]}</span> : null}
+      </span>
       <span className="justify-self-end sm:justify-self-start">
         <Verdict row={row} settled={settled} />
       </span>
       <span className={`${span} min-w-0 sm:col-span-1`}>
         <Line row={row} settled={settled} retryFailed={retryFailed} />
+        {row.file ? <span title={row.file} className="mt-0.5 block truncate text-[13px] leading-snug text-report-muted">{row.file}</span> : null}
       </span>
       {linked ? (
         <ChevronRight aria-hidden className="hidden size-4 text-report-muted sm:block" />
@@ -130,7 +140,7 @@ export function CallRow({ row, timeZone, settled, retrying, retryFailed, onRetry
     <li data-call-id={row.callId} data-state={row.state === "report" ? row.verdict : row.state} className="border-b border-report-line last:border-b-0">
       {linked ? (
         <a
-          href={`/reports/${encodeURIComponent(row.callId)}${from ? `?from=${from}` : ""}`}
+          href={`/reports/${encodeURIComponent(row.callId)}${query ? `?${query}` : ""}`}
           className={`${grid} -outline-offset-2 hover:bg-report-calm-mark/40 focus-visible:outline-2 focus-visible:outline-report-accent`}
         >
           {cells}

@@ -3,6 +3,7 @@
 // Retell key, or, when one is saved, the list of the latest calls and what the engine found in each. Rendered per
 // request (see `dynamic`), so `next build` cannot bake in either branch.
 import { sampleRows } from "@/demo-samples";
+import { hasFiles } from "@/files/store";
 import { displayConfigPath, hasKey, KeyStoreError } from "@/pull/key-store";
 import { isLocalMode } from "@/pull/local";
 import type { ConnectError } from "@/pull/labels";
@@ -29,5 +30,5 @@ export default async function Home() {
   if (!isLocalMode()) return <SampleListScreen rows={sampleRows()} />;
 
   const { stored, storeError } = await savedKey();
-  return <HomeScreen stored={stored} location={displayConfigPath()} storeError={storeError} />;
+  return <HomeScreen stored={stored} location={displayConfigPath()} storeError={storeError} filesOpen={hasFiles()} />;
 }
