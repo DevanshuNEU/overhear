@@ -107,7 +107,7 @@ interface Run {
 }
 
 /** Runs the contract the way the pipeline will (resolveOk, detections, changes, every committed-detail gap added), then checks the schema. */
-function run(input: Evidence, policy: Policy = PRESET, addGaps = true, zone: { tz: string; policyTz: boolean } = { tz: "UTC", policyTz: true }): Run {
+function run(input: Evidence, policy: Policy = PRESET, addGaps = true, zone: { tz: string; policyTz: boolean } = { tz: "UTC", policyTz: true }, policySource: "preset" | "inferred" = "preset"): Run {
   const resolved = resolveOk({ ...input, callStartMs: input.callStartMs ?? CALL_START }, policy);
   const list = changes(resolved, policy);
   const gaps = addGaps ? list.flatMap((c) => committedDetails(resolved, policy, c).gaps) : [];
@@ -115,7 +115,7 @@ function run(input: Evidence, policy: Policy = PRESET, addGaps = true, zone: { t
   const ctx: ContractContext = {
     ev: evidence,
     policy,
-    policySource: "preset",
+    policySource,
     tz: zone.tz,
     policyTz: zone.policyTz,
     detections: detectAll(evidence, Object.keys(policy.tools)),
@@ -489,6 +489,35 @@ describe("spoken_matches_committed", () => {
     it("a detail spoken after a change that failed is not asked about", () => {
       const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: false }, false), agent("Your appointment on Friday, November 6 is cancelled.", 20)]), noFields);
       expect(r.out.result).toBe("not_applicable");
+    });
+  });
+
+  // Re-review F2: a date or time an inferred policy read from the booking's own result can be when it was made.
+  describe("a value read from the booking's own result", () => {
+    const fromResult = PolicySchema.parse({
+      packs: ["scheduling"],
+      tools: { check_availability: { role: "lookup" }, book_appointment: { role: "change", kind: "book" } },
+      fields: { date: { path: "result.date", type: "date" }, time: { path: "result.time", type: "time" } },
+    });
+    const booked = (payload: Record<string, unknown>) => ev([...tool("tc_1", "check_availability", {}, { slots: [{ id: "s1", label: "Tuesday 2 PM" }] }), ...tool("tc_2", "book_appointment", { slot_id: "s1" }, payload), agent("You're booked for Tuesday, December 8 at 2 PM.", 20)]);
+    const inferred = (payload: Record<string, unknown>) => run(booked(payload), fromResult, true, { tz: "UTC", policyTz: false }, "inferred");
+
+    it.each([
+      ["a date of the day it was made", { ok: true, date: "2026-11-22" }],
+      ["a timestamp of when it was made", { ok: true, time: "2026-11-22T13:14:05Z" }],
+      ["a start with a timestamp", { ok: true, start: "2026-11-22T13:14:05", time: "2026-11-22T13:14:05" }],
+    ])("%s is unverified, never violated", (_name, payload) => {
+      const r = inferred(payload);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.fields.some((f) => f.status === "differs")).toBe(false);
+    });
+
+    it("a result value that matches still passes", () => {
+      expect(inferred({ ok: true, date: "2026-12-08", time: "14:00" }).out.result).toBe("passed");
+    });
+
+    it("the same path in a policy that is not inferred can still be violated", () => {
+      expect(run(booked({ ok: true, date: "2026-11-22" }), fromResult, true, { tz: "UTC", policyTz: false }, "preset").out.result).toBe("violated");
     });
   });
 

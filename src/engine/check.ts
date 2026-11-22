@@ -28,6 +28,8 @@ export interface CheckOptions extends EngineOptions {
    * those can show that a call the record lacks was never made. Required, so no caller gets a source it did not choose.
    */
   policySource: PolicySource;
+  /** True when the policy was picked by the call's shape, not by its agent id: a guess, so it is not trusted to be complete. */
+  policyByShape?: boolean;
 }
 
 /** The contracts M1 can run. committed_matches_request waits for a request source, so it has no entry. */
@@ -52,6 +54,7 @@ export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): 
     ev: evidence,
     policy,
     policySource: opts.policySource,
+    policyByShape: opts.policyByShape === true,
     tz: policy.timezone ?? opts.tz,
     policyTz: policy.timezone !== undefined,
     detections,

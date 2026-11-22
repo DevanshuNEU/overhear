@@ -126,9 +126,14 @@ describe("notification claims", () => {
     expect(kinds(text).filter(([cls]) => cls === "completion")).toEqual([]);
   });
 
-  it("an agent that owns up to a failed booking is not claiming one either", () => {
-    expect(classes("I booked your appointment but it didn't go through.")).not.toContain("completion");
-    expect(classes("I booked 3 PM, but 2 PM isn't available.")).toContain("completion");
+  // Re-review F1: an unrelated failure in the sentence must not hide a booking claim.
+  it.each([
+    "Your appointment is booked for Tuesday December 8th at 2 PM, but the confirmation text failed to send.",
+    "You're booked for Tuesday December 8th at 2 PM, though I couldn't send the reminder because of an error.",
+    "You're booked for Tuesday December 8th at 4 PM with Dr. Kim, but the text confirmation failed.",
+    "I booked 3 PM, but 2 PM isn't available.",
+  ])("%s is still a booking claim", (text) => {
+    expect(classes(text)).toContain("completion");
   });
 
   // Review S2: past or reported sends.

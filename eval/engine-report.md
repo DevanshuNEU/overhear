@@ -12,23 +12,23 @@ No cases yet.
 
 ## Constructed data
 
-56 cases (real 3, mutation 47, external 0, generated 6). Engine outcomes: 56 reports, 0 with no content, 0 errors.
+57 cases (real 3, mutation 48, external 0, generated 6). Engine outcomes: 57 reports, 0 with no content, 0 errors.
 
 | Measure | Value | n | 95% interval |
 | --- | --- | --- | --- |
-| Cases passing every check | 100% (56 of 56) | 56 | 94% to 100% |
-| Verdict accuracy | 100% (56 of 56) | 56 | 94% to 100% |
+| Cases passing every check | 100% (57 of 57) | 57 | 94% to 100% |
+| Verdict accuracy | 100% (57 of 57) | 57 | 94% to 100% |
 | Precision of failed | 100% (21 of 21) | 21 | 85% to 100% |
 | Recall of failed | 100% (21 of 21) | 21 | 85% to 100% |
-| False failed on normal calls | 0% (0 of 10) | 10 | 0% to 28% |
+| False failed on normal calls | 0% (0 of 11) | 11 | 0% to 26% |
 
 | Contract | Labeled n | Agreement | Precision of violated | Recall of violated | False violated on normal calls | Unverified when it applied |
 | --- | --- | --- | --- | --- | --- | --- |
-| promise_backed | 53 | 100% (53 of 53) | 100% (9 of 9) | 100% (9 of 9) | 0% (0 of 10) | 15% (7 of 48) |
-| verified_before_change | 3 | 100% (3 of 3) | 100% (1 of 1) | 100% (1 of 1) | 0% (0 of 10) | 3% (1 of 35) |
-| spoken_matches_committed | 50 | 100% (50 of 50) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 10) | 16% (6 of 37) |
-| transfer_kept | 53 | 100% (53 of 53) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 10) | 47% (8 of 17) |
-| committed_matches_request | 50 | 100% (50 of 50) | no data (n = 0) | no data (n = 0) | 0% (0 of 10) | no data (n = 0) |
+| promise_backed | 54 | 100% (54 of 54) | 100% (9 of 9) | 100% (9 of 9) | 0% (0 of 11) | 14% (7 of 49) |
+| verified_before_change | 4 | 100% (4 of 4) | 100% (1 of 1) | 100% (1 of 1) | 0% (0 of 11) | 3% (1 of 35) |
+| spoken_matches_committed | 51 | 100% (51 of 51) | 100% (4 of 4) | 100% (4 of 4) | 0% (0 of 11) | 16% (6 of 38) |
+| transfer_kept | 54 | 100% (54 of 54) | 100% (7 of 7) | 100% (7 of 7) | 0% (0 of 11) | 47% (8 of 17) |
+| committed_matches_request | 51 | 100% (51 of 51) | no data (n = 0) | no data (n = 0) | 0% (0 of 11) | no data (n = 0) |
 
 Verdicts, expected (rows) by what the engine said (columns):
 
@@ -36,7 +36,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | --- | --- | --- | --- | --- | --- | --- |
 | failed | 21 | 0 | 0 | 0 | 0 | 0 |
 | needs_review | 0 | 23 | 0 | 0 | 0 | 0 |
-| passed | 0 | 0 | 10 | 0 | 0 | 0 |
+| passed | 0 | 0 | 11 | 0 | 0 | 0 |
 | nothing_done | 0 | 0 | 0 | 2 | 0 | 0 |
 
 ## Cases
@@ -61,6 +61,7 @@ Verdicts, expected (rows) by what the engine said (columns):
 | mut-booking-tool-removed-from-transcript | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-tool-renamed-undescribed | constructed | mutation | yes | needs_review | needs_review | yes |
 | mut-booking-without-verify-demo-agent | constructed | mutation | yes | failed | failed | yes |
+| mut-booking-without-verify-demo-shape-only | constructed | mutation | yes | passed | passed | yes |
 | mut-booking-without-verify-other-agent | constructed | mutation | yes | passed | passed | yes |
 | mut-cancel-claimed-after-booking-only | constructed | mutation | yes | failed | failed | yes |
 | mut-confirmation-with-no-attempt-other-agent | constructed | mutation | yes | failed | failed | yes |

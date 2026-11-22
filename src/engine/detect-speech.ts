@@ -201,7 +201,8 @@ function otherClauseKind(s: string, at: number): ChangeKind | undefined {
   return undefined;
 }
 
-// The agent owning up in the same sentence: "I booked it, but it didn't go through", "I paged the surgeon, but the page failed".
+// The agent owning up in the same sentence: "I paged the surgeon, but the page failed". Only notification claims use it: a
+// booking claim next to an unrelated failure ("booked, but the confirmation text failed") is still a claim.
 const OWNS_FAILURE =
   /\b(?:but|however|although|though|except)\b[^.!?]*\b(?:(?:did ?n['\u2019]?t|did not|does ?n['\u2019]?t|do ?n['\u2019]?t) (?:go through|work|succeed|send|complete|get through|deliver|post|take)|not go through|fail(?:ed|s)?|error(?:ed)?|unsuccessful|never (?:went|got))\b/i;
 
@@ -224,7 +225,7 @@ function completions(s: string): Hit[] {
     for (const m of s.matchAll(re)) {
       // A match may begin with its own comma ("..., booked"), so the words before it end where the match text starts.
       const start = m.index + (m[0].length - m[0].replace(/^[,.;]\s*/, "").length);
-      if (notAClaim(s, start) || ownsFailure(s, m.index + m[0].length)) continue;
+      if (notAClaim(s, start)) continue;
       // "already" says the calendar stood that way before: "Your appointment is already booked".
       if (!/^(?:i|we)\b/i.test(m[0]) && /\balready\b/i.test(clauseTail(s, m.index + m[0].length))) continue;
       found.push({ at: m.index, kind: kindOf(m[0]) });

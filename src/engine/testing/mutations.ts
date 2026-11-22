@@ -10,7 +10,7 @@
 // gets wrong is not made to pass: it goes in KNOWN_FAILURES with one line saying why, its case is written unlocked,
 // and the lead files an issue. `npm run eval:engine -- --write-mutation-cases` writes the cases to eval/engine/cases/.
 import type { ContractId, GapCode, Result, ReviewReasonKind, Verdict } from "@/report/schema";
-import { CASE_SCHEMA_VERSION, type EvalCase } from "../eval/case";
+import { CASE_SCHEMA_VERSION, EVAL_DEMO_AGENT_ID, type EvalCase } from "../eval/case";
 import { sampleCases } from "./sample-cases";
 
 type Rec = Record<string, unknown>;
@@ -491,9 +491,19 @@ export const MUTATIONS: readonly Mutation[] = [
   {
     id: "mut-booking-without-verify-demo-agent",
     parent: PASSED,
-    note: "The identity check (verify_patient) and its result are deleted, and the agent books anyway. The demo agent's preset names verify_patient as its identity check and lists every tool it has, so the booking was made before anyone was verified: violated.",
-    edit: (r) => dropTool(r, "tc_02"),
+    note: "The identity check (verify_patient) and its result are deleted, and the agent books anyway. The record carries the demo agent's id, so its preset applies by id: it names verify_patient as its identity check and lists every tool it has, so the booking was made before anyone was verified: violated.",
+    edit: (r) => {
+      r.agent_id = EVAL_DEMO_AGENT_ID;
+      return dropTool(r, "tc_02");
+    },
     expect: { verdict: "failed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "violated" },
+  },
+  {
+    id: "mut-booking-without-verify-demo-shape-only",
+    parent: PASSED,
+    note: "The same call with no agent id. It looks like the demo's by the shape of its results, which is only a guess about whose agent it is, so the preset's identity check is not held against it: the call used no check, so nothing shows it should have, and the rule is not applicable.",
+    edit: (r) => dropTool(r, "tc_02"),
+    expect: { verdict: "passed", promise_backed: "passed", spoken_matches_committed: "passed", transfer_kept: "not_applicable", verified_before_change: "not_applicable" },
   },
   {
     id: "mut-verify-after-booking-other-agent",

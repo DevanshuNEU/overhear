@@ -38,7 +38,7 @@ const NEEDS_CHECK: readonly (ChangeKind | undefined)[] = ["book", "cancel", "res
 export const verifiedBeforeChange: Contract = (ctx) => {
   // It applies only when we know the agent is meant to verify: a described policy that names an identity check tool,
   // or a call that used one. Otherwise there is nothing to hold it to: not applicable, with no note.
-  const knowsVerify = (ctx.policySource !== "inferred" && hasVerifyTool(ctx)) || toolCalls(ctx.ev, ctx.policy, "verify").length > 0;
+  const knowsVerify = (trusted(ctx) && hasVerifyTool(ctx)) || toolCalls(ctx.ev, ctx.policy, "verify").length > 0;
   if (!knowsVerify) return { contract: "verified_before_change", result: "not_applicable", findings: [] };
   const findings = ctx.changes.filter((c) => c.ok === true && NEEDS_CHECK.includes(c.kind)).map((change) => judge(ctx, change));
   return { contract: "verified_before_change", result: worst(findings.map((f) => f.result)), findings };
@@ -88,7 +88,7 @@ function judge(ctx: ContractContext, change: ToolUse): Finding {
 
   // Only a described policy (a preset) can show the agent skipped a check it was meant to make. With an inferred one we
   // know the agent verifies, since the call used a check, but not that this check was due before this change.
-  if (ctx.policySource === "inferred" || !hasVerifyTool(ctx)) {
+  if (!trusted(ctx) || !hasVerifyTool(ctx)) {
     return finding("unverified", unverifiedText("verified_before_change", [REASONS.verify_not_before]), did);
   }
   return softenForMissingTools(ev, finding("violated", verifiedBeforeViolatedText(time, change.kind), did), "verified_before_change");
@@ -121,4 +121,9 @@ function samePatient(ctx: ContractContext, change: ToolUse, check: ToolUse): boo
   const a = readPath(changePath, { args: change.args, result: change.result });
   const b = readPath(checkPath, { args: check.args, result: check.result });
   return (typeof a === "string" || typeof a === "number") && a !== "" && String(a) === String(b);
+}
+
+/** Whether the policy is one we know describes this agent: not inferred, and not a preset picked by the call's shape. */
+function trusted(ctx: ContractContext): boolean {
+  return ctx.policySource !== "inferred" && ctx.policyByShape !== true;
 }

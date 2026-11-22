@@ -56,7 +56,16 @@ function settle(result: ToolResult, call: ToolCall | undefined, policy: Policy):
   if (tool?.role === "lookup" && tool.items !== undefined && Array.isArray(readPath(tool.items, roots))) return ok(true);
   if (result.platformOk !== true) return ok(null);
   if ((tool?.role === "change" || tool?.role === "verify" || tool?.role === "notify") && readsLikeError(result.payload)) return ok(null, true);
+  // A verify result that says no one was found: the check ran and did not succeed, so it is never a good check.
+  if (tool?.role === "verify" && saysNotVerified(result.payload)) return ok(null, true);
   return ok(true);
+}
+
+/** A verify body whose verified, found, match or valid is false. */
+function saysNotVerified(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return false;
+  const body = payload as Record<string, unknown>;
+  return ["verified", "found", "match", "valid"].some((k) => Object.hasOwn(body, k) && body[k] === false);
 }
 
 /** A body that says it failed: a truthy error or errors, ok or success false, or a status of error or failed. */

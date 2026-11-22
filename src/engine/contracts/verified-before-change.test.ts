@@ -21,12 +21,13 @@ const verify = (id = "tc_v", ok = true): ItemSpec[] => tool(id, "verify_patient"
 const book = (id = "tc_b"): ItemSpec[] => tool(id, "book_appointment", { slotId: "s1", patientId: "p1" }, { ok: true });
 const cancel = (): ItemSpec[] => tool("tc_c", "cancel_appointment", { appointmentId: "a1" }, { ok: true });
 
-function run(items: ItemSpec[], policy: Policy = PRESET, policySource: "preset" | "inferred" = "preset", over = {}) {
+function run(items: ItemSpec[], policy: Policy = PRESET, policySource: "preset" | "inferred" = "preset", over = {}, policyByShape = false) {
   const evidence = resolveOk(ev(items, over), policy);
   const ctx: ContractContext = {
     ev: evidence,
     policy,
     policySource,
+    policyByShape,
     tz: "UTC",
     policyTz: true,
     detections: detectAll(evidence, Object.keys(policy.tools)),
@@ -70,6 +71,20 @@ describe("verified_before_change", () => {
     expect(run(tool("tc_b", "book_appointment", { slotId: "s1" }, { ok: false }, false)).findings).toEqual([]);
     const update = PolicySchema.parse({ ...preset, tools: { ...preset.tools, update_details: { role: "change", kind: "update" } } });
     expect(run(tool("tc_u", "update_details", {}, { ok: true }), update).findings).toEqual([]);
+  });
+
+  describe("a preset picked by the call's shape", () => {
+    it("is a guess, so a booking with no check is not violated and, with none used, not applicable", () => {
+      expect(run([agent("Booking.", 12), ...book()], PRESET, "preset", {}, true)).toEqual({ contract: "verified_before_change", result: "not_applicable", findings: [] });
+    });
+
+    it("a check that ran only after the change is unverified, never violated", () => {
+      expect(run([...book(), ...verify()], PRESET, "preset", {}, true).result).toBe("unverified");
+    });
+
+    it("a check that worked first still passes", () => {
+      expect(run([...verify(), ...book()], PRESET, "preset", {}, true).result).toBe("passed");
+    });
   });
 
   describe("an inferred policy", () => {

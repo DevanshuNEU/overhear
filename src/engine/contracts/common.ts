@@ -17,6 +17,8 @@ export interface ContractContext {
    * those can show that a call the record lacks was never made; an inferred policy knows just the tools the call used.
    */
   policySource: PolicySource;
+  /** True when the policy was picked by the call's shape, not its agent id (a guess): trusted by no contract that would fail a call on it. */
+  policyByShape?: boolean;
   /** The time zone spoken times are read in: the policy's when it names one, else the caller's. */
   tz: string;
   /** Whether tz is the policy's own. */

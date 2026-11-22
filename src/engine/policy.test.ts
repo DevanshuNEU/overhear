@@ -91,6 +91,17 @@ describe("roleFor", () => {
     expect(roleFor("availability")).toEqual({ role: "lookup" });
   });
 
+  describe("a name with a booking noun is no identity check", () => {
+    it.each(["verify_booking", "verify_appointment", "validate_booking_slot".replace("validate", "verify")])("%s is not a verify tool", (name) => {
+      expect(roleFor(name)?.role).not.toBe("verify");
+    });
+
+    it("verify_patient and identify_caller still are", () => {
+      expect(roleFor("verify_patient")).toEqual({ role: "verify" });
+      expect(roleFor("identify_caller")).toEqual({ role: "verify" });
+    });
+  });
+
   describe("notification names", () => {
     it.each(["send_text", "text_surgeon", "send_sms", "page_on_call", "paging_service", "notify_on_call_surgeon", "notifyTeam", "send_message", "messaging_service", "alert_nurse", "send_email", "email_front_desk", "sendNotification", "texting_service"])(
       "%s is a notify tool",

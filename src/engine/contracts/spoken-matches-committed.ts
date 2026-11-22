@@ -110,6 +110,13 @@ function judge(ctx: ContractContext, change: ToolUse, details: Details, window: 
   const { rows, zone } = fieldRows(details, sentences, match);
   const fields = rows.map((r) => r.check);
 
+  // A value an inferred policy read from the booking's own result (a timestamp of when it was made, say) can't prove the
+  // agent wrong: a mismatch against it is only unverified.
+  if (ctx.policySource === "inferred") {
+    for (const r of rows) {
+      if (r.check.status === "differs" && ctx.policy.fields[r.check.field]?.path.startsWith("result.")) r.check.status = "unresolved";
+    }
+  }
   const differs = rows.filter((r) => r.check.status === "differs");
   const causes: GapText[] = [...gapCauses];
   const codes: GapCode[] = [...gapCodes];

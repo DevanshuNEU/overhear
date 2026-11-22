@@ -58,10 +58,11 @@ export type AgentRef = {
  * the scrubbed samples, falls back to the shape rule: it must look like the demo agent by more than its tool names,
  * which are common (see isDemoShaped).
  */
-export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: PolicySource } {
+export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy; source: PolicySource; byShape?: true } {
   const { agentId, demoAgentId } = agent;
   const isDemo = agentId ? demoAgentId !== undefined && demoAgentId !== "" && agentId === demoAgentId : isDemoShaped(ev);
-  if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset" };
+  // A preset picked by the call's shape (no agent id) is a guess about whose agent this is, and says so with byShape.
+  if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset", ...(agentId ? {} : { byShape: true as const }) };
   return { policy: inferPolicy(ev), source: "inferred" };
 }
 
@@ -188,7 +189,7 @@ export function roleFor(name: string): Pick<ToolPolicy, "role" | "kind"> | null 
   const verb = !nounLast ? undefined : FILLERS.has(list[list.length - 2]) && list.length >= 3 ? list[list.length - 3] : list[list.length - 2];
   const side = hasSideNoun(list);
   const rule = ROLE_RULES.find(
-    (r) => !(side && r.role.role === "change") && (r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb))),
+    (r) => !(side && r.role.role === "change") && !(r.role.role === "verify" && list.some((w) => BOOKING_NOUNS.has(w))) && (r.words.some((w) => words.has(w)) || (verb !== undefined && (r.withNoun ?? []).includes(verb))),
   );
   if (rule) return { ...rule.role };
   if (SEND_VERBS.has(list[0]) && !list.some((w) => NOT_SENDING.has(w))) return { role: "notify" };

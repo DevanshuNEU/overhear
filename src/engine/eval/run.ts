@@ -16,7 +16,7 @@ import {
   type Verdict,
 } from "@/report/schema";
 import type { Analyze, Outcome } from "../types";
-import type { CaseSource, EvalCase, ExperienceExpect } from "./case";
+import { EVAL_DEMO_AGENT_ID, type CaseSource, type EvalCase, type ExperienceExpect } from "./case";
 
 /** The time zone a case is read in when it names none. */
 export const DEFAULT_TZ = "UTC";
@@ -82,7 +82,7 @@ export function outcomeOf(c: EvalCase, analyze: Analyze): Outcome {
   const callId = typeof c.record.call_id === "string" ? c.record.call_id : null;
   let out: Outcome;
   try {
-    out = analyze(c.record, { tz: c.tz ?? DEFAULT_TZ });
+    out = analyze(c.record, { tz: c.tz ?? DEFAULT_TZ, demoAgentId: EVAL_DEMO_AGENT_ID });
   } catch (err) {
     return { kind: "error", callId, message: `the engine threw: ${err instanceof Error ? err.message : String(err)}` };
   }
