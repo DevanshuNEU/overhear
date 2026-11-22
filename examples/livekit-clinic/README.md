@@ -36,7 +36,7 @@ This runs the agent in your terminal and talks through your microphone and speak
 python agent.py console --text
 ```
 
-Each call saves a file in `examples/livekit-clinic/reports/`.
+The report is saved when the session shuts down, not when the agent says goodbye. After the last reply, press Ctrl+C once and wait for the line `Saved session report to ...`. Then the file is in `examples/livekit-clinic/reports/`. One console session is one call.
 
 ## 4. Scripts to try
 
