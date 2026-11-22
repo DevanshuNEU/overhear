@@ -440,6 +440,58 @@ describe("spoken_matches_committed", () => {
     });
   });
 
+  describe("a spoken detail with nothing to compare it with", () => {
+    // A policy that defines a time and a provider but no date, as an inferred one does when the lookup lists no date.
+    const noDate: Policy = PolicySchema.parse({
+      ...preset,
+      fields: Object.fromEntries(Object.entries(preset.fields).filter(([name]) => name !== "date")),
+      tools: { ...preset.tools, book_appointment: { ...preset.tools.book_appointment, required: ["time"] } },
+    });
+    const noFields: Policy = PolicySchema.parse({ ...preset, fields: {} });
+
+    it("a date the agent said, with no date field in the policy, is unverified and names the date", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Saturday, November 7 at 2 PM with Dr. Nair.", 20)]), noDate);
+      expect(r.out.result).toBe("unverified");
+      expect(r.finding.text).toBe("Couldn't check the spoken details: the date of the booking isn't in the call.");
+      expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
+      expect(r.evidence.gaps.find((g) => g.code === "unresolved_committed_detail" && g.field === "date")).toMatchObject({ tool: "book_appointment", kind: "book" });
+      expect(r.finding.fields.map((f) => f.field)).toEqual(["time", "provider"]);
+    });
+
+    it("a wrong time still reads violated beside a date nothing can check", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for Saturday, November 7 at 3 PM with Dr. Nair.", 20)]), noDate);
+      expect(r.out.result).toBe("violated");
+    });
+
+    it("a confirmation that says only what the policy covers still passes", () => {
+      const r = run(ev([...lookup([slot("s1")]), ...book("tc_1", "s1"), agent("You're booked for 2 PM with Dr. Nair.", 20)]), noDate);
+      expect(r.out.result).toBe("passed");
+    });
+
+    it("a change with nothing to compare is unverified when the confirmation speaks a date, a time or a provider", () => {
+      for (const [text, field] of [
+        ["Your appointment on Friday, November 6 is cancelled.", "date"],
+        ["Your 2 PM appointment is cancelled.", "time"],
+        ["Your appointment with Dr. Nair is cancelled.", "provider"],
+      ] as const) {
+        const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), agent(text, 20)]), noFields);
+        expect(r.out.result).toBe("unverified");
+        expect(r.finding.text).toContain(`the ${field} of the cancellation`);
+        expect(r.finding.gaps).toEqual(["unresolved_committed_detail"]);
+      }
+    });
+
+    it("a confirmation that speaks no comparable detail stays not applicable", () => {
+      const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: true }), agent("Your appointment is cancelled.", 20)]), noFields);
+      expect(r.out).toEqual({ contract: "spoken_matches_committed", result: "not_applicable", findings: [] });
+    });
+
+    it("a detail spoken after a change that failed is not asked about", () => {
+      const r = run(ev([...tool("tc_1", "cancel_appointment", { appointmentId: "a1" }, { ok: false }, false), agent("Your appointment on Friday, November 6 is cancelled.", 20)]), noFields);
+      expect(r.out.result).toBe("not_applicable");
+    });
+  });
+
   describe("unresolved gaps in the evidence", () => {
     it("a finding never cites a gap code the evidence does not hold", () => {
       const r = run(ev([...lookup([slot("other")]), ...book("tc_1", "s1"), agent(FRIDAY_2PM, 20)]), PRESET, false);

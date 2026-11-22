@@ -37,6 +37,7 @@ A report that breaks one of these does not validate.
 11. In `experience`, every problem's `check` is listed in `ran`, `ran` has no repeats, and every problem seq points at an agent turn.
 12. Unknown fields are rejected, so a change on one side is loud on the other.
 13. A caller who hangs up is not a failed transfer. When the agent announces a transfer, no attempt follows, and the call ended with `user_hangup` while the agent was still talking (or within 8 seconds of it finishing, at 2.5 words a second), `transfer_kept` is `unverified`: a transfer can't run after the caller leaves. A record with no word timestamps gets the same result with a reason that says so, and a call that ended in `call_transfer` with no transfer tool call also stays unverified. A caller who waited longer, or a call where the agent spoke again after the caller did, stays `violated`. A completion claim ("you're booked") with no attempt behind it stays `violated` even when the caller hung up, because the agent said something false.
+14. A spoken detail with nothing to compare is not "didn't apply". When a completion claim backed by a successful change says a date, a time or a provider, and the policy has no field of that type (so no committed value can be resolved for it), `spoken_matches_committed` is `unverified` and cites an `unresolved_committed_detail` gap naming the field. A wrong time or name that can be compared still reads `violated`. The contract is `not_applicable` only when the agent said no comparable detail, or no change backed a claim.
 
 ## The samples
 

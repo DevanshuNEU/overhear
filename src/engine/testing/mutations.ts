@@ -168,6 +168,23 @@ function turnsOnly(record: Rec): Rec {
   return record;
 }
 
+/** Removes a field from every slot in the lookups' items, as an agent whose lookup never listed it would. */
+function dropSlotField(record: Rec, field: "providerName" | "startsAt"): Rec {
+  let changed = 0;
+  for (const u of utterances(record)) {
+    if (u.role !== "tool_call_result" || typeof u.content !== "string") continue;
+    const body: unknown = JSON.parse(u.content);
+    if (typeof body !== "object" || body === null || !Array.isArray((body as Rec).slots)) continue;
+    for (const slot of (body as Rec).slots as Rec[]) {
+      if (field in slot) changed++;
+      delete slot[field];
+    }
+    u.content = JSON.stringify(body);
+  }
+  if (changed === 0) throw new Error(`no slot ${field} to drop`);
+  return record;
+}
+
 /** Marks the record as another agent's call, so the demo preset does not apply and the policy is inferred. */
 function fromOtherAgent(record: Rec): Rec {
   record.agent_id = "agent_other_clinic";
@@ -419,6 +436,15 @@ export const MUTATIONS: readonly Mutation[] = [
     tz: "America/New_York",
     edit: fromOtherAgent,
     expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
+  },
+
+  {
+    id: "mut-spoken-date-no-committed-date",
+    parent: PASSED,
+    note: "Another agent's call (inferred policy) whose availability lookup never listed a start time, so the booking has no date or time anywhere in the record. The agent confirms Saturday, November 7 at 2:00 p.m. Nothing says what was booked, so the wrong date can't be shown: unverified, never passed.",
+    edit: (r) => say(dropSlotField(fromOtherAgent(r), "startsAt"), BOOKED, "Friday, November 6, 2026", "Saturday, November 7, 2026"),
+    expect: { verdict: "needs_review", promise_backed: "passed", spoken_matches_committed: "unverified", transfer_kept: "not_applicable" },
+    gaps: ["unresolved_committed_detail"],
   },
 
   // transfer_kept: "I'm transferring you" needs a transfer that was attempted and worked.
