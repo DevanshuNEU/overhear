@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { CallReportView } from "@/components/report/CallReportView";
 import { LoadingView } from "@/components/report/LoadingView";
 import { UnreadableView } from "@/components/report/UnreadableView";
+import { getFileReport } from "@/files/store";
 import { isLocalMode } from "@/pull/local";
 import { PAGE_NAME, REPORT_TITLE } from "@/report/labels";
 import { echoableId } from "@/components/report/format";
@@ -37,8 +38,9 @@ export default async function ReportPage({ params }: Props) {
   const found = await getReport(callId);
   if (found.status === "not_found") notFound();
   if (found.status === "unreadable") return <UnreadableView callId={found.callId} problems={found.problems} />;
-  // "Keep as a test" is for a real call on this computer: never the hosted demo, never one of the built-in samples.
-  const keep = isLocalMode() && !SAMPLE_REPORTS.some((r) => r.callId === found.report.callId) && sampleReport(found.report.callId) === undefined;
+  // "Keep as a test" is for a real Retell call on this computer: never the hosted demo, never one of the built-in
+  // samples, and never a call read from a file (keeping one reads the call from Retell again).
+  const keep = isLocalMode() && !SAMPLE_REPORTS.some((r) => r.callId === found.report.callId) && sampleReport(found.report.callId) === undefined && getFileReport(callId) === undefined;
   return (
     <Suspense fallback={<LoadingView />}>
       <Ready report={found.report} wait={readyDelay(found.report.callId)} keep={keep} />
