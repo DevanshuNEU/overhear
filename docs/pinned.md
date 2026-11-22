@@ -4,7 +4,7 @@ A pinned call is a real call you saved as a regression test for Overhear. It hol
 
 A pin tests Overhear's judgment of a past call. It does not test your agent: a stored record reads the same forever, whatever your team fixes. The use is safe upgrades: after you update Overhear, CI shows every call it changed its mind about.
 
-Saving a pin from the app is not built yet. This command reads the pins that are in a folder.
+Save a pin from any call report in the local app with "Keep as a test". This command reads the pins in a folder.
 
 A pin is an eval case with a `pin` block (see [evals.md](evals.md#pinned-calls) for the file format). It lives in `~/.overhear/pinned/` (or `$OVERHEAR_HOME/pinned/`), one `pin-<call>-<hash>.json` file per call.
 

@@ -31,8 +31,8 @@ REPORTS_DIR = Path(__file__).parent / "reports"
 SLOTS: dict[str, dict] = {
     "slot-1": {"date": "2026-12-03", "time": "09:00", "provider": "Dr. Lee", "open": True},
     "slot-2": {"date": "2026-12-03", "time": "10:30", "provider": "Dr. Lee", "open": True},
-    "slot-3": {"date": "2026-12-03", "time": "14:00", "provider": "Dr. Patel", "open": False},
-    "slot-4": {"date": "2026-12-04", "time": "11:00", "provider": "Dr. Patel", "open": True},
+    "slot-3": {"date": "2026-12-03", "time": "14:00", "provider": "Dr. Rao", "open": False},
+    "slot-4": {"date": "2026-12-04", "time": "11:00", "provider": "Dr. Rao", "open": True},
 }
 
 PROMPT = "\n".join(
@@ -68,7 +68,7 @@ class ClinicAgent(Agent):
             date: The calendar date in YYYY-MM-DD format.
         """
         open_slots = [
-            {"slot_id": sid, "time": s["time"], "provider": s["provider"]}
+            {"slot_id": sid, "date": s["date"], "time": s["time"], "provider": s["provider"]}
             for sid, s in SLOTS.items()
             if s["open"] and s["date"] == date
         ]
