@@ -105,8 +105,11 @@ export function formatCalls(calls: readonly CheckedCall[], opts: { color: boolea
     const word = s.bold(status.padEnd(STATUS_WIDTH));
     const colored = status === "Failed" ? s.red(word) : status === "Needs review" ? s.amber(word) : word;
     const id = outcome.kind === "error" ? (outcome.callId ?? "-") : outcome.kind === "no_content" ? outcome.callId : outcome.report.callId;
-    lines.push(`${colored}  ${s.bold(plain(id, 80))}  ${plain(headlineOf(outcome))}  ${s.faint(plain(path.basename(file), 80))}`);
-    if (status === "Failed") for (const text of violations(outcome)) lines.push(`${" ".repeat(STATUS_WIDTH + 2)}${s.red("-")} ${plain(text, 400)}`);
+    const headline = headlineOf(outcome);
+    lines.push(`${colored}  ${s.bold(plain(id, 80))}  ${plain(headline)}  ${s.faint(plain(path.basename(file), 80))}`);
+    // The line already quotes the first broken rule; repeat a reason under it only when it adds something.
+    const extra = violations(outcome).filter((text) => text !== headline);
+    if (status === "Failed") for (const text of extra) lines.push(`${" ".repeat(STATUS_WIDTH + 2)}${s.red("-")} ${plain(text, 400)}`);
   }
   if (lines.length > 0) lines.push("");
   lines.push(summaryLine(calls));
