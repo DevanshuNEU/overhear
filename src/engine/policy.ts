@@ -28,8 +28,8 @@ export function contractsFor(packs: readonly Pack[]): ContractId[] {
   return CONTRACT_IDS.filter((c) => wanted.has(c));
 }
 
-/** M1 runs the scheduling pack. */
-export const M1_CONTRACTS: readonly ContractId[] = contractsFor(["scheduling"]);
+/** The contracts the engine runs: the healthcare pack, which is the scheduling pack and the identity check. */
+export const M1_CONTRACTS: readonly ContractId[] = contractsFor(["healthcare"]);
 
 const NORTHWIND: Policy = PolicySchema.parse(northwind);
 

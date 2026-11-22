@@ -3,8 +3,9 @@
 // Order: settle every tool result's success (resolveOk), read the agent's speech (detectAll), list the calls that
 // change something, add the gaps the committed details raise to the evidence, then run the contracts and settle the
 // verdict. The gaps go in before any contract runs because the report schema rejects a finding that cites a gap the
-// evidence does not list. M1 runs the scheduling pack, which has no request source yet, so committed_matches_request
-// is not_run and the report's policy lists the scheduling pack whatever pack the policy it was given names.
+// evidence does not list. The engine runs the healthcare pack (the scheduling contracts plus verified_before_change), which has no request
+// source yet, so committed_matches_request is not_run and the report's policy lists the healthcare pack whatever pack
+// the policy it was given names.
 //
 // Pure: the evidence and policy are read, never changed, and the time zone comes in through the options.
 import { SCHEMA_VERSION, type CallReport, type ContractId, type ContractResult, type Evidence, type Policy } from "@/report/schema";
@@ -13,6 +14,7 @@ import type { Contract, ContractContext } from "./contracts/common";
 import { promiseBacked } from "./contracts/promise-backed";
 import { spokenMatchesCommitted } from "./contracts/spoken-matches-committed";
 import { transferKept } from "./contracts/transfer-kept";
+import { verifiedBeforeChange } from "./contracts/verified-before-change";
 import { detectAll } from "./detect-speech";
 import { runExperience } from "./experience";
 import { M1_CONTRACTS, type PolicySource } from "./policy";
@@ -33,9 +35,10 @@ const CONTRACTS: Partial<Record<ContractId, Contract>> = {
   promise_backed: promiseBacked,
   spoken_matches_committed: spokenMatchesCommitted,
   transfer_kept: transferKept,
+  verified_before_change: verifiedBeforeChange,
 };
 
-/** One call's report under the scheduling pack. */
+/** One call's report under the healthcare pack. */
 export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): CallReport {
   const evidence = resolveOk(input, policy);
   const toolNames = [...new Set([...Object.keys(policy.tools), ...evidence.items.flatMap((it) => (it.kind === "tool_call" ? [it.name] : []))])];
@@ -72,7 +75,7 @@ export function checkCall(input: Evidence, policy: Policy, opts: CheckOptions): 
     request: null,
     requestSource: null,
     timezone: ctx.tz,
-    policy: { ...structuredClone(policy), packs: ["scheduling"] },
+    policy: { ...structuredClone(policy), packs: ["healthcare"] },
     evidence,
   };
 }

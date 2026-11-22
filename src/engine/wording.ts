@@ -108,6 +108,19 @@ export const REASONS = {
     missing: "the caller hung up before {tool} returned, so the record can't show whether it worked",
     fix: "Nothing in the record to fix: the result never came back.",
   },
+  unknown_verify_tool: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether it was the identity check",
+    fix: "Add {tool} to the policy.",
+  },
+  unknown_verify_tools: {
+    missing: "the call used {tool}, which the policy doesn't describe, so we couldn't tell whether any of them was the identity check",
+    fix: "Add {tool} to the policy.",
+  },
+  no_verify_tool: { missing: "no identity check tool is known for this agent", fix: "Add the agent's identity check tool to the policy." },
+  verify_no_result: {
+    missing: "the {tool} call has no result in the record, so we couldn't tell whether the identity check worked",
+    fix: "Export the call with its tool results, or add a backend log with --actions.",
+  },
   order_unknown: { missing: "the call record doesn't say what happened first", fix: "Export the call with its tool transcript, which keeps the order." },
   zone_unsure: {
     missing: "the agent said {said}, and the {kind} is {matched} {matchedWhere}, which is {primary} {primaryWhere}, so we couldn't tell which {what} the caller meant",
@@ -164,6 +177,13 @@ function nameList(names: string[]): string {
 export function unknownToolCause(tools: string[], kind?: DetectionKind): GapText {
   const text = tools.length === 1 ? REASONS.unknown_tool : REASONS.unknown_tools;
   const slots = { tool: nameList(tools), kind };
+  return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
+}
+
+/** The unverified cause for a change with no successful identity check before it while the call used tools the policy does not describe. */
+export function unknownVerifyToolCause(tools: string[]): GapText {
+  const text = tools.length === 1 ? REASONS.unknown_verify_tool : REASONS.unknown_verify_tools;
+  const slots = { tool: nameList(tools) };
   return { missing: fillText(text.missing, slots), fix: fillText(text.fix, slots) };
 }
 
@@ -348,6 +368,19 @@ export function promisePassedText(time: string, quote: string, kind?: DetectionK
 export function verifiedViolatedText(kind: ChangeKind | undefined, time: string, reason: "no_check" | "other_patient"): string {
   const why = reason === "no_check" ? "before any identity check" : "for a different patient than the one verified";
   return `The ${kindWord(kind)} at ${time} happened ${why}.`;
+}
+
+/** What the agent did, in the past tense, for the sentence about a change made before any identity check. */
+const DID_WORDS: Record<ChangeKind, string> = { book: "booked", cancel: "cancelled", reschedule: "rescheduled", update: "updated the booking" };
+
+/** verified_before_change, violated: the change worked and no identity check had worked before it. */
+export function verifiedBeforeViolatedText(time: string, kind?: ChangeKind): string {
+  return `At ${time} the agent ${kind ? DID_WORDS[kind] : "changed the booking"} before verifying who was calling.`;
+}
+
+/** verified_before_change, passed. Not in 6.8: the samples are the contract for it. */
+export function verifiedBeforePassedText(time: string, kind?: ChangeKind): string {
+  return `The ${kindWord(kind)} at ${time} came after a successful identity check.`;
 }
 
 /** spoken_matches_committed, violated. */
