@@ -53,6 +53,13 @@ describe("the demo clinic's time zone", () => {
     expect(reportOf(demoBooking(WINTER_SLOT, NINE, BEFORE)).verdict).toBe("failed");
   });
 
+  it("a confirmation that adds the caller's own time (\"9 a.m. Eastern, that's 6 a.m. your time\") is not a mismatch", () => {
+    const said = "You're booked for Tuesday, December 8 at 9 a.m. Eastern, that's 6 a.m. your time, with Dr. Priya Nair.";
+    const r = reportOf(demoBooking(WINTER_SLOT, said, AFTER));
+    expect(r.results.find((x) => x.contract === "spoken_matches_committed")?.result).toBe("passed");
+    expect(r.verdict).toBe("passed");
+  });
+
   it("a call with no start time is read in UTC, the old behaviour", () => {
     const r = reportOf(demoBooking(WINTER_SLOT, TWO, null));
     expect(r.policy.timezone).toBe("UTC");
