@@ -2,7 +2,7 @@
 //
 // Every call gets one. The demo agent gets its preset, presets/northwind-clinic.json, chosen by its Retell agent id. Any other agent gets a policy
 // inferred from its tool names and the shapes of its tool calls and results. Inference uses the scheduling pack and
-// leaves the time zone unset, so the caller's zone applies (6.5). The preset names UTC: the demo stores slots in UTC.
+// leaves the time zone unset, so the caller's zone applies (6.5). The preset names Eastern Time for calls from the switch on and UTC before it (NORTHWIND_EASTERN_FROM).
 import { CONTRACT_IDS, PolicySchema, type ContractId, type Evidence, type Policy } from "@/report/schema";
 import northwind from "./presets/northwind-clinic.json";
 
@@ -33,6 +33,20 @@ export const M1_CONTRACTS: readonly ContractId[] = contractsFor(["healthcare"]);
 
 const NORTHWIND: Policy = PolicySchema.parse(northwind);
 
+/**
+ * The instant the demo clinic moved from UTC to Eastern Time (9 pm on Nov 22 in New York, 2 am UTC on Nov 23, a safe
+ * margin after the new prompt and slots go live). Calls the demo agent started before it spoke UTC times and are read in UTC, so every
+ * earlier sample, mutation and locked case reads as it always did. The preset file stays UTC for those calls.
+ */
+export const NORTHWIND_EASTERN_FROM = Date.parse("2026-11-23T02:00:00Z");
+
+/** The Northwind preset for a call that started at callStartMs: Eastern from the switch on, UTC before it or with no start time. */
+function northwindFor(callStartMs: number | null): Policy {
+  const policy = structuredClone(NORTHWIND);
+  if (callStartMs !== null && callStartMs >= NORTHWIND_EASTERN_FROM) policy.timezone = "America/New_York";
+  return policy;
+}
+
 /** A tool's entry in the policy, by exact name; undefined when the policy does not name it. */
 export function toolPolicy(policy: Policy, name: string): ToolPolicy | undefined {
   return Object.hasOwn(policy.tools, name) ? policy.tools[name] : undefined;
@@ -62,7 +76,7 @@ export function policyFor(ev: Evidence, agent: AgentRef = {}): { policy: Policy;
   const { agentId, demoAgentId } = agent;
   const isDemo = agentId ? demoAgentId !== undefined && demoAgentId !== "" && agentId === demoAgentId : isDemoShaped(ev);
   // A preset picked by the call's shape (no agent id) is a guess about whose agent this is, and says so with byShape.
-  if (isDemo) return { policy: structuredClone(NORTHWIND), source: "preset", ...(agentId ? {} : { byShape: true as const }) };
+  if (isDemo) return { policy: northwindFor(ev.callStartMs), source: "preset", ...(agentId ? {} : { byShape: true as const }) };
   return { policy: inferPolicy(ev), source: "inferred" };
 }
 
