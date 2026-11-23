@@ -4,7 +4,7 @@
 
 When your agent says "you're booked for Thursday at 3", Overhear finds the booking in the call record and checks that it went through, for Thursday at 3. It puts the agent's exact words next to what the system did, and it says plainly when the record can't tell. Code decides every verdict. No AI model grades your calls.
 
-**See it on real calls, or call the agent yourself:** https://overhear-demo.up.railway.app
+**See it on sample calls, or call the agent yourself:** https://overhear-demo.up.railway.app
 
 ![A failed call in Overhear: the agent said it was transferring the caller twice, and no transfer was attempted](docs/images/report-failed.png)
 
@@ -55,7 +55,7 @@ Under each verdict, a "Call experience" line says how the call sounded to the ca
 
 Open https://overhear-demo.up.railway.app.
 
-1. Look at the sample calls. Each one is a real call record, checked by the engine. The first is the call above.
+1. Look at the sample calls. A few are real calls to our demo agent, and the rest are those calls with one thing changed, such as a booking that fails. The engine checks each one when the page loads. The first is the call above.
 2. Choose **Call the demo agent** and talk to Riley, the receptionist at a made-up clinic in New York. Book an appointment as one of the test patients the page lists.
 3. Hang up. A few seconds later your own call appears, checked, with the proof.
 
@@ -107,7 +107,7 @@ Without help, Overhear guesses your agent's tools from their names, and anything
 
 ## Turn a bad call into a test
 
-On the report of a Retell call, choose **Keep as a test**. Overhear saves the call and the verdict you confirmed. `npm run check:pinned` re-checks every kept call offline and fails when an answer changes, so CI fails if Overhear's reading of a kept call ever changes.
+On the report of a Retell call, choose **Keep as a test**. Overhear saves the call and the verdict you confirmed. `npm run check:pinned` re-checks every kept call offline and fails when an answer changes, so CI fails if Overhear's reading of a kept call ever changes. A kept call is re-checked without your policy file today, so a verdict that depended on the policy can come back as Couldn't check.
 
 ## Your key and your calls
 
