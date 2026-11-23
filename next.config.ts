@@ -10,6 +10,8 @@ export const SECURITY_HEADERS = [
   { key: "Permissions-Policy", value: "microphone=(self), camera=(), geolocation=()" },
 ];
 
+const HSTS = { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" };
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The proxy buffers a request body so a route can read it too. Opened session report files (POST /api/files, local mode
@@ -19,7 +21,9 @@ const nextConfig: NextConfig = {
   // Nothing in the app uses next/image, so the optimizer is off and no remote host is allowed.
   images: { remotePatterns: [], unoptimized: true },
   async headers() {
-    return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
+    // Local mode is plain http on 127.0.0.1, where HSTS has no meaning. A hosted copy is https only.
+    const hosted = process.env.OVERHEAR_LOCAL !== "1";
+    return [{ source: "/(.*)", headers: hosted ? [...SECURITY_HEADERS, HSTS] : SECURITY_HEADERS }];
   },
 };
 
