@@ -64,6 +64,21 @@ function makeClient(): Client {
   return new RetellWebClient();
 }
 
+/** Every shown test patient, as a plain list, for while a call is starting, running or being checked. */
+function PatientsDuringCall() {
+  if (SHOWN_PERSONAS.length === 0) return null;
+  return (
+    <div className="mt-3 max-w-[640px] text-sm text-report-muted">
+      <p className="text-[13px]">{WORDS.duringCall}</p>
+      <ul className="mt-1">
+        {SHOWN_PERSONAS.map((p) => (
+          <li key={p.name}>{WORDS.patientLine(p.name, bornInWords(p.dob))}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [elapsed, setElapsed] = useState(0);
@@ -296,9 +311,12 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
           <p className="mt-2 max-w-[640px] text-[13px] text-report-muted">{WORDS.finePrint}</p>
         </>
       ) : stage.kind === "connecting" ? (
-        <p id="demo-call-lead" role="status" className="text-sm font-semibold">
-          {WORDS.connecting}
-        </p>
+        <>
+          <p id="demo-call-lead" role="status" className="text-sm font-semibold">
+            {WORDS.connecting}
+          </p>
+          <PatientsDuringCall />
+        </>
       ) : stage.kind === "live" ? (
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <p id="demo-call-lead" className="text-sm font-semibold">
@@ -310,14 +328,20 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
           <button type="button" onClick={hangUp} className={HANG_UP}>
             {WORDS.hangUp}
           </button>
+          <div className="basis-full">
+            <PatientsDuringCall />
+          </div>
         </div>
       ) : stage.kind === "checking" ? (
-        <p id="demo-call-lead" role="status" className="flex items-center gap-2 text-sm font-semibold">
-          {WORDS.checking}
-          <span aria-hidden className="report-delayed inline-flex">
-            <Loader2 className="size-4 motion-safe:animate-spin" />
-          </span>
-        </p>
+        <>
+          <p id="demo-call-lead" role="status" className="flex items-center gap-2 text-sm font-semibold">
+            {WORDS.checking}
+            <span aria-hidden className="report-delayed inline-flex">
+              <Loader2 className="size-4 motion-safe:animate-spin" />
+            </span>
+          </p>
+          <PatientsDuringCall />
+        </>
       ) : stage.kind === "ready" ? (
         <>
           <h2 id="demo-call-lead" className="text-base font-semibold">

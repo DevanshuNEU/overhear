@@ -206,6 +206,27 @@ describe("the demo call band", () => {
     expect(hang).not.toHaveClass("bg-report-accent");
   });
 
+  it("keeps every test patient on screen while connecting, during the call and while checking, so the caller can read them out", async () => {
+    fakeServer();
+    render(<DemoCallBand />);
+    press(WORDS.call);
+    await flush();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
+    expect(screen.getByText(WORDS.duringCall)).toBeInTheDocument();
+    act(() => {
+      client().connected = true;
+      client().emit("call_started");
+    });
+    expect(screen.getByText("On the call with the demo agent")).toBeInTheDocument();
+    for (const name of ["Aisha Rahman, born August 17, 1991", "Marcus Bennett, born April 5, 1983", "Sofia Alvarez, born November 23, 1996", "Kenji Watanabe, born June 30, 1978"]) {
+      expect(screen.getByText(name)).toBeVisible();
+    }
+    expect(screen.queryByText(/Chicholikar/)).toBeNull();
+    press("Hang up");
+    expect(screen.getByText("Checking your call")).toBeInTheDocument();
+    expect(screen.getByText("Aisha Rahman, born August 17, 1991")).toBeVisible();
+  });
+
   it("Hang up ends the call and goes on to Checking your call, with the spinner held back", async () => {
     fakeServer();
     render(<DemoCallBand />);

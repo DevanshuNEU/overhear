@@ -8,6 +8,7 @@ export const DEMO_CALL_WORDS = {
   morePatients: "More test patients",
   patientLine: (name: string, born: string) => `${name}, born ${born}`,
   spellName: "The agent will ask you to spell the name.",
+  duringCall: "Test patients you can call as. The agent will ask you to spell the name.",
   call: "Call the demo agent",
   finePrint: "Uses your microphone. Retell records calls on our demo account. Overhear keeps yours in memory for an hour and shows it only to you.",
 
