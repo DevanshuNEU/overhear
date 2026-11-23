@@ -67,7 +67,7 @@ const TOOL_SPECS: Array<{
     name: "check_availability",
     kebab: "check-availability",
     filler: 'Something short like "Let me take a look." or "One sec, pulling up the schedule."',
-    description: "Look up open appointment slots, optionally filtered by provider name and/or date. Call this before offering any slot to the caller. Each slot's time for the caller is startsAtLocal (clinic time, Eastern); read it as it is and ignore startsAt.",
+    description: "Look up open appointment slots, optionally filtered by provider name and/or date. Call this before offering any slot to the caller. Each slot's time is startsAtLocal (clinic time, Eastern); read it as it is and ignore startsAt. When a slot has forCaller, the caller is in another time zone: the first time you offer a time, say the Eastern time and then forCaller, e.g. \"9 a.m. Eastern, that's 6 a.m. your time\".",
     properties: {
       providerName: { type: "string", description: "Filter to a specific provider's full name, e.g. \"Dr. Lee\". Omit to search all providers." },
       date: { type: "string", description: "Filter to a specific calendar date in YYYY-MM-DD format. Omit to search all dates." },

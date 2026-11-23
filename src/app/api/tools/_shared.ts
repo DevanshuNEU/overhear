@@ -12,7 +12,7 @@ import { inFlightToolCallId } from "@/retell/tool-call-id";
 // `@/clinic/service`). Retell's tool-call webhook expects the flat `R`
 // payload back, so this is where that one wrapper layer is stripped -
 // keeping each thin route a one-line passthrough to its service method.
-type Handler = (ctx: { callId: string; args: any; svc: ClinicService }) => Promise<{ result: unknown }>;
+type Handler = (ctx: { callId: string; args: any; svc: ClinicService; callerTimeZone?: string }) => Promise<{ result: unknown }>;
 
 export function makeToolRoute(handler: Handler) {
   return async function POST(req: Request) {
@@ -21,13 +21,15 @@ export function makeToolRoute(handler: Handler) {
       return NextResponse.json({ error: "invalid signature" }, { status: 401 });
     }
     const body = JSON.parse(raw) as {
-      name: string; call: { call_id: string; transcript_with_tool_calls?: unknown[] }; args?: any;
+      name: string; call: { call_id: string; transcript_with_tool_calls?: unknown[]; retell_llm_dynamic_variables?: Record<string, unknown> }; args?: any;
     };
     // Whether Retell sends the in-flight id is read off this log line after a live call.
     const toolCallId = inFlightToolCallId(body);
     console.info("tool_call_id", { tool: body.name, found: toolCallId !== null });
     const svc = makeClinicService(db, undefined, { toolCallId });
-    const { result } = await handler({ callId: body.call.call_id, args: body.args ?? {}, svc });
+    // The caller's time zone, when the demo page sent it with the call (it is validated where it is used).
+    const tz = body.call.retell_llm_dynamic_variables?.caller_timezone;
+    const { result } = await handler({ callId: body.call.call_id, args: body.args ?? {}, svc, callerTimeZone: typeof tz === "string" ? tz : undefined });
     const json = JSON.stringify(result);
     if (json.length > 15000) {
       // Slicing the raw JSON string can cut valid JSON mid-token. Return a

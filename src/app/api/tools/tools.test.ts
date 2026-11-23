@@ -35,6 +35,13 @@ describe("tool route", () => {
     const json = await res.json();
     expect(json.slots).toHaveLength(1);
   });
+  it("gives each slot in the caller's own time when the call carries their time zone", async () => {
+    const res = await checkAvailability(reqOf("good", { name: "check_availability", call: { call_id: "c_tz", retell_llm_dynamic_variables: { caller_timezone: "America/Los_Angeles" } }, args: {} }));
+    const json = await res.json();
+    expect(json.slots[0].forCaller).toMatch(/your time$/);
+    const plain = await (await checkAvailability(reqOf("good", { name: "check_availability", call: { call_id: "c_none" }, args: {} }))).json();
+    expect(plain.slots[0].forCaller).toBeUndefined();
+  });
   it("passes the in-flight tool_call_id through to action_events", async () => {
     const body = {
       name: "check_availability", args: {},

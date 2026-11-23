@@ -108,6 +108,26 @@ describe("ClinicService", () => {
     ]);
   });
 
+  it("tells a caller in another time zone each slot in their own time, ready to read", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    await ctx.db.insert(appointmentSlots).values([
+      { providerId: p.id, startsAt: new Date("2026-11-23T14:00:00Z") },
+      { providerId: p.id, startsAt: new Date("2026-11-23T19:30:00Z") },
+    ]);
+    const svc = makeClinicService(ctx.db, () => new Date("2026-11-22T12:00:00Z"));
+
+    const pacific = (await svc.checkAvailability("call_1", {}, "America/Los_Angeles")).result.slots;
+    expect(pacific.map((s) => s.forCaller)).toEqual(["6 a.m. your time", "11:30 a.m. your time"]);
+    const indiaNextDay = (await svc.checkAvailability("call_1", {}, "Asia/Kolkata")).result.slots;
+    expect(indiaNextDay.map((s) => s.forCaller)).toEqual(["7:30 p.m. your time", "1 a.m. on Tuesday your time"]);
+
+    for (const same of ["America/New_York", "America/Detroit", "", "Not/AZone", undefined]) {
+      const slots = (await svc.checkAvailability("call_1", {}, same as string | undefined)).result.slots;
+      expect(slots.every((s) => s.forCaller === undefined)).toBe(true);
+    }
+  });
+
   it("filters by the clinic date, not the UTC date", async () => {
     ctx = await createTestDb();
     const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();

@@ -64,3 +64,21 @@ export function isIanaZone(zone: unknown): zone is string {
     return false;
   }
 }
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * The slot's time for a caller in another zone, ready for the agent to say once: "6 a.m. your time", or
+ * "1 a.m. on Tuesday your time" when the day differs from the clinic's. Undefined when the zone isn't a real one, or
+ * when the caller's wall clock reads the same as the clinic's (Detroit, or the clinic's own zone), so nothing is said.
+ */
+export function forCaller(date: Date, callerTz: string | undefined): string | undefined {
+  if (!isIanaZone(callerTz)) return undefined;
+  const clinic = parts(date, CLINIC_TZ);
+  const theirs = parts(date, callerTz);
+  const sameDay = theirs.year === clinic.year && theirs.month === clinic.month && theirs.day === clinic.day;
+  if (sameDay && theirs.hour === clinic.hour && theirs.minute === clinic.minute) return undefined;
+  const hour12 = theirs.hour % 12 === 0 ? 12 : theirs.hour % 12;
+  const time = `${hour12}${theirs.minute === 0 ? "" : `:${pad(theirs.minute)}`} ${theirs.hour < 12 ? "a.m." : "p.m."}`;
+  return sameDay ? `${time} your time` : `${time} on ${WEEKDAYS[localWeekday(date, callerTz)]} your time`;
+}

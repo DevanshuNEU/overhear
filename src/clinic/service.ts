@@ -5,7 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { appointmentSlots, appointments, patients, providers, actionEvents } from "@/db/schema";
 import type { Slot, ToolName } from "@/clinic/types";
-import { localDate, toLocalIso } from "@/lib/clinic-time";
+import { forCaller, localDate, toLocalIso } from "@/lib/clinic-time";
 
 type Out<R> = { result: R };
 
@@ -83,7 +83,7 @@ export function makeClinicService(
     return { result };
   }
   return {
-    async checkAvailability(callId: string, args: { providerName?: string; date?: string }): Promise<Out<{ slots: Slot[] }>> {
+    async checkAvailability(callId: string, args: { providerName?: string; date?: string }, callerTimeZone?: string): Promise<Out<{ slots: Slot[] }>> {
       const rows = await db.select({
         id: appointmentSlots.id, providerId: providers.id, providerName: providers.name,
         startsAt: appointmentSlots.startsAt, status: appointmentSlots.status,
@@ -98,7 +98,12 @@ export function makeClinicService(
         // The caller's date is a clinic date: Eastern, not UTC.
         .filter((r: any) => !args.date || localDate(new Date(r.startsAt)) === args.date)
         // startsAt stays the stored UTC instant; startsAtLocal is the same instant in clinic time, which the agent reads.
-        .map((r: any) => ({ ...r, startsAt: new Date(r.startsAt).toISOString(), startsAtLocal: toLocalIso(new Date(r.startsAt)) }))
+        .map((r: any) => {
+          const at = new Date(r.startsAt);
+          // For a caller in another zone (the browser says where), the same slot in their time, ready to say once.
+          const theirs = forCaller(at, callerTimeZone);
+          return { ...r, startsAt: at.toISOString(), startsAtLocal: toLocalIso(at), ...(theirs ? { forCaller: theirs } : {}) };
+        })
         .sort((a: Slot, b: Slot) => a.startsAt.localeCompare(b.startsAt))
         .slice(0, MAX_SLOTS_OFFERED);
       const result = { slots };

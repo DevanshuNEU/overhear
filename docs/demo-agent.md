@@ -86,7 +86,7 @@ Migrations run before the app comes up, so every deploy applies pending schema c
 
 The clinic is in New York and runs on Eastern Time. The prompt reads today's date from Retell's `{{current_time_America/New_York}}` and `{{current_calendar_America/New_York}}`. Slots are stored as UTC instants and created at Eastern business hours (9, 11, 14 and 16), correct on both sides of the daylight saving change. `check_availability` returns each slot with `startsAt` (the stored UTC instant, which Overhear reads) and `startsAtLocal` (the same instant in Eastern Time with its offset, such as `2026-11-23T09:00:00-05:00`), and the agent reads `startsAtLocal`.
 
-When the browser says where the caller is, the demo page sends its time zone with the call, and the agent translates the first time it offers a time ("9 a.m. Eastern, that's 6 a.m. your time"). Phone callers get Eastern only: guessing a zone from the area code is not built.
+When the browser says where the caller is, the demo page sends its time zone with the call (`caller_timezone`). The agent does not convert times itself, which a model gets wrong: `check_availability` reads the zone from the call and adds `forCaller` to each slot, such as "6 a.m. your time" or "1 a.m. on Tuesday your time", only when the caller's clock differs from the clinic's. The agent says the Eastern time and then `forCaller` the first time it offers a time. Phone callers get Eastern only: guessing a zone from the area code is not built.
 
 Calls made before 2026-11-23 were made in UTC, and Overhear reads them in UTC. From that date on it reads the demo agent's calls in Eastern Time (`NORTHWIND_EASTERN_FROM` in `src/engine/policy.ts`), so every earlier sample and locked case reads as it always did.
 
