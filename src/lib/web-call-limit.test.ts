@@ -11,6 +11,15 @@ describe("the web call limiter", () => {
     if (!blocked.allowed) expect(blocked.retryAfter).toBeGreaterThan(0);
   });
 
+  // Seen live on Railway (2026-11-22): four starts with a different X-Forwarded-For each all went through, so the client
+  // controls that header there. Railway's edge sets X-Real-IP to the client's remote address (docs: Specs & Limits).
+  it("counts against X-Real-IP when it is there, whatever X-Forwarded-For says", () => {
+    const req = (xff: string) => new Request("http://x", { method: "POST", headers: { "x-real-ip": " 203.0.113.7 ", "x-forwarded-for": xff } });
+    expect(clientIp(req("1.2.3.1"))).toBe("203.0.113.7");
+    expect(clientIp(req("1.2.3.2"))).toBe("203.0.113.7");
+    expect(clientIp(new Request("http://x", { headers: { "x-real-ip": "  " , "x-forwarded-for": "10.1.0.9" } }))).toBe("10.1.0.9");
+  });
+
   it("counts against the last x-forwarded-for entry, not one the client wrote", () => {
     const spoof = (fake: string) => from(`${fake}, 10.1.0.9`);
     for (let i = 0; i < 3; i++) expect(reserveWebCall(spoof(`1.1.1.${i}`)).allowed).toBe(true);
