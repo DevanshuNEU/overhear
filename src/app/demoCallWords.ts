@@ -16,7 +16,7 @@ export const DEMO_CALL_WORDS = {
   spellName: "The agent will ask you to spell the name.",
   duringCall: "Test patients you can call as. The agent will ask you to spell the name.",
   call: "Call the demo agent",
-  finePrint: "Uses your microphone. Retell records calls on our demo account. Overhear keeps yours in memory for an hour and shows it only to you.",
+  finePrint: "Uses your microphone. Use a test patient, not your own details. Retell records calls on our demo account, and the demo clinic logs each request for a day. Overhear keeps your call in memory for an hour and shows it only to you.",
 
   asking: "Allow the microphone to start",
   micBlocked: "Your browser blocked the microphone. Allow it for this site, then try again.",
