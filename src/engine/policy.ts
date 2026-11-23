@@ -38,7 +38,7 @@ const NORTHWIND: Policy = PolicySchema.parse(northwind);
  * margin after the new prompt and slots go live). Calls the demo agent started before it spoke UTC times and are read in UTC, so every
  * earlier sample, mutation and locked case reads as it always did. The preset file stays UTC for those calls.
  */
-export const NORTHWIND_EASTERN_FROM = Date.parse("2026-11-23T02:00:00Z");
+export const NORTHWIND_EASTERN_FROM = Date.parse("2026-11-23T01:00:00Z");
 
 /** The Northwind preset for a call that started at callStartMs: Eastern from the switch on, UTC before it or with no start time. */
 function northwindFor(callStartMs: number | null): Policy {

@@ -3,7 +3,7 @@
 
 export const DEMO_CALL_WORDS = {
   lead: "Try it on a call of your own.",
-  body: "Call our demo clinic agent from your browser. Book an appointment or ask for a nurse, hang up, and see what Overhear finds in your call.",
+  body: "Call our demo clinic agent from your browser. Book, move or cancel an appointment, hang up, and see what Overhear finds in your call.",
   beforeYouCall: "Before you call",
   clinicZone: "Northwind Family Clinic is in New York. Appointment times are Eastern Time.",
   whatRileyDoes: "Riley can check openings and book, move or cancel an appointment. She can’t give medical advice or transfer calls.",
