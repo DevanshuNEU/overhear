@@ -198,7 +198,7 @@ describe("ClinicService", () => {
     ctx = await createTestDb();
     await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "1994-07-14" });
     const svc = makeClinicService(ctx.db);
-    const v = await svc.verifyPatient("call_1", { name: "Devanshu Chicholikar", dob: "2000-09-02" });
+    const v = await svc.verifyPatient("call_1", { name: "Devanshu Chicholikar", dob: "1994-08-14" });
     expect(v.result.verified).toBe(false);
   });
 
