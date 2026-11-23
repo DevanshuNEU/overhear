@@ -10,9 +10,27 @@ import { db } from "@/db/client";
 import { ensureDemoData } from "@/demo/ensure";
 import { reserveWebCall } from "@/lib/web-call-limit";
 import { demoCallIds, failed, isHttps, isOwner, json, refuseLocal, sameOrigin } from "@/demo-call/http";
+import { isIanaZone } from "@/lib/clinic-time";
 import { setCookieHeader, signDemoCookie } from "@/demo-call/cookie";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * The caller's time zone from the body { timeZone }, or "" when the body is empty, not JSON, too large, or names no real
+ * IANA zone. The agent's prompt reads it as {{caller_timezone}}; empty means it never mentions time zones. The body is
+ * tiny by design (the proxy refuses large ones), so an oversized one is ignored unread.
+ */
+async function callerZone(req: Request): Promise<string> {
+  try {
+    const text = await req.text();
+    if (text.length === 0 || text.length > 512) return "";
+    const body: unknown = JSON.parse(text);
+    const zone = typeof body === "object" && body !== null ? (body as Record<string, unknown>).timeZone : undefined;
+    return isIanaZone(zone) ? zone : "";
+  } catch {
+    return "";
+  }
+}
 
 export async function POST(req: Request): Promise<Response> {
   const local = refuseLocal();
@@ -32,7 +50,7 @@ export async function POST(req: Request): Promise<Response> {
     // The agent books into the clinic's open slots, and they go stale by date. Topping them up is idempotent and throttled; a
     // database that is down must not stop the call from starting.
     await ensureDemoData(db).catch(() => console.warn("demo-calls: could not top up the demo clinic data"));
-    const call = await createWebCall(env.RETELL_API_KEY, agentId);
+    const call = await createWebCall(env.RETELL_API_KEY, agentId, { dynamicVariables: { caller_timezone: await callerZone(req) } });
     // The new call is the newest; the cookie keeps the last 3 calls this browser made.
     const value = signDemoCookie([...demoCallIds(req), call.callId], env.RETELL_API_KEY);
     return json(

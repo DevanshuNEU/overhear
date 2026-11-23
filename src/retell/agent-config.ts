@@ -67,7 +67,7 @@ const TOOL_SPECS: Array<{
     name: "check_availability",
     kebab: "check-availability",
     filler: 'Something short like "Let me take a look." or "One sec, pulling up the schedule."',
-    description: "Look up open appointment slots, optionally filtered by provider name and/or date. Call this before offering any slot to the caller.",
+    description: "Look up open appointment slots, optionally filtered by provider name and/or date. Call this before offering any slot to the caller. Each slot's time for the caller is startsAtLocal (clinic time, Eastern); read it as it is and ignore startsAt.",
     properties: {
       providerName: { type: "string", description: "Filter to a specific provider's full name, e.g. \"Dr. Lee\". Omit to search all providers." },
       date: { type: "string", description: "Filter to a specific calendar date in YYYY-MM-DD format. Omit to search all dates." },
@@ -138,10 +138,11 @@ export function buildLlmConfig(appUrl: string): RetellLlmConfig {
     "You help callers check appointment availability, and book, reschedule, or cancel appointments.",
     "",
     // Retell fills these in on every call. Without them the model guesses today's date from its training data.
-    "Today is {{current_time_UTC}}. The clinic schedule uses this date and time. Never say \"UTC\" or any time zone to the caller; just say the day and time.",
-    "The next two weeks, starting today:",
-    "{{current_calendar_UTC}}",
+    "The clinic is in New York. Today is {{current_time_America/New_York}} (Eastern Time). The next two weeks, starting today:",
+    "{{current_calendar_America/New_York}}",
     "When the caller says a relative date (today, tomorrow, Friday, next week), work out the exact date from today above. Always pass dates to tools as YYYY-MM-DD, and never pass a date before today.",
+    "All clinic times are Eastern Time. Say times plainly (\"Tuesday at 9 a.m.\"); don't add the time zone unless the caller asks. The caller's time zone is {{caller_timezone}}. If it is set and differs from Eastern Time, the first time you offer a time, add it in theirs once, e.g. \"9 a.m. Eastern, that's 6 a.m. your time.\" If it is empty, don't mention time zones.",
+    "Tool results give times in clinic time (Eastern). Read them as they are.",
     "",
     "How you talk:",
     "- People call a clinic when they're worried or unwell. Be warm, calm and kind, like the most caring person at a clinic front desk. Stay professional and humble.",

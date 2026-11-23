@@ -4,6 +4,7 @@ import { createTestDb } from "@/db/testing";
 import { appointmentSlots, patients, providers } from "@/db/schema";
 import { ensureDemoData, __resetThrottleForTests } from "./ensure";
 import { DEMO_PERSONAS } from "./personas";
+import { toLocalIso, zonedInstant } from "@/lib/clinic-time";
 
 let ctx: Awaited<ReturnType<typeof createTestDb>>;
 afterEach(() => ctx?.close());
@@ -82,7 +83,7 @@ describe("ensureDemoData", () => {
     await ctx.db.insert(appointmentSlots).values(
       Array.from({ length: 40 }, (_, i) => ({
         providerId: p.id,
-        startsAt: new Date(at.getTime() + (i + 1) * 3600_000),
+        startsAt: zonedInstant(2026, 9, 24 + i, 9), // 9 a.m. Eastern, inside clinic hours (Date.UTC rolls past the month end)
         status: "open" as const,
       })),
     );
@@ -112,6 +113,65 @@ describe("ensureDemoData", () => {
       .from(appointmentSlots)
       .where(and(eq(appointmentSlots.status, "open"), gte(appointmentSlots.startsAt, at)));
     expect(future.length).toBeGreaterThanOrEqual(30);
+  });
+
+  it("creates slots at Eastern clinic hours, and keeps them there across the November clock change", async () => {
+    ctx = await createTestDb();
+    await addProvider(ctx.db);
+    const before = new Date("2026-10-28T16:00:00Z"); // window runs across Sunday Nov 1
+
+    await ensureDemoData(ctx.db, clockAt(before));
+
+    const slots = await ctx.db.select().from(appointmentSlots);
+    const eastern = slots.map((s) => toLocalIso(new Date(s.startsAt)).slice(11, 13));
+    expect(new Set(eastern)).toEqual(new Set(["09", "11", "14", "16"]));
+    // The UTC hour moves by one when daylight time ends: 13:00Z in October, 14:00Z in November.
+    const nineAm = slots.filter((s) => toLocalIso(new Date(s.startsAt)).slice(11, 13) === "09").map((s) => new Date(s.startsAt).toISOString());
+    expect(nineAm).toContain("2026-10-30T13:00:00.000Z");
+    expect(nineAm).toContain("2026-11-02T14:00:00.000Z");
+  });
+
+  it("starts from the clinic's date when UTC has already rolled over", async () => {
+    ctx = await createTestDb();
+    await addProvider(ctx.db);
+
+    await ensureDemoData(ctx.db, clockAt(new Date("2026-11-23T00:36:00Z"))); // 7:36 pm Sunday in New York
+
+    const first = (await ctx.db.select().from(appointmentSlots)).map((s) => toLocalIso(new Date(s.startsAt))).sort()[0];
+    expect(first).toBe("2026-11-23T09:00:00-05:00"); // Monday: tomorrow in New York, not Tuesday
+  });
+
+  it("deletes open future slots outside 8 to 17 Eastern, never booked, past or in-hours ones", async () => {
+    ctx = await createTestDb();
+    const p = await addProvider(ctx.db);
+    const mk = (iso: string, status: "open" | "booked") => ({ providerId: p.id, startsAt: new Date(iso), status });
+    const rows = await ctx.db.insert(appointmentSlots).values([
+      mk("2026-09-25T08:00:00Z", "open"), // 4 a.m. Eastern: removed
+      mk("2026-09-25T22:00:00Z", "open"), // 6 p.m. Eastern: removed
+      mk("2026-09-26T08:00:00Z", "booked"), // 4 a.m. Eastern but booked: kept
+      mk("2026-09-25T13:00:00Z", "open"), // 9 a.m. Eastern: kept
+      mk("2026-09-25T12:00:00Z", "open"), // 8 a.m. Eastern: kept
+      mk("2026-09-25T20:59:00Z", "open"), // 4:59 p.m. Eastern: kept
+    ]).returning();
+
+    await ensureDemoData(ctx.db, clockAt(at));
+
+    const ids = new Set((await ctx.db.select().from(appointmentSlots)).map((s) => s.id));
+    expect([rows[0], rows[1]].some((r) => ids.has(r.id))).toBe(false);
+    expect([rows[2], rows[3], rows[4], rows[5]].every((r) => ids.has(r.id))).toBe(true);
+  });
+
+  it("is idempotent: a second run changes nothing", async () => {
+    ctx = await createTestDb();
+    await addProvider(ctx.db);
+
+    await ensureDemoData(ctx.db, clockAt(at));
+    const first = (await ctx.db.select().from(appointmentSlots)).map((s) => s.id).sort();
+    __resetThrottleForTests();
+    await ensureDemoData(ctx.db, clockAt(at));
+    const second = (await ctx.db.select().from(appointmentSlots)).map((s) => s.id).sort();
+
+    expect(second).toEqual(first);
   });
 
   it("short-circuits a second call inside the throttle window", async () => {

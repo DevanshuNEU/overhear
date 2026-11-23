@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { sampleRows } from "@/demo-samples";
 import { DemoCallBand } from "./DemoCallBand";
 import { DEMO_PERSONAS } from "@/demo/personas";
-import { busyMinutes, DEMO_CALL_WORDS as WORDS, formatElapsed } from "./demoCallWords";
+import { DEMO_PROVIDERS } from "@/demo/providers";
+import { busyMinutes, DEMO_CALL_WORDS as WORDS, formatElapsed, spelledName } from "./demoCallWords";
 
 // A stand-in for the SDK's client: enough of an event emitter to drive call_started, call_ended and error without a microphone,
 // a transport or the network. Defined in vi.hoisted because vi.mock's factory is hoisted above the imports.
@@ -45,6 +46,7 @@ type Script = { status: number; body: unknown };
 function fakeServer(opts: { start?: Script | (() => Promise<Response>); results?: Script[] } = {}) {
   const calls: { method: string; url: string }[] = [];
   const asks: number[] = [];
+  const bodies: unknown[] = [];
   let ask = 0;
   const json = (s: Script) => new Response(JSON.stringify(s.body), { status: s.status });
   vi.stubGlobal(
@@ -54,6 +56,7 @@ function fakeServer(opts: { start?: Script | (() => Promise<Response>); results?
       const method = init?.method ?? "GET";
       calls.push({ method, url });
       if (method === "POST" && url === "/api/demo-calls") {
+        bodies.push(init?.body);
         const start = opts.start;
         if (typeof start === "function") return start();
         return json(start ?? { status: 200, body: CALL });
@@ -68,7 +71,7 @@ function fakeServer(opts: { start?: Script | (() => Promise<Response>); results?
       throw new Error(`unexpected ${method} ${url}`);
     }),
   );
-  return { calls, asks, asked: () => calls.filter((c) => c.method === "GET").length };
+  return { calls, asks, bodies, asked: () => calls.filter((c) => c.method === "GET").length };
 }
 
 function mic(grant = true) {
@@ -108,7 +111,7 @@ afterEach(() => {
 describe("the demo call band", () => {
   it("idle: names the first test patient, and lists the others under a details element in DEMO_PERSONAS order, without the excluded name", () => {
     const { container } = render(<DemoCallBand />);
-    expect(screen.getByText("Call as a test patient: Aisha Rahman, born August 17, 1991.")).toBeInTheDocument();
+    expect(screen.getByText("Call as a test patient: Aisha Rahman, born August 17, 1991. Spell it A, I, S, H, A, then R, A, H, M, A, N.")).toBeInTheDocument();
     const details = container.querySelector("details") as HTMLDetailsElement;
     expect(details.querySelector("summary")).toHaveTextContent("More test patients");
     const lines = Array.from(details.querySelectorAll("li")).map((li) => li.textContent);
@@ -132,6 +135,81 @@ describe("the demo call band", () => {
     const fine = screen.getByText("Uses your microphone. Retell records calls on our demo account. Overhear keeps yours in memory for an hour and shows it only to you.");
     expect(fine).toHaveClass("text-report-muted");
     expect(button.compareDocumentPosition(fine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  describe("idle: the Before you call block", () => {
+    const DOCTORS = DEMO_PROVIDERS.map((p) => p.name);
+    it("renders each fact, in order, between the body text and the call button", () => {
+      fakeServer();
+      render(<DemoCallBand />);
+      const heading = screen.getByText("Before you call");
+      expect(heading).toHaveClass("font-semibold");
+      const list = heading.nextElementSibling as HTMLElement;
+      expect(list).toHaveClass("text-report-muted");
+      expect(list.className).not.toMatch(/shadow|rounded|bg-|border/);
+      const own = Array.from(list.children).map((li) => Array.from(li.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(""));
+      expect(own).toEqual([
+        "Northwind Family Clinic is in New York. Appointment times are Eastern Time.",
+        "Riley can check openings and book, move or cancel an appointment. She can\u2019t give medical advice or transfer calls.",
+        `Doctors: ${DOCTORS.join(", ")}.`,
+        "Call as a test patient: Aisha Rahman, born August 17, 1991. Spell it A, I, S, H, A, then R, A, H, M, A, N.",
+        "Calls end after 5 minutes. After you hang up, Overhear checks your call in a few seconds.",
+      ]);
+      const body = screen.getByText(WORDS.body);
+      const button = screen.getByRole("button", { name: WORDS.call });
+      expect(body.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(heading.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(button.compareDocumentPosition(screen.getByText(/^Uses your microphone/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("takes the doctors from the shared provider list the seed uses, not a second list", () => {
+      expect(DOCTORS.length).toBeGreaterThan(0);
+      fakeServer();
+      render(<DemoCallBand />);
+      for (const name of DOCTORS) expect(document.body.textContent).toContain(name);
+    });
+
+    it("derives the spelled form from the name", () => {
+      expect(spelledName("Aisha Rahman")).toBe("A, I, S, H, A, then R, A, H, M, A, N");
+      expect(spelledName("Kenji Watanabe")).toBe("K, E, N, J, I, then W, A, T, A, N, A, B, E");
+      expect(spelledName("Mary-Jane O'Neil")).toBe("M, A, R, Y, J, A, N, E, then O, N, E, I, L");
+      expect(spelledName("Cher")).toBe("C, H, E, R");
+    });
+
+    it("never shows the excluded name, and has no dashes", () => {
+      fakeServer();
+      render(<DemoCallBand />);
+      expect(document.body.textContent).not.toMatch(/Devanshu|Chicholikar|D, E, V/);
+      const words = [WORDS.beforeYouCall, WORDS.clinicZone, WORDS.whatRileyDoes, WORDS.doctors(DOCTORS), WORDS.callLimit, WORDS.duringCallClinic(DOCTORS), WORDS.firstPatient("Aisha Rahman", "x")];
+      for (const w of words) expect(w).not.toMatch(/[\u2010-\u2015-]/);
+    });
+  });
+
+  it("during the call (connecting, live, checking) one muted line gives Eastern Time and the doctors above the patients", async () => {
+    fakeServer();
+    render(<DemoCallBand />);
+    const line = `Eastern Time. Doctors: ${DEMO_PROVIDERS.map((p) => p.name).join(", ")}.`;
+    press(WORDS.call);
+    await flush();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
+    expect(screen.getByText(line).compareDocumentPosition(screen.getByText(WORDS.duringCall)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    act(() => {
+      client().connected = true;
+      client().emit("call_started");
+    });
+    expect(screen.getByText("On the call with the demo agent")).toBeInTheDocument();
+    expect(screen.getByText(line)).toBeVisible();
+    press("Hang up");
+    expect(screen.getByText("Checking your call")).toBeInTheDocument();
+    expect(screen.getByText(line)).toBeVisible();
+  });
+
+  it("sends the browser's time zone in the start request, and nothing else", async () => {
+    const server = fakeServer();
+    render(<DemoCallBand />);
+    press(WORDS.call);
+    await flush();
+    expect(JSON.parse(String(server.bodies[0]))).toEqual({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
   });
 
   it("is a band, not a card: a hairline above and below, no shadow", () => {
@@ -413,7 +491,15 @@ describe("the demo call band", () => {
     const texts = Object.values(WORDS).flatMap((w) => {
       if (typeof w === "string") return [w];
       const say = w as (...args: unknown[]) => string;
-      return w.length === 2 ? [say("Ann Lee", "May 1, 2000")] : [say(1), say(2)];
+      if (w.length === 2) return [say("Ann Lee", "May 1, 2000")];
+      // One-argument phrases take a number (busy) or a list of names (doctors).
+      return [1, 2, ["Dr. Ann Lee", "Dr. Bo Kim"]].flatMap((arg) => {
+        try {
+          return [say(arg)];
+        } catch {
+          return [];
+        }
+      });
     });
     for (const text of texts) {
       expect(text).not.toMatch(/[—–!']/);
