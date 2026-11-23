@@ -7,16 +7,20 @@
 // slots to book into, topping slots up only when they run low (they go stale by
 // date and get consumed as people book). Everything here is idempotent and
 // throttled so the dashboard's 5-second auto-refresh does not hammer the DB.
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { appointmentSlots, patients, providers } from "@/db/schema";
 import { DEMO_PERSONAS } from "./personas";
+import { localDate, localHour, zonedInstant } from "@/lib/clinic-time";
 
 // Regenerate the rolling window whenever fewer than this many future open slots
 // remain, which also covers slots being booked up during a busy demo.
 const SLOT_FLOOR = 30;
 const WINDOW_DAYS = 14; // generate slots across the next N days
-const SLOT_HOURS = [9, 11, 14, 16]; // UTC hour of each daily slot
+const SLOT_HOURS = [9, 11, 14, 16]; // clinic (Eastern) hour of each daily slot
+// Open future slots outside these clinic hours are taken out of service (the old UTC schedule left 4 a.m. Eastern slots).
+const OPEN_FROM_HOUR = 8;
+const OPEN_UNTIL_HOUR = 17;
 const THROTTLE_MS = 15 * 60 * 1000;
 
 let lastRun = 0;
@@ -62,11 +66,21 @@ async function ensureSlots(db: DB | any, now: () => Date): Promise<void> {
   // plentiful.
   await db.delete(appointmentSlots).where(and(eq(appointmentSlots.status, "open"), lt(appointmentSlots.startsAt, nowDate)));
 
-  const openFuture = await db
-    .select({ id: appointmentSlots.id })
+  // Same for open future slots at clinic hours nobody works (a 4 a.m. Eastern slot made at a UTC hour). Never booked ones.
+  const openFutureAll = await db
+    .select({ id: appointmentSlots.id, startsAt: appointmentSlots.startsAt })
     .from(appointmentSlots)
     .where(and(eq(appointmentSlots.status, "open"), gte(appointmentSlots.startsAt, nowDate)));
-  if (openFuture.length >= SLOT_FLOOR) return;
+  const offHours = openFutureAll.filter((s: any) => {
+    const h = localHour(new Date(s.startsAt));
+    return h < OPEN_FROM_HOUR || h >= OPEN_UNTIL_HOUR;
+  });
+  if (offHours.length > 0) {
+    await db.delete(appointmentSlots).where(
+      and(eq(appointmentSlots.status, "open"), inArray(appointmentSlots.id, offHours.map((s: any) => s.id))),
+    );
+  }
+  if (openFutureAll.length - offHours.length >= SLOT_FLOOR) return;
 
   // Skip any (provider, time) already on the books so a top-up never duplicates
   // a slot that is still in the future.
@@ -79,11 +93,13 @@ async function ensureSlots(db: DB | any, now: () => Date): Promise<void> {
   );
 
   const values: { providerId: string; startsAt: Date; status: "open" }[] = [];
+  // Days are clinic days: start from today's date in New York and step the calendar, so a late-evening call (already
+  // tomorrow in UTC) does not skip a day.
+  const [y, m, d] = localDate(nowDate).split("-").map(Number);
   for (let day = 1; day <= WINDOW_DAYS; day++) {
+    const date = new Date(Date.UTC(y, m - 1, d + day));
     for (const hour of SLOT_HOURS) {
-      const startsAt = new Date(nowDate);
-      startsAt.setUTCDate(startsAt.getUTCDate() + day);
-      startsAt.setUTCHours(hour, 0, 0, 0);
+      const startsAt = zonedInstant(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(), hour);
       for (const p of provs as { id: string }[]) {
         const key = `${p.id}@${startsAt.toISOString()}`;
         if (existingKeys.has(key)) continue;

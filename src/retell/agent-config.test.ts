@@ -121,16 +121,21 @@ describe("buildAgentConfig", () => {
     expect(cfg.general_prompt).toMatch(/never say goodbye twice/i);
   });
 
-  it("never reads a time zone to the caller", async () => {
+  it("runs the clinic on Eastern Time and translates for the caller's zone only when it is set", async () => {
     const { buildLlmConfig } = await import("./agent-config");
-    expect(buildLlmConfig("https://app.example").general_prompt).toMatch(/never say "UTC" or any time zone to the caller/i);
+    const prompt = buildLlmConfig("https://app.example").general_prompt;
+    expect(prompt).toContain("All clinic times are Eastern Time.");
+    expect(prompt).toContain("The caller's time zone is {{caller_timezone}}.");
+    expect(prompt).toContain("If it is empty, don't mention time zones.");
+    expect(prompt).toContain("Tool results give times in clinic time (Eastern). Read them as they are.");
+    expect(prompt).not.toMatch(/UTC/);
   });
 
   it("tells the agent today's date and the next two weeks, so it never asks for a past date", async () => {
     const { buildLlmConfig } = await import("./agent-config");
     const prompt = buildLlmConfig("https://app.example").general_prompt;
-    expect(prompt).toContain("{{current_time_UTC}}");
-    expect(prompt).toContain("{{current_calendar_UTC}}");
+    expect(prompt).toContain("The clinic is in New York. Today is {{current_time_America/New_York}} (Eastern Time). The next two weeks, starting today:");
+    expect(prompt).toContain("{{current_calendar_America/New_York}}");
     expect(prompt).toMatch(/never pass a date before today/i);
   });
 });

@@ -7,15 +7,14 @@
 import type { DB } from "@/db/client";
 import { providers, appointmentSlots, patients } from "@/db/schema";
 
-const at = (day: number, hour: number) =>
-  new Date(`2026-11-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00Z`);
+import { DEMO_PROVIDERS } from "@/demo/providers";
+import { zonedInstant } from "@/lib/clinic-time";
+
+// November 2026 at an Eastern clinic hour (the clinic is in New York; stored as the UTC instant).
+const at = (day: number, hour: number) => zonedInstant(2026, 11, day, hour);
 
 export async function seed(db: DB | any): Promise<void> {
-  const [osei, nair, torres] = await db.insert(providers).values([
-    { name: "Dr. Amara Osei", specialty: "Family Medicine" },
-    { name: "Dr. Priya Nair", specialty: "Pediatrics" },
-    { name: "Dr. Miguel Torres", specialty: "Internal Medicine" },
-  ]).returning();
+  const [osei, nair, torres] = await db.insert(providers).values(DEMO_PROVIDERS).returning();
 
   await db.insert(appointmentSlots).values([
     { providerId: osei.id, startsAt: at(10, 9) },
