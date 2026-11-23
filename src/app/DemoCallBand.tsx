@@ -15,12 +15,22 @@ import type { PullRow } from "@/pull/pull";
 import { BUTTON, DEFAULT_POLL_MS, isRec, MIN_POLL_MS, PRIMARY, requestMicrophone } from "./callClient";
 import { CallRow } from "./CallRow";
 import { DEMO_PERSONAS } from "@/demo/personas";
+import { DEMO_PROVIDERS } from "@/demo/providers";
 import { bornInWords, busyMinutes, DEMO_CALL_WORDS as WORDS, formatElapsed } from "./demoCallWords";
 
 /** Asks in a row that fail before the band gives up and says so. */
 const MAX_TROUBLE = 3;
 const MAX_POLL_MS = 15000;
 const JSON_HEADERS = { "content-type": "application/json" };
+
+/** The browser's IANA time zone, so the agent can translate clinic times for the caller. Empty when the browser will not say. */
+function browserZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  } catch {
+    return "";
+  }
+}
 
 type Problem = "did_not_connect" | "timeout" | "error";
 type Stage =
@@ -45,6 +55,7 @@ type Props = {
 /** A real person's name that stays in the data and never shows on the page. */
 const HIDDEN_PERSONA = "Devanshu Chicholikar";
 const SHOWN_PERSONAS = DEMO_PERSONAS.filter((p) => p.name !== HIDDEN_PERSONA);
+const DOCTOR_NAMES = DEMO_PROVIDERS.map((p) => p.name);
 
 /** Hang up is a critical outline: the same button, with the critical colour for its border and its words. */
 const HANG_UP = BUTTON.replace("border-report-line-strong", "border-report-critical text-report-critical");
@@ -66,15 +77,19 @@ function makeClient(): Client {
 
 /** Every shown test patient, as a plain list, for while a call is starting, running or being checked. */
 function PatientsDuringCall() {
-  if (SHOWN_PERSONAS.length === 0) return null;
   return (
     <div className="mt-3 max-w-[640px] text-sm text-report-muted">
-      <p className="text-[13px]">{WORDS.duringCall}</p>
-      <ul className="mt-1">
-        {SHOWN_PERSONAS.map((p) => (
-          <li key={p.name}>{WORDS.patientLine(p.name, bornInWords(p.dob))}</li>
-        ))}
-      </ul>
+      <p>{WORDS.duringCallClinic(DOCTOR_NAMES)}</p>
+      {SHOWN_PERSONAS.length > 0 ? (
+        <>
+          <p className="mt-2 text-[13px]">{WORDS.duringCall}</p>
+          <ul className="mt-1">
+            {SHOWN_PERSONAS.map((p) => (
+              <li key={p.name}>{WORDS.patientLine(p.name, bornInWords(p.dob))}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -191,7 +206,7 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
     // 2. The server starts the call.
     let joined: Config & { callId: string };
     try {
-      const res = await fetch("/api/demo-calls", { method: "POST", headers: JSON_HEADERS, cache: "no-store" });
+      const res = await fetch("/api/demo-calls", { method: "POST", headers: JSON_HEADERS, cache: "no-store", body: JSON.stringify({ timeZone: browserZone() }) });
       const body: unknown = await res.json().catch(() => null);
       if (!mounted.current) return;
       if (res.status === 429) {
@@ -289,22 +304,29 @@ export function DemoCallBand({ pollMs = DEFAULT_POLL_MS }: Props) {
             {WORDS.lead}
           </h2>
           <p className="mt-1 max-w-[640px] text-sm text-report-muted">{WORDS.body}</p>
-          {SHOWN_PERSONAS.length > 0 ? (
-            <>
-              <p className="mt-2 max-w-[640px] text-sm text-report-muted">{WORDS.firstPatient(SHOWN_PERSONAS[0].name, bornInWords(SHOWN_PERSONAS[0].dob))}</p>
-              {SHOWN_PERSONAS.length > 1 ? (
-                <details className="mt-1 max-w-[640px] text-sm text-report-muted">
-                  <summary className="cursor-pointer">{WORDS.morePatients}</summary>
-                  <ul className="mt-1">
-                    {SHOWN_PERSONAS.slice(1).map((p) => (
-                      <li key={p.name}>{WORDS.patientLine(p.name, bornInWords(p.dob))}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-1 text-[13px]">{WORDS.spellName}</p>
-                </details>
-              ) : null}
-            </>
-          ) : null}
+          <h3 className="mt-3 text-sm font-semibold">{WORDS.beforeYouCall}</h3>
+          <ul className="mt-1 max-w-[640px] space-y-1 text-sm text-report-muted">
+            <li>{WORDS.clinicZone}</li>
+            <li>{WORDS.whatRileyDoes}</li>
+            <li>{WORDS.doctors(DOCTOR_NAMES)}</li>
+            {SHOWN_PERSONAS.length > 0 ? (
+              <li>
+                {WORDS.firstPatient(SHOWN_PERSONAS[0].name, bornInWords(SHOWN_PERSONAS[0].dob))}
+                {SHOWN_PERSONAS.length > 1 ? (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer">{WORDS.morePatients}</summary>
+                    <ul className="mt-1">
+                      {SHOWN_PERSONAS.slice(1).map((p) => (
+                        <li key={p.name}>{WORDS.patientLine(p.name, bornInWords(p.dob))}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-[13px]">{WORDS.spellName}</p>
+                  </details>
+                ) : null}
+              </li>
+            ) : null}
+            <li>{WORDS.callLimit}</li>
+          </ul>
           <button type="button" onClick={() => void start()} disabled={stage.kind === "asking"} className={`${PRIMARY} mt-4`}>
             {stage.kind === "asking" ? WORDS.asking : WORDS.call}
           </button>

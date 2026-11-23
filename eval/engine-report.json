@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "engine": "analyzeRecord",
-  "inputs": { "cases": 57, "fingerprint": "54e240ac5e0eaa40d5c5bc44f35bf3de4e2e35325bbf400fa236af64343b4a45" },
+  "inputs": { "cases": 57, "fingerprint": "adc27e7d8f1f24656e292a7fa1a868f6589149bdf84a8f40bff7dd4cbc18e1a6" },
   "metrics": {
     "independent": {
       "n": 0,

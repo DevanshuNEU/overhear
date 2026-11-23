@@ -82,6 +82,14 @@ Migrations run before the app comes up, so every deploy applies pending schema c
 4. Run `npm run db:seed` once against the production `DATABASE_URL`, so the clinic has providers, slots and patients. After that, the open slots top themselves up each time a visitor starts a call.
 5. Open the public page, check that the sample calls show, choose "Call the demo agent", book an appointment, and check that your call appears with a verdict.
 
+## Time zones
+
+The clinic is in New York and runs on Eastern Time. The prompt reads today's date from Retell's `{{current_time_America/New_York}}` and `{{current_calendar_America/New_York}}`. Slots are stored as UTC instants and created at Eastern business hours (9, 11, 14 and 16), correct on both sides of the daylight saving change. `check_availability` returns each slot with `startsAt` (the stored UTC instant, which Overhear reads) and `startsAtLocal` (the same instant in Eastern Time with its offset, such as `2026-11-23T09:00:00-05:00`), and the agent reads `startsAtLocal`.
+
+When the browser says where the caller is, the demo page sends its time zone with the call, and the agent translates the first time it offers a time ("9 a.m. Eastern, that's 6 a.m. your time"). Phone callers get Eastern only: guessing a zone from the area code is not built.
+
+Calls made before 2026-11-23 were made in UTC, and Overhear reads them in UTC. From that date on it reads the demo agent's calls in Eastern Time (`NORTHWIND_EASTERN_FROM` in `src/engine/policy.ts`), so every earlier sample and locked case reads as it always did.
+
 ## How the agent checks who is calling, and its limits
 
 The agent asks for the caller's full name, has them spell it letter by letter, reads the spelling back, then asks for the date of birth and reads it back. Only then does it call `verify_patient`. When that finds a file, the agent says the name on file and asks "Is that you?" before it books, moves or cancels anything.

@@ -4,7 +4,13 @@
 export const DEMO_CALL_WORDS = {
   lead: "Try it on a call of your own.",
   body: "Call our demo clinic agent from your browser. Book an appointment or ask for a nurse, hang up, and see what Overhear finds in your call.",
-  firstPatient: (name: string, born: string) => `Call as a test patient: ${name}, born ${born}.`,
+  beforeYouCall: "Before you call",
+  clinicZone: "Northwind Family Clinic is in New York. Appointment times are Eastern Time.",
+  whatRileyDoes: "Riley can check openings and book, move or cancel an appointment. She can’t give medical advice or transfer calls.",
+  doctors: (names: string[]) => `Doctors: ${names.join(", ")}.`,
+  firstPatient: (name: string, born: string) => `Call as a test patient: ${name}, born ${born}. Spell it ${spelledName(name)}.`,
+  callLimit: "Calls end after 5 minutes. After you hang up, Overhear checks your call in a few seconds.",
+  duringCallClinic: (names: string[]) => `Eastern Time. Doctors: ${names.join(", ")}.`,
   morePatients: "More test patients",
   patientLine: (name: string, born: string) => `${name}, born ${born}`,
   spellName: "The agent will ask you to spell the name.",
@@ -32,6 +38,15 @@ export const DEMO_CALL_WORDS = {
   ownerSignedIn: "You’re signed in as the owner for 12 hours. Your calls skip the visitor limits.",
   error: "Something went wrong on our side. Try again.",
 } as const;
+
+/** A name spelled the way the agent asks for it: first name letters, then last name letters ("A, I, S, H, A, then R, A, H, M, A, N"). */
+export function spelledName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = (w: string) => [...w.replace(/[^\p{L}]/gu, "").toUpperCase()].join(", ");
+  const first = parts[0] ?? "";
+  const rest = parts.slice(1).join("");
+  return rest ? `${letters(first)}, then ${letters(rest)}` : letters(first);
+}
 
 /** A YYYY-MM-DD date in words (August 17, 1991), read as UTC so no time zone shifts the day. */
 export function bornInWords(dob: string): string {

@@ -24,9 +24,10 @@ const record = (extra: Record<string, unknown> = {}) => ({ ...caseJson.record, c
 let n = 0;
 /** Each test uses its own address, so the shared limiter's counts do not bleed between tests. */
 const ip = () => `10.9.${Math.floor(++n / 200)}.${n % 200}`;
-const start = (init: { ip?: string; cookie?: string; origin?: string; host?: string; url?: string } = {}) =>
+const start = (init: { body?: string; ip?: string; cookie?: string; origin?: string; host?: string; url?: string } = {}) =>
   new Request(init.url ?? "https://demo.example/api/demo-calls", {
     method: "POST",
+    ...(init.body === undefined ? {} : { body: init.body }),
     headers: {
       "x-forwarded-for": init.ip ?? ip(),
       ...(init.cookie ? { cookie: init.cookie } : {}),
@@ -53,8 +54,37 @@ describe("POST /api/demo-calls", () => {
     const res = await POST(start());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ accessToken: "tok_1", callId: CALL_ID, transport: "gateway", iceServers: [{ urls: "stun:x" }] });
-    expect(createWebCall).toHaveBeenCalledWith("key_test_secret", "agent_demo");
+    expect(createWebCall).toHaveBeenCalledWith("key_test_secret", "agent_demo", { dynamicVariables: { caller_timezone: "" } });
     expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  describe("the caller's time zone", () => {
+    const zoneSent = () => createWebCall.mock.calls[0][2].dynamicVariables.caller_timezone;
+    it("passes a real IANA zone from the body as caller_timezone", async () => {
+      expect((await POST(start({ body: JSON.stringify({ timeZone: "Asia/Kolkata" }) }))).status).toBe(200);
+      expect(zoneSent()).toBe("Asia/Kolkata");
+    });
+    it.each([
+      ["a zone that does not exist", { timeZone: "Mars/Olympus" }],
+      ["letters outside the allowed set", { timeZone: "America/New York" }],
+      ["too long", { timeZone: "A".repeat(65) }],
+      ["not a string", { timeZone: 5 }],
+      ["no timeZone key", { other: 1 }],
+    ])("sends an empty zone for %s, and still starts the call", async (_name, body) => {
+      expect((await POST(start({ body: JSON.stringify(body) }))).status).toBe(200);
+      expect(zoneSent()).toBe("");
+    });
+    it("accepts an empty body or one that is not JSON", async () => {
+      expect((await POST(start())).status).toBe(200);
+      expect(zoneSent()).toBe("");
+      createWebCall.mockClear();
+      expect((await POST(start({ body: "not json" }))).status).toBe(200);
+      expect(zoneSent()).toBe("");
+    });
+    it("ignores a large body unread", async () => {
+      expect((await POST(start({ body: JSON.stringify({ timeZone: "Asia/Kolkata", pad: "x".repeat(2000) }) }))).status).toBe(200);
+      expect(zoneSent()).toBe("");
+    });
   });
 
   it("sets the cookie with the new call id: signed, httpOnly, Lax, Path=/, an hour, Secure on https", async () => {

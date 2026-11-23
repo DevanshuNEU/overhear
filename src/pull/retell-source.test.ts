@@ -242,6 +242,12 @@ describe("createWebCall", () => {
     expect(seen[0].url).not.toContain(KEY);
   });
 
+  it("sends dynamic variables only when given", async () => {
+    const { fn, seen } = fakeFetch(json(201, CALL));
+    await createWebCall(KEY, "agent_1", { fetch: fn, dynamicVariables: { caller_timezone: "Asia/Kolkata" } });
+    expect(JSON.parse(seen[0].body)).toEqual({ agent_id: "agent_1", retell_llm_dynamic_variables: { caller_timezone: "Asia/Kolkata" } });
+  });
+
   it("refuses an answer that is missing a field or has a field of the wrong type", async () => {
     for (const bad of [{ ...CALL, access_token: "" }, { ...CALL, call_id: "a b" }, { ...CALL, transport: "carrier-pigeon" }, { ...CALL, ice_servers: "x" }, { ...CALL, ice_servers: [{ urls: 5 }] }, null, "x"]) {
       await expect(createWebCall(KEY, "agent_1", { fetch: fakeFetch(json(201, bad)).fn }), JSON.stringify(bad)).rejects.toThrow("unreadable web call");

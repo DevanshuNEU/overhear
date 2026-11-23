@@ -225,8 +225,16 @@ function iceServer(item: unknown): IceServer {
  * token is a per-call credential, and nothing else of the call is passed on. Throws an Error that says only "unreadable web
  * call" when Retell's answer does not have them; an SDK error propagates as it is, for toPoolError.
  */
-export async function createWebCall(key: string, agentId: string, opts: RetellOptions = {}): Promise<WebCall> {
-  const res: unknown = await makeRetell(key, opts).call.createWebCall({ agent_id: agentId });
+export async function createWebCall(
+  key: string,
+  agentId: string,
+  opts: RetellOptions & { dynamicVariables?: Record<string, string> } = {},
+): Promise<WebCall> {
+  const { dynamicVariables, ...clientOpts } = opts;
+  const res: unknown = await makeRetell(key, clientOpts).call.createWebCall({
+    agent_id: agentId,
+    ...(dynamicVariables ? { retell_llm_dynamic_variables: dynamicVariables } : {}),
+  });
   if (typeof res !== "object" || res === null) throw new Error(UNREADABLE);
   const r = res as Record<string, unknown>;
   const callId = str(r.call_id);
