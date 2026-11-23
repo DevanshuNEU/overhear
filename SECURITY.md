@@ -19,7 +19,7 @@ Open a private security advisory on GitHub for this repository. Please do not op
 - A hosted copy holds no Retell key of its own for visitors to use. It talks to the demo agent only.
 - A visitor's call is shown only to that visitor. A signed cookie names the call, and the server checks it on every read.
 - Overhear keeps your call in memory for an hour. A restart forgets every call. Overhear writes no call to disk.
-- The demo clinic's backend logs every request the agent makes, with its arguments, in its database. That includes the name and date of birth a caller says, even when they don't match a test patient. Those log rows are deleted after 24 hours. Use a test patient, not your own details.
+- The demo clinic's backend logs every request the agent makes, with its arguments, in its database. That includes the name and date of birth a caller says, even when they don't match a test patient. An hourly job on the server deletes those rows once they are 24 hours old, so none lasts longer than about 25 hours. Use a test patient, not your own details.
 - Retell records calls on the demo account. That recording is Retell's, not Overhear's.
 - Spend is limited. Each visitor gets 3 starts per 10 minutes and 6 per day, and the whole server gets 30 per hour. A start that Retell did not accept is not counted.
 - A hosted copy with no password set answers 503 on every page that is not a public sample.

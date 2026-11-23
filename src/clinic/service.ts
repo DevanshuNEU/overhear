@@ -5,7 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { appointmentSlots, appointments, patients, providers, actionEvents } from "@/db/schema";
 import type { Slot, ToolName } from "@/clinic/types";
-import { forCaller, localDate, toLocalIso } from "@/lib/clinic-time";
+import { forCaller, inClinicHours, localDate, toLocalIso } from "@/lib/clinic-time";
 
 type Out<R> = { result: R };
 
@@ -95,6 +95,8 @@ export function makeClinicService(
         // open slot is out of service, not availability.
         .filter((r: any) => new Date(r.startsAt).getTime() >= nowMs)
         .filter((r: any) => !args.providerName || r.providerName === args.providerName)
+        // Only clinic hours: a slot outside them (an old one a cancel reopened) is never offered.
+        .filter((r: any) => inClinicHours(new Date(r.startsAt)))
         // The caller's date is a clinic date: Eastern, not UTC.
         .filter((r: any) => !args.date || localDate(new Date(r.startsAt)) === args.date)
         // startsAt stays the stored UTC instant; startsAtLocal is the same instant in clinic time, which the agent reads.
