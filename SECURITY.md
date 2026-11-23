@@ -39,6 +39,15 @@ A review of the code, the dependencies and a running build found these, and all 
 - The rate limiter now frees the memory it holds for visitors who have gone away.
 - The webhook no longer stores calls, and the privacy text on the demo page now says what happens to a call.
 
+## Reviewed on 2026-11-22
+
+A second review of everything added since, and live tests against the public demo, found these, and all of them are fixed:
+
+- The visitor limit counted a header the visitor could set. It now counts the address Railway's edge records (`X-Real-IP`), and a live test confirms a fourth start in 10 minutes is refused.
+- Request bodies over 1 MB are refused on a hosted copy, and only a local copy accepts the larger uploads that opened session report files need.
+- The demo origin check compares the full origin, scheme and port included.
+- A test patient row carrying a real person's details was removed from the demo database.
+
 ## What Overhear does not claim
 
 Overhear is not a HIPAA covered service. It makes no compliance claim of any kind. Do not put real patient information into the public demo.
