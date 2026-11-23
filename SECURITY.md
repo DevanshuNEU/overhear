@@ -18,7 +18,8 @@ Open a private security advisory on GitHub for this repository. Please do not op
 
 - A hosted copy holds no Retell key of its own for visitors to use. It talks to the demo agent only.
 - A visitor's call is shown only to that visitor. A signed cookie names the call, and the server checks it on every read.
-- The call is kept in memory for an hour. Overhear writes no call to a database or to disk. A restart forgets every call.
+- Overhear keeps your call in memory for an hour. A restart forgets every call. Overhear writes no call to disk.
+- The demo clinic's backend logs every request the agent makes, with its arguments, in its database. That includes the name and date of birth a caller says, even when they don't match a test patient. An hourly job on the server deletes those rows once they are 24 hours old, so none lasts longer than about 25 hours. Use a test patient, not your own details.
 - Retell records calls on the demo account. That recording is Retell's, not Overhear's.
 - Spend is limited. Each visitor gets 3 starts per 10 minutes and 6 per day, and the whole server gets 30 per hour. A start that Retell did not accept is not counted.
 - A hosted copy with no password set answers 503 on every page that is not a public sample.
@@ -47,6 +48,16 @@ A second review of everything added since, and live tests against the public dem
 - Request bodies over 1 MB are refused on a hosted copy, and only a local copy accepts the larger uploads that opened session report files need.
 - The demo origin check compares the full origin, scheme and port included.
 - A test patient row carrying a real person's details was removed from the demo database.
+
+## Reviewed on 2026-11-23
+
+A final review found these, and all of them are fixed:
+
+- A cancelled appointment kept the demo clinic from adding new slots. The cleanup now skips any slot an appointment points at.
+- The privacy text said nothing was stored in a database, but the demo clinic logs each request. The text now says so, and the clinic deletes those log rows after 24 hours. It also empties two unused tables that older versions filled.
+- A test used a real person's date of birth. It now uses a made-up one.
+- A tool call that fails logs only the tool name and the error name, never what the caller said.
+- A hosted copy now sends `Strict-Transport-Security`.
 
 ## What Overhear does not claim
 

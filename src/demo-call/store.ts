@@ -1,5 +1,6 @@
-// Where a call made on the public demo stands, and what the engine made of it. Hosted only, in memory only: nothing is
-// written to disk or the database (the webhook only logs the event type and call id), and a restart forgets every call. Retell
+// Where a call made on the public demo stands, and what the engine made of it. Hosted only, in memory only: the call
+// itself is never written to disk or the database (the webhook only logs the event type and call id), and a restart forgets every
+// call. The demo clinic's tool calls are logged separately and deleted after a day (src/demo/ensure.ts). Retell
 // itself records calls on the demo account; Overhear keeps a call's outcome in memory for an hour (READY_TTL_MS) and shows it only to
 // the browser whose signed cookie names it.
 //

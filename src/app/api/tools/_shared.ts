@@ -16,6 +16,17 @@ type Handler = (ctx: { callId: string; args: any; svc: ClinicService; callerTime
 
 export function makeToolRoute(handler: Handler) {
   return async function POST(req: Request) {
+    let tool = "unknown";
+    try {
+      return await run(req, (name) => { tool = name; });
+    } catch (err) {
+      // Never the args, the payload or the message: a database error quotes the caller's name and date of birth.
+      console.error("tool route failed", { tool, error: err instanceof Error ? err.name : "unknown" });
+      return NextResponse.json({ error: "unavailable" }, { status: 500 });
+    }
+  };
+
+  async function run(req: Request, named: (tool: string) => void) {
     const raw = await req.text(); // raw body - required for signature verification
     if (!(await verifyRetellSignature(raw, req.headers.get("x-retell-signature")))) {
       return NextResponse.json({ error: "invalid signature" }, { status: 401 });
@@ -23,6 +34,7 @@ export function makeToolRoute(handler: Handler) {
     const body = JSON.parse(raw) as {
       name: string; call: { call_id: string; transcript_with_tool_calls?: unknown[]; retell_llm_dynamic_variables?: Record<string, unknown> }; args?: any;
     };
+    if (typeof body.name === "string") named(body.name);
     // Whether Retell sends the in-flight id is read off this log line after a live call.
     const toolCallId = inFlightToolCallId(body);
     console.info("tool_call_id", { tool: body.name, found: toolCallId !== null });
@@ -38,5 +50,5 @@ export function makeToolRoute(handler: Handler) {
       return NextResponse.json({ error: "response too large" });
     }
     return new NextResponse(json, { headers: { "content-type": "application/json" } });
-  };
+  }
 }

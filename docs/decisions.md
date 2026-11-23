@@ -37,7 +37,7 @@ Why Overhear works the way it does, and what each choice costs. One rule sits un
 ## The public demo
 
 - **Real product, sample calls.** The hosted page runs the real engine on sample calls when it loads. Most samples are named edits of one real call, which is why their rows show no start time: they would all share one, and Overhear doesn't invent times.
-- **A visitor's own call is private and short-lived.** It's shown only to that visitor, through a signed cookie, and kept in memory for an hour. Nothing is written to disk or a database. There is no live transcript, so the server's key never sits behind a public socket.
+- **A visitor's own call is private and short-lived.** It's shown only to that visitor, through a signed cookie, and kept in memory for an hour. Overhear writes no call to disk. The demo clinic's backend does log each request the agent makes, with the name and date of birth a caller says, and deletes those rows after 24 hours. There is no live transcript, so the server's key never sits behind a public socket.
 - **Spend is capped.**
   - Each visitor gets 3 calls per 10 minutes and 6 a day. The server takes 30 an hour, and each call is capped at 5 minutes.
   - A start Retell rejects gives its slot back.

@@ -7,11 +7,11 @@
 // slots to book into, topping slots up only when they run low (they go stale by
 // date and get consumed as people book). Everything here is idempotent and
 // throttled so the dashboard's 5-second auto-refresh does not hammer the DB.
-import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, notExists } from "drizzle-orm";
 import type { DB } from "@/db/client";
-import { appointmentSlots, patients, providers } from "@/db/schema";
+import { actionEvents, appointmentSlots, appointments, calls, patients, providers, qaScores } from "@/db/schema";
 import { DEMO_PERSONAS } from "./personas";
-import { localDate, localHour, zonedInstant } from "@/lib/clinic-time";
+import { inClinicHours, localDate, zonedInstant } from "@/lib/clinic-time";
 
 // Regenerate the rolling window whenever fewer than this many future open slots
 // remain, which also covers slots being booked up during a busy demo.
@@ -19,8 +19,6 @@ const SLOT_FLOOR = 30;
 const WINDOW_DAYS = 14; // generate slots across the next N days
 const SLOT_HOURS = [9, 11, 14, 16]; // clinic (Eastern) hour of each daily slot
 // Open future slots outside these clinic hours are taken out of service (the old UTC schedule left 4 a.m. Eastern slots).
-const OPEN_FROM_HOUR = 8;
-const OPEN_UNTIL_HOUR = 17;
 const THROTTLE_MS = 15 * 60 * 1000;
 
 let lastRun = 0;
@@ -35,9 +33,25 @@ export async function ensureDemoData(db: DB | any, now: () => Date = () => new D
   if (ts - lastRun < THROTTLE_MS) return;
   lastRun = ts;
 
+  await purge(db, now());
   await ensurePersonas(db);
   await ensureSlots(db, now);
 }
+
+// The demo clinic keeps each tool call (with the name and date of birth a caller said) for a day, no longer.
+// `calls` and `qa_scores` are unused tables kept only for a future migration, so anything left in them is old data.
+const EVENT_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Deletes request-log rows older than a day and empties the unused tables. Runs on every top-up and on its own timer (src/instrumentation.ts). */
+export async function purge(db: DB | any, nowDate: Date): Promise<void> {
+  await db.delete(actionEvents).where(lt(actionEvents.ts, new Date(nowDate.getTime() - EVENT_TTL_MS)));
+  await db.delete(calls);
+  await db.delete(qaScores);
+}
+
+// A slot an appointment row points at (a cancelled one reopens its slot) cannot be deleted: the foreign key refuses.
+const unreferenced = (db: DB | any) =>
+  notExists(db.select({ id: appointments.id }).from(appointments).where(eq(appointments.slotId, appointmentSlots.id)));
 
 async function ensurePersonas(db: DB | any): Promise<void> {
   for (const persona of DEMO_PERSONAS) {
@@ -64,20 +78,17 @@ async function ensureSlots(db: DB | any, now: () => Date): Promise<void> {
   // slot in the past is real history and keeps its appointment. This runs before
   // the floor check so stale slots are always cleared, even when future slots are
   // plentiful.
-  await db.delete(appointmentSlots).where(and(eq(appointmentSlots.status, "open"), lt(appointmentSlots.startsAt, nowDate)));
+  await db.delete(appointmentSlots).where(and(eq(appointmentSlots.status, "open"), lt(appointmentSlots.startsAt, nowDate), unreferenced(db)));
 
   // Same for open future slots at clinic hours nobody works (a 4 a.m. Eastern slot made at a UTC hour). Never booked ones.
   const openFutureAll = await db
     .select({ id: appointmentSlots.id, startsAt: appointmentSlots.startsAt })
     .from(appointmentSlots)
     .where(and(eq(appointmentSlots.status, "open"), gte(appointmentSlots.startsAt, nowDate)));
-  const offHours = openFutureAll.filter((s: any) => {
-    const h = localHour(new Date(s.startsAt));
-    return h < OPEN_FROM_HOUR || h >= OPEN_UNTIL_HOUR;
-  });
+  const offHours = openFutureAll.filter((s: any) => !inClinicHours(new Date(s.startsAt)));
   if (offHours.length > 0) {
     await db.delete(appointmentSlots).where(
-      and(eq(appointmentSlots.status, "open"), inArray(appointmentSlots.id, offHours.map((s: any) => s.id))),
+      and(eq(appointmentSlots.status, "open"), inArray(appointmentSlots.id, offHours.map((s: any) => s.id)), unreferenced(db)),
     );
   }
   if (openFutureAll.length - offHours.length >= SLOT_FLOOR) return;

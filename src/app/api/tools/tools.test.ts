@@ -59,6 +59,23 @@ describe("tool route", () => {
     expect(row.toolCallId).toBe("tc_live");
   });
 
+  it("answers a fixed 500 and logs only the tool and the error name when a handler throws", async () => {
+    const boom = new Error("Failed query: params: Pat Example,1990-01-01");
+    boom.name = "DrizzleQueryError";
+    testCtx.db = new Proxy({}, { get() { throw boom; } });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const res = await checkAvailability(reqOf("good", { name: "check_availability", call: { call_id: "c_boom" }, args: { name: "Pat Example", dob: "1990-01-01" } }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "unavailable" });
+    expect(err).toHaveBeenCalledWith("tool route failed", { tool: "check_availability", error: "DrizzleQueryError" });
+    const logged = JSON.stringify([...err.mock.calls, ...info.mock.calls, ...warn.mock.calls]);
+    expect(logged).not.toContain("Pat Example");
+    expect(logged).not.toContain("1990-01-01");
+    err.mockRestore(); info.mockRestore(); warn.mockRestore();
+  });
+
   it("logs found: true or false for the tool_call_id", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     await checkAvailability(reqOf("good", {

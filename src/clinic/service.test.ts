@@ -59,9 +59,9 @@ describe("ClinicService", () => {
     ctx = await createTestDb();
     const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
     const [past] = await ctx.db.insert(appointmentSlots)
-      .values({ providerId: p.id, startsAt: new Date("2026-09-24T09:00:00Z") }).returning();
+      .values({ providerId: p.id, startsAt: new Date("2026-09-24T14:00:00Z") }).returning();
     const [future] = await ctx.db.insert(appointmentSlots)
-      .values({ providerId: p.id, startsAt: new Date("2026-09-28T09:00:00Z") }).returning();
+      .values({ providerId: p.id, startsAt: new Date("2026-09-28T14:00:00Z") }).returning();
     const svc = makeClinicService(ctx.db, () => new Date("2026-09-26T12:00:00Z"));
 
     const out = await svc.checkAvailability("call_1", {});
@@ -128,15 +128,29 @@ describe("ClinicService", () => {
     }
   });
 
+  it("never offers a slot outside clinic hours, even one a cancel reopened", async () => {
+    ctx = await createTestDb();
+    const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
+    await ctx.db.insert(appointmentSlots).values([
+      { providerId: p.id, startsAt: new Date("2026-11-23T09:00:00Z") }, // 4 a.m. Eastern
+      { providerId: p.id, startsAt: new Date("2026-11-23T14:00:00Z") }, // 9 a.m. Eastern
+    ]);
+    const svc = makeClinicService(ctx.db, () => new Date("2026-11-22T12:00:00Z"));
+    const { slots } = (await svc.checkAvailability("call_1", {})).result;
+    expect(slots.map((s) => s.startsAtLocal)).toEqual(["2026-11-23T09:00:00-05:00"]);
+  });
+
   it("filters by the clinic date, not the UTC date", async () => {
     ctx = await createTestDb();
     const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
     // 8 pm Sunday in New York is already Monday in UTC.
-    await ctx.db.insert(appointmentSlots).values({ providerId: p.id, startsAt: new Date("2026-11-23T01:00:00Z") });
+    // 4:30 p.m. Eastern on Monday the 23rd is 21:30 UTC. Clinic hours never cross the UTC date line in winter, so the
+    // date filter is checked on the clinic's calendar day; localDate's own tests cover the evening boundary.
+    await ctx.db.insert(appointmentSlots).values({ providerId: p.id, startsAt: new Date("2026-11-23T21:30:00Z") });
     const svc = makeClinicService(ctx.db, () => new Date("2026-11-20T12:00:00Z"));
 
-    expect((await svc.checkAvailability("c", { date: "2026-11-22" })).result.slots).toHaveLength(1);
-    expect((await svc.checkAvailability("c", { date: "2026-11-23" })).result.slots).toHaveLength(0);
+    expect((await svc.checkAvailability("c", { date: "2026-11-23" })).result.slots).toHaveLength(1);
+    expect((await svc.checkAvailability("c", { date: "2026-11-24" })).result.slots).toHaveLength(0);
   });
 
   it("refuses to double-book a slot", async () => {
@@ -198,7 +212,7 @@ describe("ClinicService", () => {
     ctx = await createTestDb();
     await ctx.db.insert(patients).values({ name: "Devanshu Chicholikar", dob: "1994-07-14" });
     const svc = makeClinicService(ctx.db);
-    const v = await svc.verifyPatient("call_1", { name: "Devanshu Chicholikar", dob: "2000-09-02" });
+    const v = await svc.verifyPatient("call_1", { name: "Devanshu Chicholikar", dob: "1994-08-14" });
     expect(v.result.verified).toBe(false);
   });
 
@@ -352,7 +366,7 @@ describe("ClinicService", () => {
   it("returns and logs the same capped, time-ordered list of slots", async () => {
     ctx = await createTestDb();
     const [p] = await ctx.db.insert(providers).values({ name: "Dr. Lee", specialty: "Family" }).returning();
-    const times = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 10, 30 - i, 9)));
+    const times = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 10, 30 - i, 15)));
     await ctx.db.insert(appointmentSlots).values(times.map((startsAt) => ({ providerId: p.id, startsAt })));
     const svc = makeClinicService(ctx.db, () => new Date("2026-10-01T00:00:00Z"));
 

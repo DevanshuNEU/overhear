@@ -3,6 +3,10 @@
 
 export const CLINIC_TZ = "America/New_York";
 
+/** Clinic hours, Eastern: a slot is offered only from OPEN_FROM_HOUR up to (not including) OPEN_UNTIL_HOUR. */
+export const OPEN_FROM_HOUR = 8;
+export const OPEN_UNTIL_HOUR = 17;
+
 function parts(date: Date, tz: string): Record<string, number> {
   const out: Record<string, number> = {};
   for (const p of new Intl.DateTimeFormat("en-US", {
@@ -81,4 +85,10 @@ export function forCaller(date: Date, callerTz: string | undefined): string | un
   const hour12 = theirs.hour % 12 === 0 ? 12 : theirs.hour % 12;
   const time = `${hour12}${theirs.minute === 0 ? "" : `:${pad(theirs.minute)}`} ${theirs.hour < 12 ? "a.m." : "p.m."}`;
   return sameDay ? `${time} your time` : `${time} on ${WEEKDAYS[localWeekday(date, callerTz)]} your time`;
+}
+
+/** True when the instant falls inside clinic hours (Eastern). */
+export function inClinicHours(date: Date): boolean {
+  const h = localHour(date);
+  return h >= OPEN_FROM_HOUR && h < OPEN_UNTIL_HOUR;
 }
