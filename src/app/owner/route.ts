@@ -1,4 +1,4 @@
-// GET /owner: for the owner of a hosted copy, to open before a demo. It sets the owner cookie and sends the browser to `/`,
+// GET /owner: for the owner of a hosted copy, to open before a demo. It sets the owner cookie and sends the browser to `/?owner=1`, which says so,
 // where the call button then skips the public budgets. It is never public: the proxy keeps it behind the password even with
 // OVERHEAR_PUBLIC_SAMPLES=1, and this route checks the password again. With no password set, or in local mode, there is no
 // such page.
@@ -22,7 +22,7 @@ export function GET(req: Request): Response {
   return new Response(null, {
     status: 303,
     headers: {
-      location: "/",
+      location: "/?owner=1",
       "cache-control": "no-store",
       "set-cookie": ownerCookieHeader(signOwnerCookie(env.RETELL_API_KEY), isHttps(req)),
     },

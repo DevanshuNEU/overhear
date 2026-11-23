@@ -21,6 +21,16 @@ const rows = sampleRows();
 const counts = countRows(rows);
 
 describe("the sample list", () => {
+  it("says the owner is signed in only when told so by the server", () => {
+    const line = "You’re signed in as the owner for 12 hours. Your calls skip the visitor limits.";
+    const { unmount } = render(<SampleListScreen rows={rows} ownerSignedIn />);
+    expect(screen.getByText(line)).toBeInTheDocument();
+    unmount();
+    render(<SampleListScreen rows={rows} />);
+    expect(screen.queryByText(line)).toBeNull();
+  });
+
+
   it("leads with how many sample calls failed, then says no AI model decides", () => {
     render(<SampleListScreen rows={rows} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(

@@ -19,7 +19,7 @@ describe("GET /owner", () => {
   it("sets the owner cookie and sends the browser to /", async () => {
     const res = get("https://demo.example/owner", GOOD);
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("/");
+    expect(res.headers.get("location")).toBe("/?owner=1");
     const header = res.headers.get("set-cookie") ?? "";
     expect(header).toMatch(/; Max-Age=43200; Path=\/; HttpOnly; SameSite=Lax; Secure$/);
     expect(verifyOwnerCookie(cookieFromHeader(header, OWNER_COOKIE), "key_test_secret")).toBe(true);

@@ -12,6 +12,7 @@ import { CallRow } from "./CallRow";
 import { FilterLink, hrefFor } from "./CallListScreen";
 import { countRows, filterRows, parseFilter, splitRows, type Filter } from "./callListModel";
 import { LIST_WORDS } from "./callListWords";
+import { DEMO_CALL_WORDS } from "./demoCallWords";
 import { DemoCallBand } from "./DemoCallBand";
 import { ProductNav } from "./ProductNav";
 import { SAMPLE_WORDS } from "./sampleListWords";
@@ -19,11 +20,13 @@ import { SAMPLE_WORDS } from "./sampleListWords";
 type Props = {
   /** The sample calls, as the server checked them. */
   rows: PullRow[];
+  /** The server saw a valid owner cookie and ?owner=1: say so, above the call band. */
+  ownerSignedIn?: boolean;
 };
 
 const noop = () => {};
 
-export function SampleListScreen({ rows }: Props) {
+export function SampleListScreen({ rows, ownerSignedIn = false }: Props) {
   const router = useRouter();
   const filter = parseFilter(useSearchParams()?.get("show"));
   const counts = countRows(rows);
@@ -43,6 +46,8 @@ export function SampleListScreen({ rows }: Props) {
           <h1 className="max-w-[760px] font-display text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] sm:text-[32px] sm:tracking-[-0.02em]">
             {SAMPLE_WORDS.failedHeadline(counts.failed, counts.total)} <span className="text-report-muted">{SAMPLE_WORDS.headlineNext}</span>
           </h1>
+
+          {ownerSignedIn ? <p className="mt-4 text-sm text-report-muted">{DEMO_CALL_WORDS.ownerSignedIn}</p> : null}
 
           <DemoCallBand />
 

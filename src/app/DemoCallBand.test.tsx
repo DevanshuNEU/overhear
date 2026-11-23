@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { sampleRows } from "@/demo-samples";
 import { DemoCallBand } from "./DemoCallBand";
+import { DEMO_PERSONAS } from "@/demo/personas";
 import { busyMinutes, DEMO_CALL_WORDS as WORDS, formatElapsed } from "./demoCallWords";
 
 // A stand-in for the SDK's client: enough of an event emitter to drive call_started, call_ended and error without a microphone,
@@ -105,6 +106,21 @@ afterEach(() => {
 });
 
 describe("the demo call band", () => {
+  it("idle: names the first test patient, and lists the others under a details element in DEMO_PERSONAS order, without the excluded name", () => {
+    const { container } = render(<DemoCallBand />);
+    expect(screen.getByText("Call as a test patient: Aisha Rahman, born August 17, 1991.")).toBeInTheDocument();
+    const details = container.querySelector("details") as HTMLDetailsElement;
+    expect(details.querySelector("summary")).toHaveTextContent("More test patients");
+    const lines = Array.from(details.querySelectorAll("li")).map((li) => li.textContent);
+    expect(lines).toEqual(["Marcus Bennett, born April 5, 1983", "Sofia Alvarez, born November 23, 1996", "Kenji Watanabe, born June 30, 1978"]);
+    expect(within(details).getByText("The agent will ask you to spell the name.")).toBeInTheDocument();
+    expect(DEMO_PERSONAS.map((p) => p.name)).toContain("Devanshu Chicholikar");
+    const text = document.body.textContent ?? "";
+    expect(text).not.toContain("Devanshu");
+    expect(text.indexOf("Call as a test patient")).toBeLessThan(text.indexOf(WORDS.call));
+  });
+
+
   it("idle: says what it is, with the call button, and the fine print under the button", () => {
     fakeServer();
     render(<DemoCallBand />);
@@ -373,7 +389,11 @@ describe("the demo call band", () => {
   });
 
   it("says nothing with a dash, an exclamation mark or a straight apostrophe", () => {
-    const texts = Object.values(WORDS).flatMap((w) => (typeof w === "string" ? [w] : [w(1), w(2)]));
+    const texts = Object.values(WORDS).flatMap((w) => {
+      if (typeof w === "string") return [w];
+      const say = w as (...args: unknown[]) => string;
+      return w.length === 2 ? [say("Ann Lee", "May 1, 2000")] : [say(1), say(2)];
+    });
     for (const text of texts) {
       expect(text).not.toMatch(/[—–!']/);
       expect(text).not.toMatch(/ - /);
